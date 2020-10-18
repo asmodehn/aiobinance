@@ -10,13 +10,13 @@ class OHLCV:
 
     df: pd.DataFrame
 
-    def __init__(self, startTime, endTime):
+    def __init__(self, startTime, endTime, symbol):
         self.api = Binance(API_KEY="", API_SECRET="")  # we dont need private requests here
         # Ref : https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-data
 
         interval = Binance.interval(startTime, endTime)
 
-        res = self.api.call_api(command='klines', symbol="COTIBNB", interval=interval, startTime=startTime, endTime=endTime,
+        res = self.api.call_api(command='klines', symbol=symbol, interval=interval, startTime=startTime, endTime=endTime,
                        limit=1000)
 
         # Ref : https://gist.github.com/ashwinimaurya/06728a31bcfb08209ef4fb13fd058163#file-binance_ohlc-py
@@ -30,7 +30,7 @@ class OHLCV:
     def head(self):
         return self.df.head()
 
-    def plot(self) -> Figure:
+    def plot(self, trades=None) -> Figure:
 
         timeinterval = (self.df['open_time'][1] - self.df['open_time'][0])
         self.df['mid_time'] = self.df['open_time'] + timeinterval / 2
@@ -73,6 +73,26 @@ class OHLCV:
 
         figure.legend.location = "top_left"
         figure.legend.click_policy = "hide"
+
+        # we can pass trades to plot together...
+        if trades is not None:
+            bought_source = ColumnDataSource(trades.loc[trades['Trade'] == "BUY"])
+            sold_source = ColumnDataSource(trades.loc[trades['Trade'] == "SELL"])
+
+            figure.triangle(legend_label="BOUGHT",
+                            source=bought_source,
+                            x='datetime',
+                            y='Price',
+                            size=10,
+                            color='green')
+
+            figure.inverted_triangle(legend_label="SOLD",
+                                     source=sold_source,
+                                     x='datetime',
+                                     y='Price',
+                                     size=10,
+                                     color='red')
+
         return figure
 
         # TODO compute historical midprices

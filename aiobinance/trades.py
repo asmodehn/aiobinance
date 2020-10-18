@@ -27,6 +27,7 @@ class Trades:
         "Order ID"
     ])
 
+    ### DF interface
     def head(self):
         return self.trades.head()
 
@@ -36,6 +37,15 @@ class Trades:
         # only whats necessary from the outside to determine a clean interface...
         return self.trades.Timestamp
 
+    @property
+    def loc(self):
+        return self.trades.loc
+
+    def __getitem__(self, item):
+        return self.trades[item]
+
+
+    ### DF interface
     def pnl_plot(self, cumulative=True) -> Figure:
 
         tools = 'pan,wheel_zoom,xbox_select,reset'
