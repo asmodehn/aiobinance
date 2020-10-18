@@ -30,6 +30,12 @@ class Trades:
     def head(self):
         return self.trades.head()
 
+    @property
+    def Timestamp(self):
+        # we dont want to allow all dataframe attributes access.
+        # only whats necessary from the outside to determine a clean interface...
+        return self.trades.Timestamp
+
     def pnl_plot(self, cumulative=True) -> Figure:
 
         tools = 'pan,wheel_zoom,xbox_select,reset'
