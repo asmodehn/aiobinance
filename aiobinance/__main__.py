@@ -38,38 +38,43 @@ import aiobinance.binance as binance
 
 import aiobinance.csv as csv
 import aiobinance.binance as binance
-
+import aiobinance.repl as repl
 
 import click
 
 
 @click.command()
-@click.argument('filename')
-def report(filename):
-    trades = csv.trades_from_csv(filename)
-    print(trades.head())
+@click.argument('filename', type=click.Path(exists=True), required=False)
+def entrypoint(filename):
 
-    base = trades.Base.unique()
-    quote = trades.Quote.unique()
+    if filename is None:  # repl mode
+        repl.embedded_repl()
 
-    symbol = base[0] + quote[0]  # assuming only one value
+    else:  # report mode
+        trades = csv.trades_from_csv(click.format_filename(filename))
+        print(trades.head())
 
-    print(symbol)
+        base = trades.Base.unique()
+        quote = trades.Quote.unique()
 
-    ohlcv = binance.ohlcv_from_binance(
-        startTime=trades.Timestamp.iloc[0],
-        endTime=trades.Timestamp.iloc[-1],
-        symbol=symbol
-    )
+        symbol = base[0] + quote[0]  # assuming only one value
 
-    import aiobinance.web
-    report = aiobinance.web.trades_layout(ohlcv=ohlcv, trades=trades)
+        print(symbol)
 
-    from bokeh.io import output_file
-    output_file("report.html")
+        ohlcv = binance.ohlcv_from_binance(
+            startTime=trades.Timestamp.iloc[0],
+            endTime=trades.Timestamp.iloc[-1],
+            symbol=symbol
+        )
 
-    from bokeh.plotting import show
-    show(report)
+        import aiobinance.web
+        report = aiobinance.web.trades_layout(ohlcv=ohlcv, trades=trades)
+
+        from bokeh.io import output_file
+        output_file("report.html")
+
+        from bokeh.plotting import show
+        show(report)
 
 
-report()
+entrypoint()
