@@ -13,6 +13,8 @@ ipython-secrets = "*"
 pandas = "*"
 bokeh = "*"
 matplotlib = "*"
+click = "*"
+terminado = "*"
 
 [requires]
 python_version = "3.8"

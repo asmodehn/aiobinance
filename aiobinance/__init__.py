@@ -1,3 +1,3 @@
-from .rawapi import Binance
-from .trades import Trades
-from .ohlcv import OHLCV
+from .api.rawapi import Binance
+from .model.trades import Trades
+from .model.ohlcv import OHLCV
