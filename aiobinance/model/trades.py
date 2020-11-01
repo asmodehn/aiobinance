@@ -29,6 +29,14 @@ class Trades:
         return self.trades.Timestamp
 
     @property
+    def Base(self):
+        return self.trades.Base
+
+    @property
+    def Quote(self):
+        return self.trades.Quote
+
+    @property
     def loc(self):
         return self.trades.loc
 

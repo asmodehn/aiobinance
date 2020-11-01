@@ -39,28 +39,37 @@ import aiobinance.binance as binance
 import aiobinance.csv as csv
 import aiobinance.binance as binance
 
-trades = csv.trades_from_csv("../binance-COTI-BNB_files/hummingbot_data/trades_conf_pure_mm_coti_bnb_binance.csv")
-print(trades.head())
+
+import click
 
 
-ohlcv = binance.ohlcv_from_binance(
-    startTime = trades.Timestamp.iloc[0],
-    endTime = trades.Timestamp.iloc[-1],
-    symbol = "COTIBNB"
-)
+@click.command()
+@click.argument('filename')
+def report(filename):
+    trades = csv.trades_from_csv(filename)
+    print(trades.head())
 
-import aiobinance.web
-report = aiobinance.web.trades_layout(ohlcv=ohlcv, trades=trades)
+    base = trades.Base.unique()
+    quote = trades.Quote.unique()
 
-from bokeh.io import output_file
-output_file("report.html")
+    symbol = base[0] + quote[0]  # assuming only one value
 
-from bokeh.plotting import show
-show(report)
+    print(symbol)
+
+    ohlcv = binance.ohlcv_from_binance(
+        startTime=trades.Timestamp.iloc[0],
+        endTime=trades.Timestamp.iloc[-1],
+        symbol=symbol
+    )
+
+    import aiobinance.web
+    report = aiobinance.web.trades_layout(ohlcv=ohlcv, trades=trades)
+
+    from bokeh.io import output_file
+    output_file("report.html")
+
+    from bokeh.plotting import show
+    show(report)
 
 
-
-
-
-
-
+report()
