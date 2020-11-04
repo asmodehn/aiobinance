@@ -25,13 +25,13 @@ def require_auth(mock_key: Optional[str] = None, mock_secret: Optional[str] = No
         def wrapper(*args, key: Optional[str] =None, secret: Optional[str] =None, **kwargs):
 
             # if key and secret are not passed
-            if key is None or secret is None:
+            if key is None and secret is None:
                 if mock_key is None or mock_secret is None:
                     keystruct = load_api_keyfile()
-                    key= keystruct.get('key'),
+                    key= keystruct.get('key')
                     secret= keystruct.get('secret')
                 else:
-                    key =mock_key
+                    key = mock_key
                     secret = mock_secret
             return wrapped(*args, key=key, secret=secret, **kwargs)
 

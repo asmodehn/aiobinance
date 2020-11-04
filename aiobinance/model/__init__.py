@@ -1,2 +1,2 @@
-from .ohlcv import OHLCV
-from .trades import Trades
+from aiobinance.model.ohlcv import OHLCV
+from aiobinance.model.trade import TradeFrame

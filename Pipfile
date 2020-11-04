@@ -15,6 +15,9 @@ bokeh = "*"
 matplotlib = "*"
 click = "*"
 terminado = "*"
+pydantic = "*"
+pytest-recording = "*"
+pytest-asyncio = "*"
 
 [requires]
 python_version = "3.8"

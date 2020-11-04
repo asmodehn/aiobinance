@@ -10,6 +10,9 @@ def test_require_auth():
         return args, kwargs
 
     assert wrappedtest() == ((), {'key': 'key_mocked', 'secret': "secret_mocked"})
+    assert wrappedtest(key="mykey") == ((), {'key': 'mykey', 'secret': None})
+    assert wrappedtest(key="mykey", secret="mysecret") == ((), {'key': 'mykey', 'secret': 'mysecret'})
+    assert wrappedtest(secret="mysecret") == ((), {'key': None, 'secret': 'mysecret'})
 
 
 if __name__ == "__main__":
