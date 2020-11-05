@@ -18,6 +18,7 @@ terminado = "*"
 pydantic = "*"
 pytest-recording = "*"
 pytest-asyncio = "*"
+nox = "*"
 
 [requires]
 python_version = "3.8"
