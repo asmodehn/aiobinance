@@ -71,7 +71,7 @@ canWithdraw: {self.canWithdraw}
 canDeposit: {self.canDeposit}
 """
 
-        accstr += f"""balances:
+        accstr += """balances:
 """ + "\n".join(
             [" - " + str(a) for a in self.balances if not (a.free + a.locked).is_zero()]
         )

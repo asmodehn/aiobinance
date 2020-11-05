@@ -28,6 +28,7 @@
 # => repl should provide access to functions to enable webconnections (authentication details)
 # => __main__ should provide long arguments to allow webconnections (authentication details)
 # => webconnection should not be possible without authentication (given exchange account details is stored in running process)
+
 from datetime import date, datetime
 
 import click
@@ -46,10 +47,10 @@ def cli():
     pass
 
 
-@cli.command()
+@cli.command(name="hummingbot")
 @click.argument("filename", type=click.Path(exists=True), required=False)
 @click.pass_context
-def hummingbot(ctx, filename):
+def hummingbot_instance(ctx, filename):
     "provide a report of hummingbot trades"
 
     trades = hummingbot.trades_from_csv(click.format_filename(filename))
@@ -86,11 +87,8 @@ def hummingbot(ctx, filename):
 @click.pass_context
 def auth(ctx, verbose):
     """ simple command to verify auth credentials and optionally store them. """
-    from aiobinance.config import (
-        BINANCE_API_KEYFILE,
-        load_api_keyfile,
-        save_api_keyfile,
-    )
+    from aiobinance.config import BINANCE_API_KEYFILE
+    from aiobinance.config import load_api_keyfile, save_api_keyfile
 
     # tentative loading of the API key
     keystruct = load_api_keyfile()
@@ -220,7 +218,8 @@ def daily(ctx, market_pair, from_date, to_date, html):
     """display OHLC"""
 
     # compute interval to fit one request data into one day
-    ohlc(market_pair, from_date, to_date, interval, html=True)
+    # ohlc(market_pair, from_date, to_date, interval, html=True)
+    raise NotImplementedError
 
 
 @cli.group()
@@ -236,7 +235,8 @@ def daily(ctx, market_pair, from_date, to_date, html):
 def weekly(ctx, market_pair, from_date, to_date, html):
     """display OHLC"""
     # compute interval to fit one request data into one week
-    ohlc(market_pair, from_date, to_date, interval, html=True)
+    # ohlc(market_pair, from_date, to_date, interval, html=True)
+    raise NotImplementedError
 
 
 @cli.group()
@@ -253,7 +253,8 @@ def monthly(ctx, market_pair, from_date, to_date, html):
     """display OHLC"""
 
     # compute interval to fit one request data into one month
-    ohlc(market_pair, from_date, to_date, interval, html=True)
+    # ohlc(market_pair, from_date, to_date, interval, html=True)
+    raise NotImplementedError
 
 
 if __name__ == "__main__":

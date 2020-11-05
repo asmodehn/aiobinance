@@ -9,6 +9,8 @@ aiobinance = {editable = true, path = "."}
 gitchangelog = "*"
 sphinx = "*"
 pre-commit = "*"
+black = "*"
+isort = "*"
 
 [packages]
 ipykernel = "*"
@@ -25,3 +27,6 @@ nox = "*"
 
 [requires]
 python_version = "3.8"
+
+[pipenv]
+allow_prereleases = true

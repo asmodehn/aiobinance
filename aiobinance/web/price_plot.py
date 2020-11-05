@@ -1,5 +1,5 @@
 from bokeh.models import BooleanFilter, CDSView, ColumnDataSource
-from bokeh.plotting import Figure, figure
+from bokeh.plotting import Figure
 
 from ..model import OHLCV, TradeFrame
 
