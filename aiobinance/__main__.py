@@ -98,17 +98,20 @@ def auth(ctx, verbose):
 
     if keystruct is None:
         # no keyfile found
-        print(f"{BINANCE_API_KEYFILE} not found !")
-        # TODO : check for interactive terminal...
-        apikey = input("APIkey: ")
-        secret = input("secret: ")
-        store = input(f"Store it in {BINANCE_API_KEYFILE} [Y/n] ? ")
-        if not store:
-            store = "Y"
-        if store in ["Y", "y"]:
-            keystruct = save_api_keyfile(apikey=apikey, secret=secret)
+        print(f"{BINANCE_API_KEYFILE} Not Found !")
+        # check for interactive terminal
+        if hasattr(sys, "ps1"):
+            apikey = input("APIkey: ")
+            secret = input("secret: ")
+            store = input(f"Store it in {BINANCE_API_KEYFILE} [Y/n] ? ")
+            if not store:
+                store = "Y"
+            if store in ["Y", "y"]:
+                keystruct = save_api_keyfile(apikey=apikey, secret=secret)
+            else:
+                keystruct = {"key": apikey, "secret": secret}
         else:
-            keystruct = {"key": apikey, "secret": secret}
+            return 1  # exit status code
 
     # modifying parent context if present (to return)
     if verbose:
