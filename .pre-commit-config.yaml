@@ -20,7 +20,7 @@ repos:
     hooks:
     -   id: black
         args:
-            - "--include='\.pyi?$'"
+            - "--include='.pyi?$'"
 
 # flake8
 - repo: https://gitlab.com/pycqa/flake8

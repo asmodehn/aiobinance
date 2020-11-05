@@ -87,8 +87,11 @@ def hummingbot_instance(ctx, filename):
 @click.pass_context
 def auth(ctx, verbose):
     """ simple command to verify auth credentials and optionally store them. """
-    from aiobinance.config import BINANCE_API_KEYFILE
-    from aiobinance.config import load_api_keyfile, save_api_keyfile
+    from aiobinance.config import (
+        BINANCE_API_KEYFILE,
+        load_api_keyfile,
+        save_api_keyfile,
+    )
 
     # tentative loading of the API key
     keystruct = load_api_keyfile()

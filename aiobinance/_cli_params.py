@@ -1,19 +1,19 @@
+from datetime import datetime
 
 import click
-from datetime import datetime
 
 
 class Date(click.ParamType):
-    name = 'date'
+    name = "date"
 
     def __init__(self, formats=None):
         self.formats = formats or [
-            '%Y-%m-%d',
-            '%Y-%m-%dT%H:%M:%S',
+            "%Y-%m-%d",
+            "%Y-%m-%dT%H:%M:%S",
         ]
 
     def get_metavar(self, param):
-        return '[{}]'.format('|'.join(self.formats))
+        return "[{}]".format("|".join(self.formats))
 
     def _try_to_convert_date(self, value, format):
         try:
@@ -28,9 +28,10 @@ class Date(click.ParamType):
                 return date
 
         self.fail(
-            'invalid date format: {}. (choose from {})'.format(
-                value, ', '.join(self.formats)))
+            "invalid date format: {}. (choose from {})".format(
+                value, ", ".join(self.formats)
+            )
+        )
 
     def __repr__(self):
-        return 'Date'
-
+        return "Date"
