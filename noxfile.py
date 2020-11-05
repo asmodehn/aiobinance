@@ -12,14 +12,15 @@ SOURCE_FILES = ["docs/", "aiobinance/", "tests/", "noxfile.py", "setup.py"]
 # Ref : urllib3 has a strict nox-based process that we duplicate here.
 @nox.session
 def lint(session):
-    session.install("flake8", "flake8-2020", "black", "isort", "mypy")
+    # TODO : centralise tool versions... (pipfile + nox + precommit)
+    session.install("flake8", "black==20.8b1", "isort==5.6.4", "mypy")
     session.run("flake8", "--version")
     session.run("black", "--version")
     session.run("isort", "--version")
     session.run("mypy", "--version")
 
+    session.run("isort", "--profile", "black", "--check", *SOURCE_FILES)
     session.run("black", "--check", *SOURCE_FILES)
-    session.run("isort", "--check", *SOURCE_FILES)
     session.run("flake8", *SOURCE_FILES)
 
     session.log("mypy --strict aiobinance")
