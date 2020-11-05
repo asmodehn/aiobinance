@@ -8,6 +8,7 @@ flit = "*"
 aiobinance = {editable = true, path = "."}
 gitchangelog = "*"
 sphinx = "*"
+pre-commit = "*"
 
 [packages]
 ipykernel = "*"
