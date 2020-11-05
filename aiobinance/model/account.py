@@ -31,7 +31,9 @@ from decimal import Decimal
 from pprint import pprint
 from typing import List, Optional
 
+import hypothesis.strategies as st
 import numpy as np
+from hypothesis import infer
 from pydantic.dataclasses import dataclass
 
 
@@ -83,11 +85,24 @@ makerCommission: {self.makerCommission}
 takerCommission: {self.takerCommission}
 """
         if self.buyerCommission > 0:
-            accstr += """
+            accstr += f"""
 buyerCommission: {self.buyerCommission}
 """
         if self.sellerCommission > 0:
-            accstr += """
+            accstr += f"""
 sellerCommission: {self.sellerCommission}
 """
         return accstr
+
+
+# Strategies, inferring attributes from type hints by default
+def st_assetamounts():
+    return st.builds(
+        AssetAmount,
+        free=st.decimals(allow_nan=False, allow_infinity=False),
+        locked=st.decimals(allow_nan=False, allow_infinity=False),
+    )
+
+
+def st_accounts():
+    return st.builds(Account, balances=st.lists(elements=st_assetamounts()))
