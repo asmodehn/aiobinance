@@ -14,7 +14,7 @@ setup(
         "pandas",
         "requests",
         "click",
-        "ipython",
+        "ptpython",
         "jedi",
         "hypothesis",
         "bokeh",

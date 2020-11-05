@@ -4,7 +4,6 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-flit = "*"
 aiobinance = {editable = true, path = "."}
 gitchangelog = "*"
 sphinx = "*"
@@ -14,7 +13,6 @@ isort = "*"
 
 [packages]
 ipykernel = "*"
-ipython-secrets = "*"
 pandas = "*"
 bokeh = "*"
 matplotlib = "*"
@@ -26,6 +24,7 @@ pytest-asyncio = "*"
 nox = "*"
 jedi = "*"
 hypothesis = "*"
+ptpython = "*"
 
 [requires]
 python_version = "3.8"
