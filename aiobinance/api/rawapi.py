@@ -1,13 +1,14 @@
 # Binance API
 # Credits to @Bablofil https://github.com/Bablofil/binance-api
-import time
+import hashlib
+import hmac
 import json
+import time
 import urllib
-import hmac, hashlib
-import requests
-
-from urllib.parse import urlparse, urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
+
+import requests
 
 
 class Binance:

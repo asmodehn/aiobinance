@@ -1,14 +1,11 @@
-from decimal import Decimal
-
-import numpy as np
-
-
+from dataclasses import asdict
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 
+import numpy as np
 from pydantic import validator
 from pydantic.dataclasses import dataclass
-from dataclasses import asdict
 
 
 # Leveraging pydantic to validate based on type hints

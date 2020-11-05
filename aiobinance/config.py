@@ -1,7 +1,5 @@
-import logging
-
 import configparser
-
+import logging
 import os
 
 # Resolve userpath to an absolute path

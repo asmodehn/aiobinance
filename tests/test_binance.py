@@ -1,12 +1,8 @@
 from datetime import datetime, timezone
-
-import pytest
-
-# TODO : pytest-recording based test, just as in aiokraken...
-
 from decimal import Decimal
 
 import pytest
+
 import aiobinance.binance
 from aiobinance import OHLCV
 from aiobinance.model import TradeFrame

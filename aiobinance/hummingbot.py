@@ -1,8 +1,8 @@
 import pandas as pd
 from pandas.io import json
 
-from aiobinance.model.trade import Trade, TradeFrame
 from aiobinance.model.ohlcv import OHLCV
+from aiobinance.model.trade import Trade, TradeFrame
 
 
 # TODO: maybe this should be less generic : hummingbot_csv

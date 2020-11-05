@@ -1,15 +1,14 @@
+from datetime import datetime
 from typing import Optional
 
 import pandas as pd
-from datetime import datetime
 
 from aiobinance.api import BinanceRaw
 from aiobinance.config import load_api_keyfile
 from aiobinance.decorators import require_auth
-
 from aiobinance.model.account import Account
+from aiobinance.model.ohlcv import OHLCV, Candle
 from aiobinance.model.trade import Trade, TradeFrame
-from aiobinance.model.ohlcv import Candle, OHLCV
 
 
 def optional_key_load(

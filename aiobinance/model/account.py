@@ -25,16 +25,14 @@
 #   ]
 # }
 
+from dataclasses import asdict
+from datetime import datetime
 from decimal import Decimal
 from pprint import pprint
+from typing import List, Optional
 
 import numpy as np
-
-
-from datetime import datetime
-from typing import List, Optional
 from pydantic.dataclasses import dataclass
-from dataclasses import asdict
 
 
 @dataclass

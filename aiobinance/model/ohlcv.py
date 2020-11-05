@@ -1,17 +1,13 @@
-from decimal import Decimal
-
-import pandas as pd
-
-from bokeh.models import BooleanFilter, CDSView, ColumnDataSource, Legend
-from bokeh.plotting import Figure
-
-
+from dataclasses import asdict
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 
+import pandas as pd
+from bokeh.models import BooleanFilter, CDSView, ColumnDataSource, Legend
+from bokeh.plotting import Figure
 from pydantic import validator
 from pydantic.dataclasses import dataclass
-from dataclasses import asdict
 
 
 # Leveraging pydantic to validate based on type hints

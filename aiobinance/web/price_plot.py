@@ -1,10 +1,10 @@
-from ..model import OHLCV, Trades
-
-from bokeh.models import ColumnDataSource, CDSView, BooleanFilter
+from bokeh.models import BooleanFilter, CDSView, ColumnDataSource
 from bokeh.plotting import Figure, figure
 
+from ..model import OHLCV, TradeFrame
 
-def price_plot(ohlcv: OHLCV, trades: Trades = None) -> Figure:
+
+def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
     timeinterval = ohlcv["open_time"][1] - ohlcv["open_time"][0]
     ohlcv["mid_time"] = ohlcv["open_time"] + timeinterval / 2
 

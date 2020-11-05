@@ -1,5 +1,6 @@
 import pytest
 
+
 def test_trades_from_csv():
 
     # TODO :make temporary file with this content (obtained by running hummingbot)
@@ -14,4 +15,4 @@ def test_trades_from_csv():
 
 
 if __name__ == "__main__":
-    pytest.main(['-s', __file__])
+    pytest.main(["-s", __file__])
