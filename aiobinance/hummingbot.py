@@ -30,7 +30,7 @@ def trades_from_csv(csv_filepath: str) -> TradeFrame:
 
     # To access attributes of rows later on, we remove spaces
     csv_df.rename(columns={c: c.replace(" ", "") for c in csv_df.columns}, inplace=True)
-    csv_df.Fee = csv_df.Fee.apply(lambda s: json.loads(s))
+    csv_df.Fee = csv_df.Fee.apply(lambda s: json.loads(s.replace("'", '"')))
 
     # DDD : Translation layer...
     for r in csv_df.itertuples():
@@ -40,7 +40,7 @@ def trades_from_csv(csv_filepath: str) -> TradeFrame:
             time=r.Timestamp,
             symbol=r.Market,
             id=r.ExchangeTradeID,
-            order_id=r.OrderID,
+            # order_id=r.OrderID,  # Order IDs are not compatible for some reason...
             price=r.Price,
             qty=r.Amount,
             quote_qty=r.Amount

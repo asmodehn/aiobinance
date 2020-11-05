@@ -4,10 +4,9 @@ from decimal import Decimal
 import pytest
 
 import aiobinance.binance
-from aiobinance import OHLCV
 from aiobinance.model import TradeFrame
 from aiobinance.model.account import Account
-from aiobinance.model.ohlcv import Candle
+from aiobinance.model.ohlcv import OHLCV, Candle
 from aiobinance.model.trade import Trade
 
 

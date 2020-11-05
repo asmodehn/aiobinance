@@ -15,7 +15,6 @@ class Trade:
     time: datetime
     symbol: str  # TODO : improve
     id: int
-    order_id: int
     price: Decimal
     qty: Decimal
     quote_qty: Decimal
@@ -24,6 +23,9 @@ class Trade:
     is_buyer: bool
     is_maker: bool
 
+    order_id: Optional[
+        int
+    ] = None  # some source (hummingbot) might not have the accurate int... # TODO : investigate...
     order_list_id: Optional[
         int
     ] = None  # None replaces the cryptic '-1' of binance data when not part of a list TODO!!

@@ -43,8 +43,13 @@ Develop
 Want to signal a problem ? head to the issues section to get the discussion going...
 Want to propose a feature ? head to the issues section to get the discussion going...
 
+Tools used::
 
-
+  - direnv
+  - pipenv
+  - pre-commit
+  - Nox
+  - Sphinx
 
 Roadmap
 -------
