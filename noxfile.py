@@ -13,15 +13,25 @@ SOURCE_FILES = ["docs/", "aiobinance/", "tests/", "noxfile.py", "setup.py"]
 @nox.session
 def lint(session):
     # TODO : centralise tool versions... (pipfile + nox + precommit)
-    session.install("flake8", "black==20.8b1", "isort==5.6.4", "mypy")
+    session.install("flake8", "flake8-2020", "black==20.8b1", "isort==5.6.4", "mypy")
     session.run("flake8", "--version")
     session.run("black", "--version")
     session.run("isort", "--version")
     session.run("mypy", "--version")
 
+    # TODO : centralise tool arguments... (nox + precommit)
     session.run("isort", "--profile", "black", "--check", *SOURCE_FILES)
     session.run("black", "--check", *SOURCE_FILES)
-    session.run("flake8", *SOURCE_FILES)
+    session.run(
+        "flake8",
+        "--max-complexity=18",
+        "--select=B,C,E,F,W,T4,B9",
+        # these are errors that will be ignored by flake8
+        # check out their meaning here
+        # https://flake8.pycqa.org/en/latest/user/error-codes.html
+        "--ignore=E203,E266,E501,W503,F403,F401,E402",
+        *SOURCE_FILES
+    )
 
     session.log("mypy --strict aiobinance")
     all_errors, errors = [], []
