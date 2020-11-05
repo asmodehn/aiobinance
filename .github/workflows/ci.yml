@@ -22,22 +22,24 @@ jobs:
       - name: Lint the code
         run: nox -s lint
 
-  package:
-    runs-on: ubuntu-latest
+# TMP : not ready just yet...
+#  package:
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - name: Checkout Repository
+#        uses: actions/checkout@v2
+#      - name: Set up Python 3.7
+#        uses: actions/setup-python@v2
+#        with:
+#          python-version: 3.7
+#      - name: Check packages
+#        run: |
+#          python3.7 -m pip install wheel twine rstcheck;
+#          python3.7 setup.py sdist bdist_wheel;
+#          rstcheck README.rst CHANGES.rst
+#          python3.7 -m twine check dist/*
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.7
-      - name: Check packages
-        run: |
-          python3.7 -m pip install wheel twine rstcheck;
-          python3.7 setup.py sdist bdist_wheel;
-          rstcheck README.rst CHANGES.rst
-          python3.7 -m twine check dist/*
   test:
     strategy:
       fail-fast: false

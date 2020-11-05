@@ -6,6 +6,8 @@ verify_ssl = true
 [dev-packages]
 flit = "*"
 aiobinance = {editable = true, path = "."}
+gitchangelog = "*"
+sphinx = "*"
 
 [packages]
 ipykernel = "*"

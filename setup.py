@@ -8,4 +8,12 @@ setup(name='aiobinance',
       author_email='asmodehn@gmail.com',
       license='GPLv3',
       packages=['aiobinance'],
+      install_requires=[
+            'pydantic',
+            'pandas',
+            'requests',
+            'click',
+            'ipython',
+            'bokeh',
+      ],
       zip_safe=False)
