@@ -31,7 +31,7 @@ class Candle:
     taker_quote_vol: Decimal
     is_best_match: int  # ??
 
-    @validator('open_time', 'close_time', pre=True)
+    @validator("open_time", "close_time", pre=True)
     def convert_pandas_timestamp(cls, v):
         if isinstance(v, pd.Timestamp):
             return v.to_pydatetime()

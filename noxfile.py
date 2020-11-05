@@ -5,18 +5,8 @@ import nox
 # Whenever type-hints are completed on a file it should be added here so that
 # this file will continue to be checked by mypy. Errors from other files are
 # ignored.
-TYPED_FILES = {
-    "aiobinance/api/__init__.py",
-    "aiobinance/api/"
-    "aiobinance/__init__.py",
-}
-SOURCE_FILES = [
-    "docs/",
-    "aiobinance/",
-    "tests/",
-    "noxfile.py",
-    "setup.py",
-]
+TYPED_FILES = {"aiobinance/api/__init__.py", "aiobinance/api/" "aiobinance/__init__.py"}
+SOURCE_FILES = ["docs/", "aiobinance/", "tests/", "noxfile.py", "setup.py"]
 
 
 # Ref : urllib3 has a strict nox-based process that we duplicate here.
@@ -54,11 +44,11 @@ def lint(session):
         session.error("\n" + "\n".join(sorted(set(errors))))
 
 
-@nox.session(python=['3.6', '3.7', '3.8'])
+@nox.session(python=["3.6", "3.7", "3.8"])
 def tests(session):
 
     # install the package first to retrieve all dependencies before testing
     session.install(".")
-    session.install('pytest', 'pytest-recording')
+    session.install("pytest", "pytest-recording")
 
-    session.run('pytest', '-s')
+    session.run("pytest", "-s")

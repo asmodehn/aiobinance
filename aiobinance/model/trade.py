@@ -27,10 +27,14 @@ class Trade:
     is_buyer: bool
     is_maker: bool
 
-    order_list_id: Optional[int] = None  # None replaces the cryptic '-1' of binance data when not part of a list TODO!!
-    is_best_match: Optional[bool] = None  # outside of binance, we might not have this information
+    order_list_id: Optional[
+        int
+    ] = None  # None replaces the cryptic '-1' of binance data when not part of a list TODO!!
+    is_best_match: Optional[
+        bool
+    ] = None  # outside of binance, we might not have this information
 
-    @validator('time', pre=True)
+    @validator("time", pre=True)
     def convert_pandas_timestamp(cls, v):
         if isinstance(v, pd.Timestamp):
             return v.to_pydatetime()
@@ -38,6 +42,7 @@ class Trade:
 
 
 import pandas as pd
+
 
 class TradeFrame:
     _df: pd.DataFrame
@@ -49,7 +54,7 @@ class TradeFrame:
 
         self._df = df
 
-    def __getitem__(self, item: int): # TODO : slice
+    def __getitem__(self, item: int):  # TODO : slice
         if item < len(self._df):
             return Trade(**self._df.iloc[item])
         elif item in self._df.id:

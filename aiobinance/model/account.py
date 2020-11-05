@@ -1,5 +1,3 @@
-
-
 # {
 #   "makerCommission": 15,
 #   "takerCommission": 15,
@@ -48,6 +46,7 @@ class AssetAmount:
     def __str__(self):
         return f"{self.free + self.locked} {self.asset} (free: {self.free}, locked: {self.locked})"
 
+
 # Leveraging pydantic to validate based on type hints
 @dataclass
 class Account:
@@ -75,7 +74,9 @@ canDeposit: {self.canDeposit}
 """
 
         accstr += f"""balances:
-""" + "\n".join([ " - " + str(a) for a in self.balances if not (a.free + a.locked).is_zero() ])
+""" + "\n".join(
+            [" - " + str(a) for a in self.balances if not (a.free + a.locked).is_zero()]
+        )
 
         accstr += f"""
 updateTime: {self.updateTime}
