@@ -40,6 +40,7 @@ from aiobinance._cli_params import Date
 
 # TODO
 # binance.trades_from_binance()
+from aiobinance.config import Credentials
 
 
 @click.group()
@@ -103,13 +104,14 @@ def auth(ctx, verbose):
         if hasattr(sys, "ps1"):
             apikey = input("APIkey: ")
             secret = input("secret: ")
+            creds = Credentials(key=apikey, secret=secret)
             store = input(f"Store it in {BINANCE_API_KEYFILE} [Y/n] ? ")
             if not store:
                 store = "Y"
             if store in ["Y", "y"]:
-                keystruct = save_api_keyfile(apikey=apikey, secret=secret)
+                keystruct = save_api_keyfile(credentials=creds)
             else:
-                keystruct = {"key": apikey, "secret": secret}
+                keystruct = creds
         else:
             return 1  # exit status code
 
@@ -119,11 +121,11 @@ def auth(ctx, verbose):
             f"apikey and secret stored in {BINANCE_API_KEYFILE}.\nRemove it and re-run this command to replace it."
         )
     if ctx.parent:
-        ctx.parent.params["apikey"] = keystruct.get("key")
-        ctx.parent.params["secret"] = keystruct.get("secret")
+        ctx.parent.params["apikey"] = keystruct.key
+        ctx.parent.params["secret"] = keystruct.secret
 
         if keystruct:
-            print(f"apikey: {keystruct.get('key')}")
+            print(f"apikey: {keystruct}")
         else:  # should come from context
             print(f"apikey: {ctx.apikey}")
 
@@ -271,4 +273,4 @@ if __name__ == "__main__":
         cli()
     else:
         # or we go full interactive mode (no args)
-        repl.embedded_repl()
+        repl.embedded_ptpython()
