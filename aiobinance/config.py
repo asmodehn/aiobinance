@@ -1,8 +1,13 @@
 import configparser
+import inspect
 import logging
 import os
 
+import hypothesis.strategies as st
+
 # Resolve userpath to an absolute path
+from pydantic import validator, validators
+from pydantic.dataclasses import dataclass
 
 DEFAULT_BINANCE_API_KEYFILE = os.path.expanduser("~/.config/aiobinance/binance.key")
 
@@ -13,27 +18,59 @@ BINANCE_API_KEYFILE = os.path.normpath(BINANCE_API_KEYFILE)
 logger = logging.getLogger("aiobinance.config")
 
 
-def load_api_keyfile():
+@dataclass
+class Credentials:
+    key: str
+    secret: str
+
+    @validator("key", "secret")
+    def min_size_creds(cls, v):
+        if len(v) < 5:
+            raise ValueError("too small (len < 5)")
+        return v
+
+    def __repr__(self):
+        return f"{self.key}"
+
+
+def credentials_strategy():
+    return st.builds(
+        Credentials,
+        key=st.text(
+            alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd")), min_size=5
+        ),
+        secret=st.text(
+            alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd")), min_size=5
+        ),
+    )
+
+
+def load_api_keyfile(filepath=BINANCE_API_KEYFILE):
     """Load the Binance API keyfile"""
 
-    if not os.path.exists(BINANCE_API_KEYFILE):
-        logger.warning("The API keyfile {} was not found!".format(BINANCE_API_KEYFILE))
+    if not os.path.exists(filepath):
+        logger.warning("The API keyfile {} was not found!".format(filepath))
 
     else:
-        f = open(BINANCE_API_KEYFILE, encoding="utf-8").readlines()
-        return {"key": f[0].strip(), "secret": f[1].strip()}
+        with open(filepath, mode="r", encoding="utf-8") as fd:
+            f = fd.readlines()
+
+        return Credentials(key=f[0].strip(), secret=f[1].strip())
 
 
-def save_api_keyfile(apikey, secret):
+def save_api_keyfile(credentials: Credentials, filepath=BINANCE_API_KEYFILE):
     """Save the Binance API keyfile"""
 
-    if not os.path.exists(os.path.dirname(BINANCE_API_KEYFILE)):
-        os.makedirs(os.path.dirname(BINANCE_API_KEYFILE))
+    if not os.path.exists(os.path.dirname(filepath)):
+        os.makedirs(os.path.dirname(filepath))
 
-    f = open(BINANCE_API_KEYFILE, mode="wt", encoding="utf-8")
-    f.writelines([apikey + "\n", secret + "\n"])
+    with open(filepath, mode="wt", encoding="utf-8") as f:
+        f.writelines([credentials.key + "\n", credentials.secret + "\n"])
+
     # TODO : wait for file creation (first time only) !
-    return load_api_keyfile()  # return what we just saved for verification.
+    return load_api_keyfile(
+        filepath=filepath
+    )  # return what we just saved, for verification.
 
 
 if __name__ == "__main__":

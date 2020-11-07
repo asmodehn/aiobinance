@@ -16,9 +16,7 @@ from aiobinance.model.trade import Trade
 def test_balance_from_binance(keyfile):
     """ get binance balances"""
 
-    account = aiobinance.binance.balance_from_binance(
-        key=keyfile.get("key"), secret=keyfile.get("secret")
-    )
+    account = aiobinance.binance.balance_from_binance(credentials=keyfile)
 
     assert isinstance(account, Account)
     assert account.accountType == "SPOT"
@@ -44,11 +42,7 @@ def test_trades_from_binance(keyfile):
     start_time = 1598524340551
     end_time = start_time + 24 * 3_600_000
     trades = aiobinance.binance.trades_from_binance(
-        "COTIBNB",
-        start_time=start_time,
-        end_time=end_time,
-        key=keyfile.get("key"),
-        secret=keyfile.get("secret"),
+        "COTIBNB", start_time=start_time, end_time=end_time, credentials=keyfile
     )
 
     assert isinstance(trades, TradeFrame)
@@ -88,7 +82,7 @@ def test_trades_from_binance(keyfile):
 
 
 @pytest.mark.vcr
-def test_price_from_binance(keyfile):
+def test_price_from_binance():
     """ get binance balances"""
 
     # TODO : use datetime in interface

@@ -4,25 +4,16 @@ from typing import Optional
 import pandas as pd
 
 from aiobinance.api import BinanceRaw
-from aiobinance.config import load_api_keyfile
-from aiobinance.decorators import require_auth
+from aiobinance.config import Credentials, load_api_keyfile
 from aiobinance.model.account import Account
 from aiobinance.model.ohlcv import OHLCV, Candle
 from aiobinance.model.trade import Trade, TradeFrame
 
 
-def optional_key_load(
-    key: Optional[str] = None, secret: Optional[str] = None
-):  # TODO : type for keystruct
-    if key is None or secret is None:
-        return load_api_keyfile()
-    else:
-        return {"key": key, "secret": secret}
-
-
-@require_auth()
-def balance_from_binance(*, key: str, secret: str) -> Account:
-    api = BinanceRaw(API_KEY=key, API_SECRET=secret)  # we need private requests here !
+def balance_from_binance(*, credentials: Credentials = load_api_keyfile()) -> Account:
+    api = BinanceRaw(
+        API_KEY=credentials.key, API_SECRET=credentials.secret
+    )  # we need private requests here !
 
     res = api.call_api(command="account")
 
@@ -45,11 +36,16 @@ def balance_from_binance(*, key: str, secret: str) -> Account:
     return account
 
 
-@require_auth()
 def trades_from_binance(
-    symbol: str, *, start_time: int, end_time: int, key: str, secret: str
+    symbol: str,
+    *,
+    start_time: int,
+    end_time: int,
+    credentials: Credentials = load_api_keyfile()
 ) -> TradeFrame:
-    api = BinanceRaw(API_KEY=key, API_SECRET=secret)  # we need private requests here !
+    api = BinanceRaw(
+        API_KEY=credentials.key, API_SECRET=credentials.secret
+    )  # we need private requests here !
 
     res = api.call_api(
         command="myTrades",

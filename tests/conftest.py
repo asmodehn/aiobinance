@@ -1,5 +1,7 @@
 import pytest
 
+from aiobinance import config
+
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -13,11 +15,15 @@ def pytest_addoption(parser):
 @pytest.fixture
 def keyfile(request):
     kf = request.config.getoption("--with-keyfile")
-    keystruct = {}
-    if kf:
-        from aiobinance.config import load_api_keyfile
+    from aiobinance.config import Credentials, load_api_keyfile
 
+    keystruct = Credentials(key="APIkey", secret="S3cr3T")
+    # in case we have no keyfile setup, we return values to be passed
+    # so that we avoid the defaults, but these can be used to replay network content safely (key not required locally).
+
+    if kf:
         keystruct = load_api_keyfile()
+
     return keystruct
 
 
