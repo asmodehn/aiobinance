@@ -45,6 +45,22 @@ class OHLCV:
 
         self._df = df
 
+    def as_datasource(self, compute_mid_time=True):
+        if compute_mid_time:
+            plotdf = self._df.copy()
+            timeinterval = plotdf.open_time[1] - plotdf.open_time[0]
+            plotdf["mid_time"] = plotdf.open_time + timeinterval / 2
+
+        return ColumnDataSource(plotdf)
+
+    @property
+    def open_time(self):
+        return self._df.open_time
+
+    @property
+    def close_time(self):
+        return self._df.close_time
+
     def __getitem__(self, item: int):  # TODO : slice
         if item < len(self._df):
             return Candle(**self._df.iloc[item])

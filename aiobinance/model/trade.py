@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 import numpy as np
+import pandas as pd
 from pydantic import validator
 from pydantic.dataclasses import dataclass
 
@@ -38,9 +39,6 @@ class Trade:
         if isinstance(v, pd.Timestamp):
             return v.to_pydatetime()
         return v
-
-
-import pandas as pd
 
 
 class TradeFrame:

@@ -5,12 +5,7 @@ from ..model import OHLCV, TradeFrame
 
 
 def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
-    timeinterval = ohlcv["open_time"][1] - ohlcv["open_time"][0]
-    ohlcv["mid_time"] = ohlcv["open_time"] + timeinterval / 2
-
-    print(ohlcv["mid_time"][0])
-
-    ohlc_source = ColumnDataSource(ohlcv.df)
+    ohlc_source = ohlcv.as_datasource(compute_mid_time=True)
 
     figure = Figure(
         plot_height=320,
@@ -35,6 +30,9 @@ def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
     updown = [
         o < c for o, c in zip(ohlc_source.data["open"], ohlc_source.data["close"])
     ]
+
+    # here we assume the time interval is regular and uniform
+    timeinterval = ohlc_source.data["open_time"][1] - ohlc_source.data["open_time"][0]
 
     # TODO : https://docs.bokeh.org/en/latest/docs/user_guide/data.html#customjsfilter
     # This would simplify python code regarding update of this simple filter

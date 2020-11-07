@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -86,8 +86,8 @@ def test_price_from_binance():
     """ get binance balances"""
 
     # TODO : use datetime in interface
-    start_time = 1598524340551
-    end_time = start_time + 24 * 3_600_000
+    start_time = datetime.fromtimestamp(1598524340551 / 1000)
+    end_time = start_time + timedelta(days=1)
     ohlcv = aiobinance.binance.price_from_binance(
         "COTIBNB", start_time=start_time, end_time=end_time
     )

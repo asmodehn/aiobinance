@@ -80,18 +80,22 @@ def trades_from_binance(
     return TradeFrame(*trades)
 
 
-def price_from_binance(symbol: str, *, start_time: int, end_time: int) -> OHLCV:
+def price_from_binance(
+    symbol: str, *, start_time: datetime, end_time: datetime
+) -> OHLCV:
     api = BinanceRaw(API_KEY="", API_SECRET="")  # we dont need private requests here
     # Ref : https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-data
 
-    interval = BinanceRaw.interval(start_time, end_time)
+    start_timestamp = int(start_time.timestamp() * 1000)
+    end_timestamp = int(end_time.timestamp() * 1000)
+    interval = BinanceRaw.interval(start_timestamp, end_timestamp)
 
     res = api.call_api(
         command="klines",
         symbol=symbol,
         interval=interval,
-        startTime=start_time,
-        endTime=end_time,
+        startTime=start_timestamp,
+        endTime=end_timestamp,
         limit=1000,
     )
 
@@ -125,5 +129,9 @@ if __name__ == "__main__":
         trades_from_binance("COTIBNB", start_time=1598524340551, end_time=1598893442120)
     )
     print(
-        price_from_binance("COTIBNB", start_time=1598524340551, end_time=1598893442120)
+        price_from_binance(
+            "COTIBNB",
+            start_time=datetime.fromtimestamp(1598524340551 / 1000),
+            end_time=datetime.fromtimestamp(1598893442120 / 1000),
+        )
     )
