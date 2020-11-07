@@ -113,6 +113,7 @@ def auth(ctx, verbose):
             else:
                 keystruct = creds
         else:
+            print("Run the auth command to create it.")
             return 1  # exit status code
 
     # modifying parent context if present (to return)
@@ -137,15 +138,18 @@ def auth(ctx, verbose):
 @click.option("--secret", default=None)
 @click.pass_context
 def balance(ctx, apikey, secret):
-    """ retrieve balance for an authentified user"""
+    """ retrieve balance for the authentified user"""
 
     if apikey is None or secret is None:
         ctx.invoke(auth, verbose=False)  # this should fill up arguments
-        apikey = ctx.params.get("apikey")
-        secret = ctx.params.get("secret")
+        creds = Credentials(
+            key=ctx.params.get("apikey"), secret=ctx.params.get("secret")
+        )
+    else:
+        creds = Credentials(key=apikey, secret=secret)
 
     # we always have the key here (otherwise it has been stored already)
-    binance.balance_from_binance(key=apikey, secret=secret)
+    print(binance.balance_from_binance(credentials=creds))
 
 
 def positions():
@@ -266,6 +270,7 @@ def monthly(ctx, market_pair, from_date, to_date, html):
 
 
 if __name__ == "__main__":
+    import asyncio
     import sys
 
     if len(sys.argv) > 1:
@@ -273,4 +278,4 @@ if __name__ == "__main__":
         cli()
     else:
         # or we go full interactive mode (no args)
-        repl.embedded_ptpython()
+        asyncio.run(repl.embedded_ptpython())

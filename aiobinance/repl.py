@@ -1,11 +1,13 @@
+from ptpython.completer import CompletePrivateAttributes
+from ptpython.layout import CompletionVisualisation
 from ptpython.repl import PythonRepl
 
 import aiobinance
 
 
 def configure_ptpython(repl: PythonRepl) -> None:
-    # noop for now...
-    return
+    repl.complete_private_attributes = CompletePrivateAttributes.NEVER
+    repl.completion_visualisation = CompletionVisualisation.POP_UP
 
 
 async def embedded_ptpython():
@@ -13,7 +15,7 @@ async def embedded_ptpython():
 
     enable_deprecation_warnings()
     return await embed(
-        globals={**globals(), "aiobinance": aiobinance},
+        globals=globals(),
         locals=locals(),
         configure=configure_ptpython,
         title="aioBinance REPL",
