@@ -173,10 +173,6 @@ def test_trades(keyfile):
     )
 
 
-def test_positions():
-    raise NotImplementedError
-
-
 @pytest.mark.vcr
 def test_price(keyfile):
 
