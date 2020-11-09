@@ -60,6 +60,6 @@ def tests(session):
 
     # install the package first to retrieve all dependencies before testing
     session.install(".")
-    session.install("pytest", "pytest-recording")
+    session.install("pytest", "pytest-recording", "pytest-asyncio")
 
     session.run("pytest", "-s")

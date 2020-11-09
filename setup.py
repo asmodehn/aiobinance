@@ -18,6 +18,7 @@ setup(
         "jedi",
         "hypothesis",
         "bokeh",
+        "tabulate",
     ],
     zip_safe=False,
 )
