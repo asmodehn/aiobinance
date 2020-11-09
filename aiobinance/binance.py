@@ -7,6 +7,7 @@ from aiobinance.api import BinanceRaw
 from aiobinance.config import Credentials, load_api_keyfile
 from aiobinance.model.account import Account
 from aiobinance.model.ohlcv import OHLCV, Candle
+from aiobinance.model.ticker import Ticker
 from aiobinance.model.trade import Trade, TradeFrame
 
 
@@ -39,19 +40,22 @@ def balance_from_binance(*, credentials: Credentials = load_api_keyfile()) -> Ac
 def trades_from_binance(
     symbol: str,
     *,
-    start_time: int,
-    end_time: int,
+    start_time: datetime,
+    end_time: datetime,
     credentials: Credentials = load_api_keyfile()
 ) -> TradeFrame:
     api = BinanceRaw(
         API_KEY=credentials.key, API_SECRET=credentials.secret
     )  # we need private requests here !
 
+    start_timestamp = int(start_time.timestamp() * 1000)
+    end_timestamp = int(end_time.timestamp() * 1000)
+
     res = api.call_api(
         command="myTrades",
         symbol=symbol,
-        startTime=start_time,
-        endTime=end_time,
+        startTime=start_timestamp,
+        endTime=end_timestamp,
         limit=1000,
     )
 
@@ -122,11 +126,49 @@ def price_from_binance(
     return OHLCV(*candles)
 
 
+def ticker24_from_binance(
+    symbol: str,
+):
+    api = BinanceRaw(API_KEY="", API_SECRET="")  # we dont need private requests here
+    res = api.call_api(
+        command="ticker24hr",
+        symbol=symbol,
+    )
+
+    # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
+    # We do not want to change the semantics of the exchange exposed models here.
+    return Ticker(
+        symbol=res["symbol"],
+        price_change=res["priceChange"],
+        price_change_percent=res["priceChangePercent"],
+        weighted_avg_price=res["weightedAvgPrice"],
+        prev_close_price=res["prevClosePrice"],
+        last_price=res["lastPrice"],
+        last_qty=res["lastQty"],
+        bid_price=res["bidPrice"],
+        ask_price=res["askPrice"],
+        open_price=res["openPrice"],
+        high_price=res["highPrice"],
+        low_price=res["lowPrice"],
+        volume=res["volume"],
+        quote_volume=res["quoteVolume"],
+        open_time=res["openTime"],
+        close_time=res["closeTime"],
+        first_id=res["firstId"],
+        last_id=res["lastId"],
+        count=res["count"],
+    )
+
+
 if __name__ == "__main__":
     # TODO : whats the most useful way to run this module ? doctest ? manual repl test ?
     print(balance_from_binance())
     print(
-        trades_from_binance("COTIBNB", start_time=1598524340551, end_time=1598893442120)
+        trades_from_binance(
+            "COTIBNB",
+            start_time=datetime.fromtimestamp(1598524340551 / 1000),
+            end_time=datetime.fromtimestamp(1598893442120 / 1000),
+        )
     )
     print(
         price_from_binance(

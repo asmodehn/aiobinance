@@ -9,8 +9,10 @@ from bokeh.plotting import Figure
 from pydantic import validator
 from pydantic.dataclasses import dataclass
 
-
 # Leveraging pydantic to validate based on type hints
+from tabulate import tabulate
+
+
 @dataclass
 class Candle:
     # REMINDER : as 'precise' and 'pythonic' semantic as possible
@@ -79,3 +81,6 @@ class OHLCV:
 
     def __len__(self):
         return len(self._df)
+
+    def __str__(self):
+        return tabulate(self._df, headers="keys", tablefmt="psql")

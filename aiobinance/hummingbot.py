@@ -33,8 +33,6 @@ def trades_from_csv(csv_filepath: str) -> TradeFrame:
     csv_df.Fee = csv_df.Fee.apply(lambda s: json.loads(s.replace("'", '"')))
 
     # DDD : Translation layer...
-    for r in csv_df.itertuples():
-        print(r.Fee)
     trades = [
         Trade(
             time=r.Timestamp,

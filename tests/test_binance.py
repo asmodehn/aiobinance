@@ -7,6 +7,7 @@ import aiobinance.binance
 from aiobinance.model import TradeFrame
 from aiobinance.model.account import Account
 from aiobinance.model.ohlcv import OHLCV, Candle
+from aiobinance.model.ticker import Ticker
 from aiobinance.model.trade import Trade
 
 
@@ -38,9 +39,8 @@ def test_balance_from_binance(keyfile):
 def test_trades_from_binance(keyfile):
     """ get binance balances"""
 
-    # TODO : use datetime in interface
-    start_time = 1598524340551
-    end_time = start_time + 24 * 3_600_000
+    start_time = datetime.fromtimestamp(1598524340551 / 1000, tz=timezone.utc)
+    end_time = start_time + timedelta(days=1)
     trades = aiobinance.binance.trades_from_binance(
         "COTIBNB", start_time=start_time, end_time=end_time, credentials=keyfile
     )
@@ -52,11 +52,7 @@ def test_trades_from_binance(keyfile):
         assert isinstance(t, Trade)
 
     first = trades[0]
-    assert (
-        datetime.fromtimestamp(start_time / 1000, tz=timezone.utc)
-        < first.time
-        < datetime.fromtimestamp(end_time / 1000, tz=timezone.utc)
-    )
+    assert start_time < first.time < end_time
     assert first.time == datetime(
         year=2020,
         month=8,
@@ -83,9 +79,8 @@ def test_trades_from_binance(keyfile):
 
 @pytest.mark.vcr
 def test_price_from_binance():
-    """ get binance balances"""
+    """ get binance price"""
 
-    # TODO : use datetime in interface
     start_time = datetime.fromtimestamp(1598524340551 / 1000)
     end_time = start_time + timedelta(days=1)
     ohlcv = aiobinance.binance.price_from_binance(
@@ -122,6 +117,50 @@ def test_price_from_binance():
     assert first.taker_base_vol == Decimal("176.00000000")
     assert first.taker_quote_vol == Decimal("0.56771800")
     assert first.is_best_match == 0  # ??
+
+
+@pytest.mark.vcr
+def test_ticker_from_binance():
+    """ get binance ticker"""
+    ticker = aiobinance.binance.ticker24_from_binance("COTIBNB")
+
+    assert isinstance(ticker, Ticker)
+
+    assert ticker.ask_price == Decimal("0.00120300")
+    assert ticker.bid_price == Decimal("0.00119900")
+    assert ticker.close_time == datetime(
+        year=2020,
+        month=11,
+        day=9,
+        hour=17,
+        minute=17,
+        microsecond=79000,
+        tzinfo=timezone.utc,
+    )
+    assert ticker.count == 2810
+    assert ticker.first_id == 454001
+    assert ticker.high_price == Decimal("0.00126300")
+    assert ticker.last_id == 456810
+    assert ticker.last_price == Decimal("0.00120200")
+    assert ticker.last_qty == Decimal("3004.00000000")
+    assert ticker.low_price == Decimal("0.00114700")
+    assert ticker.open_price == Decimal("0.00126200")
+    assert ticker.open_time == datetime(
+        year=2020,
+        month=11,
+        day=8,
+        hour=17,
+        minute=17,
+        microsecond=79000,
+        tzinfo=timezone.utc,
+    )
+    assert ticker.prev_close_price == Decimal("0.00125800")
+    assert ticker.price_change == Decimal("-0.000060000")
+    assert ticker.price_change_percent == Decimal("-4.754")
+    assert ticker.quote_volume == Decimal("3631.82546700")
+    assert ticker.symbol == "COTIBNB"
+    assert ticker.volume == Decimal("3013981.00000000")
+    assert ticker.weighted_avg_price == Decimal("0.00120499")
 
 
 if __name__ == "__main__":
