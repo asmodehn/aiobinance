@@ -11,7 +11,7 @@ interactions:
       User-Agent:
       - python-requests/2.24.0
     method: GET
-    uri: https://api.binance.com/api/v3/myTrades?endTime=1598569200000&limit=1000&startTime=1598482800000&symbol=COTIBNB
+    uri: https://api.binance.com/api/v3/myTrades?endTime=1598572800000&limit=1000&startTime=1598486400000&symbol=COTIBNB
   response:
     body:
       string: !!binary |

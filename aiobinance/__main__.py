@@ -154,7 +154,7 @@ def balance(ctx, apikey, secret):
 @click.option(
     "--to", "to_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
 )  # default to today
-@click.option("--utc", "utc", default=True, is_flag=True)
+@click.option("--utc", "utc", default=False, is_flag=True)
 @click.option("--apikey", default=None)
 @click.option("--secret", default=None)
 @click.option("--html", default=False, is_flag=True)
@@ -164,7 +164,7 @@ def trades(
     market_pair: str,
     from_date: date,
     to_date: date,
-    utc=True,
+    utc=False,
     apikey=None,
     secret=None,
     html=True,
@@ -222,10 +222,10 @@ def trades(
 @click.option(
     "--to", "to_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
 )  # default to today
-@click.option("--utc", "utc", default=True, is_flag=True)
+@click.option("--utc", "utc", default=False, is_flag=True)
 @click.option("--html", default=False, is_flag=True)
 @click.pass_context
-def price(ctx, market_pair, from_date: date, to_date: date, utc=True, html=True):
+def price(ctx, market_pair, from_date: date, to_date: date, utc=False, html=True):
     """display prices"""
 
     time_zero = time(tzinfo=timezone.utc) if utc else time(tzinfo=local_tz)
@@ -234,6 +234,10 @@ def price(ctx, market_pair, from_date: date, to_date: date, utc=True, html=True)
     else:
         to_datetime = datetime.combine(from_date + timedelta(days=1), time_zero)
     from_datetime = datetime.combine(from_date, time_zero)
+
+    # quick help to debug datetime tricky issues
+    # print(f"from: {from_datetime}")
+    # print(f"to: {to_datetime}")
 
     ohlcv = binance.price_from_binance(
         symbol=market_pair,
