@@ -152,12 +152,20 @@ def balance(ctx, apikey, secret):
 @click.option(
     "--to", "to_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
 )  # default to today
+@click.option("--utc", "utc", default=True, is_flag=True)
 @click.option("--apikey", default=None)
 @click.option("--secret", default=None)
 @click.option("--html", default=False, is_flag=True)
 @click.pass_context
 def trades(
-    ctx, market_pair: str, from_date: date, to_date: date, apikey, secret, html=True
+    ctx,
+    market_pair: str,
+    from_date: date,
+    to_date: date,
+    utc=True,
+    apikey=None,
+    secret=None,
+    html=True,
 ):
     """display trades"""
 
@@ -169,11 +177,12 @@ def trades(
     else:
         creds = Credentials(key=apikey, secret=secret)
 
+    time_zero = time(tzinfo=timezone.utc) if utc else time()
     if to_date == date.today():
         to_datetime = datetime.now(tz=timezone.utc)
     else:
-        to_datetime = datetime.combine(from_date + timedelta(days=1), time())
-    from_datetime = datetime.combine(from_date, time())
+        to_datetime = datetime.combine(from_date + timedelta(days=1), time_zero)
+    from_datetime = datetime.combine(from_date, time_zero)
 
     trades = binance.trades_from_binance(
         symbol=market_pair,
@@ -203,11 +212,6 @@ def trades(
     print(trades)
 
 
-def positions():
-    """display existing positions of the authenticated user"""
-    raise NotImplementedError
-
-
 @cli.command()
 @click.argument("market_pair", required=True)
 @click.option(
@@ -216,16 +220,18 @@ def positions():
 @click.option(
     "--to", "to_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
 )  # default to today
+@click.option("--utc", "utc", default=True, is_flag=True)
 @click.option("--html", default=False, is_flag=True)
 @click.pass_context
-def price(ctx, market_pair, from_date: date, to_date: date, html=True):
+def price(ctx, market_pair, from_date: date, to_date: date, utc, html=True):
     """display prices"""
 
+    time_zero = time(tzinfo=timezone.utc) if utc else time()
     if to_date == date.today():
         to_datetime = datetime.now(tz=timezone.utc)
     else:
-        to_datetime = datetime.combine(from_date + timedelta(days=1), time())
-    from_datetime = datetime.combine(from_date, time())
+        to_datetime = datetime.combine(from_date + timedelta(days=1), time_zero)
+    from_datetime = datetime.combine(from_date, time_zero)
 
     ohlcv = binance.price_from_binance(
         symbol=market_pair,

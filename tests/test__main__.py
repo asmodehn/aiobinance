@@ -132,7 +132,7 @@ def test_trades(keyfile):
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        f"trades COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --apikey {keyfile.key} --secret {keyfile.secret}".split(),
+        f"trades COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --utc --apikey {keyfile.key} --secret {keyfile.secret}".split(),
         input="2",
     )
 
@@ -192,7 +192,7 @@ def test_price(keyfile):
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        f"price COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')}".split(),
+        f"price COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --utc".split(),
         input="2",
     )
 
