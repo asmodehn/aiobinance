@@ -63,6 +63,6 @@ def tests(session):
     session.install("pytest", "pytest-recording", "pytest-asyncio")
 
     # displaying current machine date (it could influence tests if not handled properly)
-    session.run(" date --iso-8601=ns".split())
+    session.run(*"date --iso-8601=ns".split(), external=True)
 
-    session.run("pytest", "-sv")
+    session.run(*"pytest -sv".split())
