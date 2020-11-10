@@ -1,7 +1,7 @@
 import os
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from click.testing import CliRunner
@@ -120,7 +120,7 @@ def test_balance(keyfile):
 def test_trades(keyfile):
     """ testing trades command with --keyfile or from cassettes """
 
-    start_time = datetime.fromtimestamp(1598524340551 / 1000)
+    start_time = datetime.fromtimestamp(1598524340551 / 1000, tz=timezone.utc)
     end_time = start_time + timedelta(days=1)
 
     runner = CliRunner()
@@ -178,7 +178,7 @@ def test_price(keyfile):
 
     """ testing price command with --keyfile or from cassettes """
 
-    start_time = datetime.fromtimestamp(1598524340551 / 1000)
+    start_time = datetime.fromtimestamp(1598524340551 / 1000, tz=timezone.utc)
     end_time = start_time + timedelta(days=1)
 
     runner = CliRunner()
