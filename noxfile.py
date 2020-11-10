@@ -2,6 +2,9 @@ import subprocess
 
 import nox
 
+# For fast local execution. CI will test with fresh venvs everytime in any case.
+nox.options.reuse_existing_virtualenvs = True
+
 # Whenever type-hints are completed on a file it should be added here so that
 # this file will continue to be checked by mypy. Errors from other files are
 # ignored.

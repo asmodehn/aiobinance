@@ -49,7 +49,7 @@ conf_pure_mm_coti_bnb_binance.yml,pure_market_making,binance,1598526454743,COTIB
             in result.output
         )
     else:
-        raise pytest.fail(msg=result.output, pytrace=False)
+        raise result.exception
 
 
 def test_auth():
@@ -117,7 +117,7 @@ def test_balance(keyfile):
         assert "makerCommission: 10" in result.output
         assert "takerCommission: 10" in result.output
     else:
-        raise pytest.fail(msg=result.output, pytrace=False)
+        raise result.exception
 
 
 @pytest.mark.vcr(
@@ -178,7 +178,7 @@ def test_trades(keyfile):
             in result.output
         )
     else:
-        raise pytest.fail(msg=result.output, pytrace=False)
+        raise result.exception
 
 
 @pytest.mark.vcr
@@ -211,7 +211,7 @@ def test_price(keyfile):
             in result.output
         )
     else:
-        raise pytest.fail(msg=result.output, pytrace=False)
+        raise result.exception
 
 
 if __name__ == "__main__":
