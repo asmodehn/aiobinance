@@ -24,8 +24,9 @@ conf_pure_mm_coti_bnb_binance.yml,pure_market_making,binance,1598526454743,COTIB
         )
         fp.seek(0)
 
+    cmd = f"hummingbot {fp.name}"
     runner = CliRunner()
-    result = runner.invoke(cli, f"hummingbot {fp.name}".split(), input="2")
+    result = runner.invoke(cli, cmd.split(), input="2")
 
     if result.exit_code == 0:
         assert (
@@ -49,6 +50,7 @@ conf_pure_mm_coti_bnb_binance.yml,pure_market_making,binance,1598526454743,COTIB
             in result.output
         )
     else:
+        print(f"CMD: {cmd}")
         raise result.exception
 
 
@@ -90,9 +92,10 @@ def test_balance(keyfile):
 
     # passing keyfile so the results do not depend on environment (arguably too complex with 2 levels of envs)
     # but on how pytest is called to run the tests. We're testing the --apikey and --secret options at the same time.
+    cmd = f"balance --apikey {keyfile.key} --secret {keyfile.secret}"
     result = runner.invoke(
         cli,
-        f"balance --apikey {keyfile.key} --secret {keyfile.secret}".split(),
+        cmd.split(),
         input="2",
     )
 
@@ -117,6 +120,7 @@ def test_balance(keyfile):
         assert "makerCommission: 10" in result.output
         assert "takerCommission: 10" in result.output
     else:
+        print(f"CMD: {cmd}")
         raise result.exception
 
 
@@ -129,10 +133,11 @@ def test_trades(keyfile):
     start_time = datetime.fromtimestamp(1598524340551 / 1000, tz=timezone.utc)
     end_time = start_time + timedelta(days=1)
 
+    cmd = f"trades COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --utc --apikey {keyfile.key} --secret {keyfile.secret}"
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        f"trades COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --utc --apikey {keyfile.key} --secret {keyfile.secret}".split(),
+        cmd.split(),
         input="2",
     )
 
@@ -178,6 +183,7 @@ def test_trades(keyfile):
             in result.output
         )
     else:
+        print(f"CMD: {cmd}")
         raise result.exception
 
 
@@ -189,10 +195,11 @@ def test_price(keyfile):
     start_time = datetime.fromtimestamp(1598524340551 / 1000, tz=timezone.utc)
     end_time = start_time + timedelta(days=1)
 
+    cmd = f"price COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --utc"
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        f"price COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --utc".split(),
+        cmd.split(),
         input="2",
     )
 
@@ -211,6 +218,8 @@ def test_price(keyfile):
             in result.output
         )
     else:
+
+        print(f"CMD: {cmd}")
         raise result.exception
 
 

@@ -48,6 +48,10 @@ def trades_from_binance(
         API_KEY=credentials.key, API_SECRET=credentials.secret
     )  # we need private requests here !
 
+    # to make sure the timezone is set at this stage (otherwise timestamps will be ambiguous)
+    assert start_time.tzinfo is not None
+    assert end_time.tzinfo is not None
+
     start_timestamp = int(start_time.timestamp() * 1000)
     end_timestamp = int(end_time.timestamp() * 1000)
 
@@ -89,6 +93,10 @@ def price_from_binance(
 ) -> OHLCV:
     api = BinanceRaw(API_KEY="", API_SECRET="")  # we dont need private requests here
     # Ref : https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-data
+
+    # to make sure the timezone is set at this stage (otherwise timestamps will be ambiguous)
+    assert start_time.tzinfo is not None
+    assert end_time.tzinfo is not None
 
     start_timestamp = int(start_time.timestamp() * 1000)
     end_timestamp = int(end_time.timestamp() * 1000)

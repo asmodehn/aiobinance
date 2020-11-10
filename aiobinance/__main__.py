@@ -39,6 +39,8 @@ import aiobinance.repl as repl
 from aiobinance._cli_params import Date
 from aiobinance.config import Credentials
 
+local_tz = datetime.now(tz=timezone.utc).astimezone().tzinfo
+
 
 @click.group()
 def cli():
@@ -177,7 +179,7 @@ def trades(
     else:
         creds = Credentials(key=apikey, secret=secret)
 
-    time_zero = time(tzinfo=timezone.utc) if utc else time()
+    time_zero = time(tzinfo=timezone.utc) if utc else time(tzinfo=local_tz)
     if to_date == date.today():
         to_datetime = datetime.now(tz=timezone.utc)
     else:
@@ -223,10 +225,10 @@ def trades(
 @click.option("--utc", "utc", default=True, is_flag=True)
 @click.option("--html", default=False, is_flag=True)
 @click.pass_context
-def price(ctx, market_pair, from_date: date, to_date: date, utc, html=True):
+def price(ctx, market_pair, from_date: date, to_date: date, utc=True, html=True):
     """display prices"""
 
-    time_zero = time(tzinfo=timezone.utc) if utc else time()
+    time_zero = time(tzinfo=timezone.utc) if utc else time(tzinfo=local_tz)
     if to_date == date.today():
         to_datetime = datetime.now(tz=timezone.utc)
     else:
