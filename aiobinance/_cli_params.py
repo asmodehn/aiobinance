@@ -10,14 +10,18 @@ class Date(click.ParamType):
         self.formats = formats or [
             "%Y-%m-%d",
             "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S%z",
         ]
 
-    def get_metavar(self, param):
+    def get_metavar(self, param: click.Option):
         return "[{}]".format("|".join(self.formats))
 
     def _try_to_convert_date(self, value, format):
         try:
-            return datetime.strptime(value, format).date()
+            dt = datetime.strptime(value, format)
+            if dt.hour == dt.minute == dt.second == dt.microsecond == 0:
+                dt = dt.date()  # no time was specified => assume nothing at this stage
+            return dt
         except ValueError:
             return None
 
