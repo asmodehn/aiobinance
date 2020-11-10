@@ -1,0 +1,77 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.24.0
+    method: GET
+    uri: https://api.binance.com/api/v3/ticker/24hr?symbol=COTIBNB
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/12RQXODIBCF/wvn1AEEhNwaT7m06Uymd6NbdWokVTST6fS/d5HGapjhwPv2wdvl
+        m/S388k2ZEvS1+N+97IjG3Lp6hzSKmtLQP2JRhSXwr1mB+hyaJ0vEVEiBdIr1GXloHgey4MvRObd
+        jFNhzOSGMW1sD2sq9XR3k/XuwcZn8OZuKMeUiikODXFOdbFyMGPuejAwI+nSkPWfD0/Edz0YNJXL
+        enuBdm1QIVOFnT6AcFNjr+tIIpn00TbDGaYeWGw0W77yNVgH73OBilmkuRQqmTMca4+YokJLqTFC
+        YjYk96P8J0Zw/kc+6q53+4JshRSYIYwwnJVmFK128F/H8fDzC8KmoUUFAgAA
+    headers:
+      Access-Control-Allow-Methods:
+      - GET, HEAD, OPTIONS
+      Access-Control-Allow-Origin:
+      - '*'
+      Cache-Control:
+      - no-cache, no-store, must-revalidate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '273'
+      Content-Security-Policy:
+      - default-src 'self'
+      Content-Type:
+      - application/json;charset=UTF-8
+      Date:
+      - Mon, 09 Nov 2020 17:17:39 GMT
+      Expires:
+      - '0'
+      Pragma:
+      - no-cache
+      Server:
+      - nginx
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubdomains
+      Via:
+      - 1.1 d329fabd272496968fdfd3a5a47b9950.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - awroQGZLkKavSZNX5jkaFOcJVqRaI7Mfo9E4IKmKqsrYpq-vAB5dVg==
+      X-Amz-Cf-Pop:
+      - CDG3-C1
+      X-Cache:
+      - Miss from cloudfront
+      X-Content-Security-Policy:
+      - default-src 'self'
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-WebKit-CSP:
+      - default-src 'self'
+      X-Xss-Protection:
+      - 1; mode=block
+      content-encoding:
+      - gzip
+      x-mbx-used-weight:
+      - '1'
+      x-mbx-used-weight-1m:
+      - '1'
+      x-mbx-uuid:
+      - 4dbfb4f5-c2a7-407b-b8b9-b514ea21df30
+    status:
+      code: 200
+      message: OK
+version: 1
