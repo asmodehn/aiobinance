@@ -2,6 +2,7 @@ import asyncio
 import functools
 import os
 from datetime import datetime, timedelta, timezone
+from typing import List
 
 from bokeh.layouts import row
 from bokeh.server.server import Server as BokehServer
@@ -19,10 +20,10 @@ async def display_date():
         await asyncio.sleep(1)
 
 
-def start_tornado(bkapp):
+def start_tornado(symbols: List[str]):
     # Server will take current runnin asyncio loop as his own.
     server = BokehServer(
-        {"/": bkapp}
+        {f"/{s}": functools.partial(symbol_page, symbol=s) for s in symbols}
     )  # iolopp must remain to none, num_procs must be default (1)
     server.start()
     # app = make_app()
@@ -30,11 +31,14 @@ def start_tornado(bkapp):
     return server
 
 
-def ohlc_page(doc, ohlc_1m: OHLCV):
+def symbol_page(doc, symbol: str):
+
+    yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
+    now = datetime.now(tz=timezone.utc)
 
     # p= ohlc_1m.plot(doc)  # pass the document to update
 
-    fig = web.price_plot(ohlcv=ohlc_1m, trades=None)
+    fig = web.symbol_layout(symbol=symbol, from_datetime=yesterday, to_datetime=now)
 
     doc.add_root(row(fig, sizing_mode="scale_width"))
     doc.theme = Theme(
@@ -56,15 +60,11 @@ async def main():
     # ohlc_1m = OHLCV(pair=XBTUSD, rest=rest)
     # # TODO : use implicit retrieval (maybe by accessing slices of OHLC from bokeh doc/fig update??)
     #
-    yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
-    now = datetime.now(tz=timezone.utc)
-    price = price_from_binance("COTIBNB", start_time=yesterday, end_time=now)
 
-    bkgui_doc = functools.partial(ohlc_page, ohlc_1m=price)
     # TODO : build a layout to explore different TF
 
     print("Starting Tornado Server...")
-    server = start_tornado(bkapp=bkgui_doc)
+    server = start_tornado(symbols=["COTIBNB", "BNBEUR"])
     # Note : the bkapp is run for each request to the url...
 
     # bg task...

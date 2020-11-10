@@ -195,7 +195,7 @@ def test_price(keyfile):
     start_time = datetime.fromtimestamp(1598524340551 / 1000, tz=timezone.utc)
     end_time = start_time + timedelta(days=1)
 
-    cmd = f"price COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --utc"
+    cmd = f"price COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --interval 3m --utc"
     runner = CliRunner()
     result = runner.invoke(
         cli,

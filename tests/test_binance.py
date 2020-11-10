@@ -84,7 +84,7 @@ def test_price_from_binance():
     start_time = datetime.fromtimestamp(1598524340551 / 1000, tz=timezone.utc)
     end_time = start_time + timedelta(days=1)
     ohlcv = aiobinance.binance.price_from_binance(
-        "COTIBNB", start_time=start_time, end_time=end_time
+        "COTIBNB", start_time=start_time, end_time=end_time, interval="3m"
     )
 
     assert isinstance(ohlcv, OHLCV)

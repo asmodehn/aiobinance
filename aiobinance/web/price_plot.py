@@ -7,6 +7,8 @@ from ..model import OHLCV, TradeFrame
 def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
     ohlc_source = ohlcv.as_datasource(compute_mid_time=True)
 
+    opt_trades = trades.optimized()
+
     figure = Figure(
         plot_height=320,
         tools="pan, wheel_zoom",
@@ -67,15 +69,15 @@ def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
     figure.legend.click_policy = "hide"
 
     # we can pass trades to plot together...
-    if trades is not None:
-        bought_source = ColumnDataSource(trades.loc[trades["Trade"] == "BUY"])
-        sold_source = ColumnDataSource(trades.loc[trades["Trade"] == "SELL"])
+    if trades is not None and len(trades) > 0:
+        bought_source = ColumnDataSource(opt_trades.loc[opt_trades["is_buyer"]])
+        sold_source = ColumnDataSource(opt_trades.loc[~opt_trades["is_buyer"]])
 
         figure.triangle(
             legend_label="BOUGHT",
             source=bought_source,
-            x="datetime",
-            y="Price",
+            x="time",
+            y="price",
             size=10,
             color="green",
         )
@@ -83,8 +85,8 @@ def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
         figure.inverted_triangle(
             legend_label="SOLD",
             source=sold_source,
-            x="datetime",
-            y="Price",
+            x="time",
+            y="price",
             size=10,
             color="red",
         )

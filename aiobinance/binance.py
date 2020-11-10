@@ -89,7 +89,7 @@ def trades_from_binance(
 
 
 def price_from_binance(
-    symbol: str, *, start_time: datetime, end_time: datetime
+    symbol: str, *, start_time: datetime, end_time: datetime, interval=None
 ) -> OHLCV:
     api = BinanceRaw(API_KEY="", API_SECRET="")  # we dont need private requests here
     # Ref : https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-data
@@ -100,7 +100,11 @@ def price_from_binance(
 
     start_timestamp = int(start_time.timestamp() * 1000)
     end_timestamp = int(end_time.timestamp() * 1000)
-    interval = BinanceRaw.interval(start_timestamp, end_timestamp)
+    interval = (
+        interval
+        if interval is not None
+        else BinanceRaw.interval(start_timestamp, end_timestamp)
+    )
 
     res = api.call_api(
         command="klines",

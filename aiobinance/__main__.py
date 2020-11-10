@@ -30,12 +30,15 @@
 # => webconnection should not be possible without authentication (given exchange account details is stored in running process)
 
 from datetime import date, datetime, time, timedelta, timezone
+from typing import Optional
 
 import click
+from click import Choice
 
 import aiobinance.binance as binance
 import aiobinance.hummingbot as hummingbot
 import aiobinance.repl as repl
+from aiobinance import websrv
 from aiobinance._cli_params import Date
 from aiobinance.config import Credentials
 
@@ -222,10 +225,43 @@ def trades(
 @click.option(
     "--to", "to_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
 )  # default to today
-@click.option("--utc", "utc", default=False, is_flag=True)
+@click.option(
+    "--interval",
+    "-i",
+    type=Choice(
+        choices=[
+            "1M",
+            "1m",
+            "3m",
+            "5m",
+            "15m",
+            "30m",
+            "1h",
+            "2h",
+            "4h",
+            "6h",
+            "8h",
+            "12h",
+            "1d",
+            "3d",
+            "1w",
+        ]
+    ),
+    default=None,
+    required=False,
+)  # default to nothing -> calculated based on max data point (for one request only)
+@click.option("--utc", default=False, is_flag=True)
 @click.option("--html", default=False, is_flag=True)
 @click.pass_context
-def price(ctx, market_pair, from_date: date, to_date: date, utc=False, html=True):
+def price(
+    ctx,
+    market_pair,
+    from_date: date,
+    to_date: date,
+    interval: Optional[str] = None,
+    utc=False,
+    html=True,
+):
     """display prices"""
 
     time_zero = time(tzinfo=timezone.utc) if utc else time(tzinfo=local_tz)
@@ -243,6 +279,7 @@ def price(ctx, market_pair, from_date: date, to_date: date, utc=False, html=True
         symbol=market_pair,
         start_time=from_datetime,
         end_time=to_datetime,
+        interval=interval,
     )
 
     if html:
@@ -267,6 +304,42 @@ def price(ctx, market_pair, from_date: date, to_date: date, utc=False, html=True
     print(ohlcv)
 
 
+async def interactive():
+    """ Running aiobinance in interactive mode """
+    # from prompt_toolkit import Application
+    # from prompt_toolkit.buffer import Buffer
+    # from prompt_toolkit.layout.containers import VSplit, Window
+    # from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
+    # from prompt_toolkit.layout.layout import Layout
+    # from ptterm import Terminal
+    #
+    # def done():
+    #     application.exit()
+    #
+    # term_container = Terminal(done_callback=done)
+    # log_buffer = Buffer(read_only=True)
+    #
+    # application = Application(
+    #     layout=Layout(
+    #         container=VSplit([term_container,
+    #             Window(width=1, char='|'),
+    #             Window(content=BufferControl(buffer=log_buffer))
+    #         ]),
+    #         focused_element=term_container,
+    #     ),
+    #     full_screen=True,
+    # )
+    #
+    #
+    # await application.run_async()
+
+    # starting websrv in background...
+    await websrv.main()
+
+    # repl keeps running until the end
+    # await repl.embedded_ptpython()
+
+
 if __name__ == "__main__":
     import asyncio
     import sys
@@ -276,4 +349,4 @@ if __name__ == "__main__":
         cli()
     else:
         # or we go full interactive mode (no args)
-        asyncio.run(repl.embedded_ptpython())
+        asyncio.run(interactive())

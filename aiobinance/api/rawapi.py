@@ -62,7 +62,9 @@ class Binance:
         self.shift_seconds = seconds
 
     @staticmethod
-    def interval(startTime: int, endTime: int):
+    def interval(
+        startTime: int, endTime: int, max_datapoints=240
+    ):  # TODO: max datapoint clever default ??
         """
         binance intervals : 1m 3m 5m 15m 30m 1h 2h 4h 6h 8h 12h 1d 3d 1w 1M
         :param startTime: in ms
@@ -72,33 +74,33 @@ class Binance:
         interval_mins = (endTime - startTime) / 60_000  # ms to minutes
 
         interval = "1M"
-        if 0 < interval_mins / 1000 <= 1:
+        if 0 < interval_mins / max_datapoints <= 1:
             interval = "1m"
-        elif 1 < interval_mins / 1000 <= 3:
+        elif 1 < interval_mins / max_datapoints <= 3:
             interval = "3m"
-        elif 3 < interval_mins / 1000 <= 5:
+        elif 3 < interval_mins / max_datapoints <= 5:
             interval = "5m"
-        elif 5 < interval_mins / 1000 <= 15:
+        elif 5 < interval_mins / max_datapoints <= 15:
             interval = "15m"
-        elif 15 < interval_mins / 1000 <= 30:
+        elif 15 < interval_mins / max_datapoints <= 30:
             interval = "30m"
-        elif 30 < interval_mins / 1000 <= 60:
+        elif 30 < interval_mins / max_datapoints <= 60:
             interval = "1h"
-        elif 60 < interval_mins / 1000 <= 60 * 2:
+        elif 60 < interval_mins / max_datapoints <= 60 * 2:
             interval = "2h"
-        elif 60 * 2 < interval_mins / 1000 <= 60 * 4:
+        elif 60 * 2 < interval_mins / max_datapoints <= 60 * 4:
             interval = "4h"
-        elif 60 * 4 < interval_mins / 1000 <= 60 * 6:
+        elif 60 * 4 < interval_mins / max_datapoints <= 60 * 6:
             interval = "6h"
-        elif 60 * 6 < interval_mins / 1000 <= 60 * 8:
+        elif 60 * 6 < interval_mins / max_datapoints <= 60 * 8:
             interval = "8h"
-        elif 60 * 8 < interval_mins / 1000 <= 60 * 12:
+        elif 60 * 8 < interval_mins / max_datapoints <= 60 * 12:
             interval = "12h"
-        elif 60 * 12 < interval_mins / 1000 <= 60 * 24:
+        elif 60 * 12 < interval_mins / max_datapoints <= 60 * 24:
             interval = "1d"
-        elif 60 * 24 < interval_mins / 1000 <= 60 * 24 * 3:
+        elif 60 * 24 < interval_mins / max_datapoints <= 60 * 24 * 3:
             interval = "3d"
-        elif 60 * 24 * 3 < interval_mins / 1000 <= 60 * 24 * 7:
+        elif 60 * 24 * 3 < interval_mins / max_datapoints <= 60 * 24 * 7:
             interval = "1w"
         # otherwise the original '1M' setting
         return interval

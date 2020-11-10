@@ -1,4 +1,4 @@
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
@@ -40,28 +40,30 @@ class OHLCV:
 
     _df: pd.DataFrame
 
+    @property
+    def open_time(self) -> List[datetime]:
+        return self._df.open_time.to_list()
+
+    @property
+    def close_time(self) -> List[datetime]:
+        return self._df.close_time.to_list()
+
     def __init__(self, *candles: Candle):
         # Here we follow binance format and enforce proper python types
 
-        df = pd.DataFrame.from_records([asdict(dc) for dc in candles])
+        df = pd.DataFrame.from_records(
+            [asdict(dc) for dc in candles], columns=[f.name for f in fields(Candle)]
+        )
 
         self._df = df
 
-    def as_datasource(self, compute_mid_time=True):
+    def as_datasource(self, compute_mid_time=True) -> ColumnDataSource:
         if compute_mid_time:
-            plotdf = self._df.copy()
+            plotdf = self.optimized()
             timeinterval = plotdf.open_time[1] - plotdf.open_time[0]
             plotdf["mid_time"] = plotdf.open_time + timeinterval / 2
 
         return ColumnDataSource(plotdf)
-
-    @property
-    def open_time(self):
-        return self._df.open_time
-
-    @property
-    def close_time(self):
-        return self._df.close_time
 
     def __getitem__(self, item: int):  # TODO : slice
         if item < len(self._df):
@@ -84,3 +86,8 @@ class OHLCV:
 
     def __str__(self):
         return tabulate(self._df, headers="keys", tablefmt="psql")
+
+    def optimized(self) -> pd.DataFrame:
+        opt_copy = self._df.copy(deep=True)
+        opt_copy.convert_dtypes()
+        return opt_copy

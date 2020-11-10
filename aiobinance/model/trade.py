@@ -1,4 +1,4 @@
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
@@ -46,10 +46,57 @@ class Trade:
 class TradeFrame:
     _df: pd.DataFrame
 
+    @property
+    def time(self) -> List[datetime]:
+        return self._df.time.to_list()
+
+    @property
+    def symbol(self) -> List[str]:  # TODO : improve
+        return self._df.symbol.to_list()
+
+    @property
+    def id(self) -> List[int]:
+        return self._df.id.to_list()
+
+    @property
+    def price(self) -> List[Decimal]:
+        return self._df.price.to_list()
+
+    @property
+    def qty(self) -> List[Decimal]:
+        return self._df.qty.to_list()
+
+    @property
+    def quote_qty(self) -> List[Decimal]:
+        return self._df.quote_qty.to_list()
+
+    @property
+    def commission(self) -> List[Decimal]:
+        return self._df.commission.to_list()
+
+    @property
+    def commission_asset(self) -> List[str]:  # TODO : improve
+        return self._df.commission_asset.to_list()
+
+    @property
+    def is_buyer(self) -> List[bool]:
+        return self._df.is_buyer.to_list()
+
+    @property
+    def is_maker(self) -> List[bool]:
+        return self._df.is_maker.to_list()
+
+    # TODO
+    #  order_id: Optional[int]
+    #  order_list_id: Optional[int]
+    #  is_best_match: Optional[bool]
+
     def __init__(self, *trades: Trade):
         # Here we follow binance format and enforce proper python types
 
-        df = pd.DataFrame.from_records([asdict(dc) for dc in trades])
+        df = pd.DataFrame.from_records(
+            [asdict(dc) for dc in trades], columns=[f.name for f in fields(Trade)]
+        )
 
         self._df = df
 
@@ -71,3 +118,13 @@ class TradeFrame:
 
     def __str__(self):
         return tabulate(self._df, headers="keys", tablefmt="psql")
+
+    def optimized(self):
+        opt_copy = self._df.copy(deep=True)
+        opt_copy.convert_dtypes()
+        # also convert decimal to floats, losing precision
+        opt_copy.price = opt_copy.price.to_numpy("float64")
+        opt_copy.qty = opt_copy.qty.to_numpy("float64")
+        opt_copy.quote_qty = opt_copy.quote_qty.to_numpy("float64")
+        opt_copy.commission = opt_copy.commission.to_numpy("float64")
+        return opt_copy
