@@ -5,7 +5,7 @@ import hypothesis.strategies as st
 from hypothesis import given
 
 # strategy to build dataclasses dynamically
-from aiobinance.model.containers.dataclasses import dataclass
+from aiobinance.model.containers.datacrystals import datacrystal
 
 
 @st.composite
@@ -26,7 +26,7 @@ def st_dcls(
         )
     )
 
-    dcls = dataclass(type(draw(names), (), attrs))
+    dcls = datacrystal(type(draw(names), (), attrs))
 
     return dcls
 
@@ -38,6 +38,8 @@ class TestDataclassExample(unittest.TestCase):
         dcinst = data.draw(dcls.strategy())
 
         dcstr = str(dcinst)
+
+        assert type(dcinst).__name__ in dcstr
 
         for f in fields(dcinst):
             assert f"{f.name}: {getattr(dcinst, 'f.name')}" in dcstr
