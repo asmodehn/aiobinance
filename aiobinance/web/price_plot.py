@@ -5,12 +5,9 @@ from ..model import OHLCV, TradeFrame
 
 
 def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
-    timeinterval = ohlcv["open_time"][1] - ohlcv["open_time"][0]
-    ohlcv["mid_time"] = ohlcv["open_time"] + timeinterval / 2
+    ohlc_source = ohlcv.as_datasource(compute_mid_time=True)
 
-    print(ohlcv["mid_time"][0])
-
-    ohlc_source = ColumnDataSource(ohlcv.df)
+    opt_trades = trades.optimized()
 
     figure = Figure(
         plot_height=320,
@@ -35,6 +32,9 @@ def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
     updown = [
         o < c for o, c in zip(ohlc_source.data["open"], ohlc_source.data["close"])
     ]
+
+    # here we assume the time interval is regular and uniform
+    timeinterval = ohlc_source.data["open_time"][1] - ohlc_source.data["open_time"][0]
 
     # TODO : https://docs.bokeh.org/en/latest/docs/user_guide/data.html#customjsfilter
     # This would simplify python code regarding update of this simple filter
@@ -69,15 +69,15 @@ def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
     figure.legend.click_policy = "hide"
 
     # we can pass trades to plot together...
-    if trades is not None:
-        bought_source = ColumnDataSource(trades.loc[trades["Trade"] == "BUY"])
-        sold_source = ColumnDataSource(trades.loc[trades["Trade"] == "SELL"])
+    if trades is not None and len(trades) > 0:
+        bought_source = ColumnDataSource(opt_trades.loc[opt_trades["is_buyer"]])
+        sold_source = ColumnDataSource(opt_trades.loc[~opt_trades["is_buyer"]])
 
         figure.triangle(
             legend_label="BOUGHT",
             source=bought_source,
-            x="datetime",
-            y="Price",
+            x="time",
+            y="price",
             size=10,
             color="green",
         )
@@ -85,8 +85,8 @@ def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
         figure.inverted_triangle(
             legend_label="SOLD",
             source=sold_source,
-            x="datetime",
-            y="Price",
+            x="time",
+            y="price",
             size=10,
             color="red",
         )

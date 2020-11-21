@@ -29,18 +29,20 @@
 # => __main__ should provide long arguments to allow webconnections (authentication details)
 # => webconnection should not be possible without authentication (given exchange account details is stored in running process)
 
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta, timezone
+from typing import Optional
 
 import click
+from click import Choice
 
 import aiobinance.binance as binance
 import aiobinance.hummingbot as hummingbot
 import aiobinance.repl as repl
+from aiobinance import websrv
 from aiobinance._cli_params import Date
-
-# TODO
-# binance.trades_from_binance()
 from aiobinance.config import Credentials
+
+local_tz = datetime.now(tz=timezone.utc).astimezone().tzinfo
 
 
 @click.group()
@@ -49,38 +51,33 @@ def cli():
 
 
 @cli.command(name="hummingbot")
-@click.argument("filename", type=click.Path(exists=True), required=False)
+@click.argument("filename", type=click.Path(exists=True), required=True)
+@click.option("--html", default=False, is_flag=True)
 @click.pass_context
-def hummingbot_instance(ctx, filename):
-    "provide a report of hummingbot trades"
+def hummingbot_instance(ctx, filename, html=False):
+    """provide a report of hummingbot trades"""
 
     trades = hummingbot.trades_from_csv(click.format_filename(filename))
-    print(trades.head())
 
-    base = trades.Base.unique()
-    quote = trades.Quote.unique()
-
-    symbol = base[0] + quote[0]  # assuming only one value
-
-    print(symbol)
+    symbol = trades[0].symbol  # assuming only one symbol !
 
     ohlcv = binance.price_from_binance(
-        start_time=trades.datetime.iloc[0].timestamp(),
-        end_time=trades.datetime.iloc[-1].timestamp(),
+        start_time=trades[0].time,
+        end_time=trades[-1].time,
         symbol=symbol,
     )
 
-    import aiobinance.web
+    if html:
+        from bokeh.io import output_file
+        from bokeh.plotting import show
 
-    report = aiobinance.web.trades_layout(ohlcv=ohlcv, trades=trades)
+        import aiobinance.web
 
-    from bokeh.io import output_file
+        report = aiobinance.web.trades_layout(ohlcv=ohlcv, trades=trades)
+        output_file(f"{filename}_report.html")
+        show(report)
 
-    output_file(f"{filename}_report.html")
-
-    from bokeh.plotting import show
-
-    show(report)
+    print(trades)
 
 
 @cli.command()
@@ -152,121 +149,199 @@ def balance(ctx, apikey, secret):
     print(binance.balance_from_binance(credentials=creds))
 
 
-def positions():
-    """display existing positions of the authenticated user"""
-    raise NotImplementedError
-
-
-### COMMAND that rely on some timeframe ###
-
-
-@click.argument("market_pair", required=True)
+@cli.command()
+@click.argument("market_pair", required=True, default=None)
 @click.option(
-    "--from", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
+    "--from", "from_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
 )  # default to yesterday
 @click.option(
-    "--to", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
+    "--to", "to_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
 )  # default to today
+@click.option("--utc", "utc", default=False, is_flag=True)
+@click.option("--apikey", default=None)
+@click.option("--secret", default=None)
+@click.option("--html", default=False, is_flag=True)
+@click.pass_context
+def trades(
+    ctx,
+    market_pair: str,
+    from_date: date,
+    to_date: date,
+    utc=False,
+    apikey=None,
+    secret=None,
+    html=True,
+):
+    """display trades"""
+
+    if apikey is None or secret is None:
+        ctx.invoke(auth, verbose=False)  # this should fill up arguments
+        creds = Credentials(
+            key=ctx.params.get("apikey"), secret=ctx.params.get("secret")
+        )
+    else:
+        creds = Credentials(key=apikey, secret=secret)
+
+    time_zero = time(tzinfo=timezone.utc) if utc else time(tzinfo=local_tz)
+    if to_date == date.today():
+        to_datetime = datetime.now(tz=timezone.utc)
+    else:
+        to_datetime = datetime.combine(from_date + timedelta(days=1), time_zero)
+    from_datetime = datetime.combine(from_date, time_zero)
+
+    trades = binance.trades_from_binance(
+        symbol=market_pair,
+        start_time=from_datetime,
+        end_time=to_datetime,
+        credentials=creds,
+    )
+
+    if html:
+        from bokeh.io import output_file
+        from bokeh.plotting import show
+
+        import aiobinance.web
+
+        ohlcv = binance.price_from_binance(
+            symbol=market_pair,
+            start_time=from_datetime,
+            end_time=to_datetime,
+        )
+
+        report = aiobinance.web.price_plot(ohlcv=ohlcv, trades=trades)
+        output_file(f"{market_pair}_{from_date}_{to_date}_price.html")
+        show(report)
+
+    # TODO : terminal plot ??
+
+    print(trades)
+
+
+@cli.command()
+@click.argument("market_pair", required=True)
+@click.option(
+    "--from", "from_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
+)  # default to yesterday
+@click.option(
+    "--to", "to_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
+)  # default to today
+@click.option(
+    "--interval",
+    "-i",
+    type=Choice(
+        choices=[
+            "1M",
+            "1m",
+            "3m",
+            "5m",
+            "15m",
+            "30m",
+            "1h",
+            "2h",
+            "4h",
+            "6h",
+            "8h",
+            "12h",
+            "1d",
+            "3d",
+            "1w",
+        ]
+    ),
+    default=None,
+    required=False,
+)  # default to nothing -> calculated based on max data point (for one request only)
+@click.option("--utc", default=False, is_flag=True)
 @click.option("--html", default=False, is_flag=True)
 @click.pass_context
 def price(
-    ctx, market_pair, from_date: datetime, to_date: datetime, interval: str, html=True
+    ctx,
+    market_pair,
+    from_date: date,
+    to_date: date,
+    interval: Optional[str] = None,
+    utc=False,
+    html=True,
 ):
+    """display prices"""
+
+    time_zero = time(tzinfo=timezone.utc) if utc else time(tzinfo=local_tz)
+    if to_date == date.today():
+        to_datetime = datetime.now(tz=timezone.utc)
+    else:
+        to_datetime = datetime.combine(from_date + timedelta(days=1), time_zero)
+    from_datetime = datetime.combine(from_date, time_zero)
+
+    # quick help to debug datetime tricky issues
+    # print(f"from: {from_datetime}")
+    # print(f"to: {to_datetime}")
 
     ohlcv = binance.price_from_binance(
         symbol=market_pair,
-        start_time=from_date.timestamp(),
-        end_time=to_date.timestamp(),
+        start_time=from_datetime,
+        end_time=to_datetime,
         interval=interval,
     )
 
     if html:
+
+        from bokeh.io import output_file
+        from bokeh.plotting import show
+
         import aiobinance.web
 
         report = aiobinance.web.price_plot(ohlcv=ohlcv)
-
-        from bokeh.io import output_file
-
         output_file(f"{market_pair}_{from_date}_{to_date}_price.html")
-
-        from bokeh.plotting import show
-
         show(report)
     else:
-        # TODO : some kind of terminal plot...
-        raise NotImplementedError
+        # TODO : terminal plot ??
+
+        # TODO : daily ticker instead of OHLCV ???
+        # tkr = binance.ticker24_from_binance(
+        #     symbol=market_pair
+        # )
+        # print(tkr)
+        pass
+    print(ohlcv)
 
 
-@click.argument("market_pair", required=False)
-@click.option(
-    "--from", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to yesterday
-@click.option(
-    "--to", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to today
-@click.option("--html", default=False, is_flag=True)
-@click.pass_context
-def trades(
-    ctx, market_pair, from_date: datetime, to_date: datetime, interval: str, html=True
-):
-    "display trades"
-    raise NotImplementedError
+async def interactive():
+    """ Running aiobinance in interactive mode """
 
+    # Retrieving basic informations on the exchange
+    exg = binance.exchange_from_binance()
 
-### GROUP by human concerns over long time: daily, weekly, monthly ###
+    # from prompt_toolkit import Application
+    # from prompt_toolkit.buffer import Buffer
+    # from prompt_toolkit.layout.containers import VSplit, Window
+    # from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
+    # from prompt_toolkit.layout.layout import Layout
+    # from ptterm import Terminal
+    #
+    # def done():
+    #     application.exit()
+    #
+    # term_container = Terminal(done_callback=done)
+    # log_buffer = Buffer(read_only=True)
+    #
+    # application = Application(
+    #     layout=Layout(
+    #         container=VSplit([term_container,
+    #             Window(width=1, char='|'),
+    #             Window(content=BufferControl(buffer=log_buffer))
+    #         ]),
+    #         focused_element=term_container,
+    #     ),
+    #     full_screen=True,
+    # )
+    #
+    #
+    # await application.run_async()
 
+    # starting websrv in background... passing symbols to provide web structure
+    await websrv.main(exg.symbols)
 
-@cli.group()
-@click.argument("market_pair", required=True)
-@click.option(
-    "--from", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to yesterday
-@click.option(
-    "--to", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to today
-@click.option("--html", default=False, is_flag=True)
-@click.pass_context
-def daily(ctx, market_pair, from_date, to_date, html):
-    """display OHLC"""
-
-    # compute interval to fit one request data into one day
-    # ohlc(market_pair, from_date, to_date, interval, html=True)
-    raise NotImplementedError
-
-
-@cli.group()
-@click.argument("market_pair", required=True)
-@click.option(
-    "--from", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to last week
-@click.option(
-    "--to", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to today
-@click.option("--html", default=False, is_flag=True)
-@click.pass_context
-def weekly(ctx, market_pair, from_date, to_date, html):
-    """display OHLC"""
-    # compute interval to fit one request data into one week
-    # ohlc(market_pair, from_date, to_date, interval, html=True)
-    raise NotImplementedError
-
-
-@cli.group()
-@click.argument("market_pair", required=True)
-@click.option(
-    "--from", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to lst month
-@click.option(
-    "--to", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to today
-@click.option("--html", default=False, is_flag=True)
-@click.pass_context
-def monthly(ctx, market_pair, from_date, to_date, html):
-    """display OHLC"""
-
-    # compute interval to fit one request data into one month
-    # ohlc(market_pair, from_date, to_date, interval, html=True)
-    raise NotImplementedError
+    # repl keeps running until the end
+    # await repl.embedded_ptpython()
 
 
 if __name__ == "__main__":
@@ -278,4 +353,4 @@ if __name__ == "__main__":
         cli()
     else:
         # or we go full interactive mode (no args)
-        asyncio.run(repl.embedded_ptpython())
+        asyncio.run(interactive())

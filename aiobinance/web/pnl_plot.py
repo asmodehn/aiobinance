@@ -9,18 +9,20 @@ from ..model import TradeFrame
 def pnl_plot(trades: TradeFrame, cumulative=True) -> Figure:
     tools = "pan,wheel_zoom,xbox_select,reset"
 
+    trades_df = trades.optimized()
+
     # Note: amount is in BASE currency. but usually we are interested in PnL in QUOTE currency
     # SELL is positive (increase QUOTE wallet)
     # BUY is negative (decrease QUOTE wallet)
-    tradeamount = trades["Amount"] * np.where(trades["Trade"] == "SELL", 1, -1)
+    tradeamount = trades_df.qty * np.where(trades_df.is_buyer, -1, 1)
     # print(tradeamount)
 
-    tradeval = trades["Price"] * tradeamount
+    tradeval = trades_df.price * tradeamount
     # print(tradeval.cumsum())
 
     plotdata = pd.DataFrame(
         data={
-            "timestamp": trades["datetime"],
+            "timestamp": trades_df.time,
             "plotted": tradeval.cumsum() if cumulative else tradeval,
         }
     )

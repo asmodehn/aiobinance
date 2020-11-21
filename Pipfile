@@ -25,6 +25,7 @@ nox = "*"
 jedi = "*"
 hypothesis = "*"
 ptpython = "*"
+tabulate = "*"
 
 [requires]
 python_version = "3.8"

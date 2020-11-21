@@ -2,6 +2,9 @@ import subprocess
 
 import nox
 
+# For fast local execution. CI will test with fresh venvs everytime in any case.
+nox.options.reuse_existing_virtualenvs = True
+
 # Whenever type-hints are completed on a file it should be added here so that
 # this file will continue to be checked by mypy. Errors from other files are
 # ignored.
@@ -60,6 +63,9 @@ def tests(session):
 
     # install the package first to retrieve all dependencies before testing
     session.install(".")
-    session.install("pytest", "pytest-recording")
+    session.install("pytest", "pytest-recording", "pytest-asyncio")
 
-    session.run("pytest", "-s")
+    # displaying current machine date (it could influence tests if not handled properly)
+    session.run(*"date --iso-8601=ns".split(), external=True)
+
+    session.run(*"pytest -sv".split())
