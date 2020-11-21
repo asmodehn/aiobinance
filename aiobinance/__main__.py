@@ -306,6 +306,10 @@ def price(
 
 async def interactive():
     """ Running aiobinance in interactive mode """
+
+    # Retrieving basic informations on the exchange
+    exg = binance.exchange_from_binance()
+
     # from prompt_toolkit import Application
     # from prompt_toolkit.buffer import Buffer
     # from prompt_toolkit.layout.containers import VSplit, Window
@@ -333,8 +337,8 @@ async def interactive():
     #
     # await application.run_async()
 
-    # starting websrv in background...
-    await websrv.main()
+    # starting websrv in background... passing symbols to provide web structure
+    await websrv.main(exg.symbols)
 
     # repl keeps running until the end
     # await repl.embedded_ptpython()

@@ -9,6 +9,7 @@ from bokeh.server.server import Server as BokehServer
 from bokeh.themes import Theme
 
 from aiobinance import price_from_binance, web
+from aiobinance.model.exchange import Symbol
 from aiobinance.model.ohlcv import OHLCV
 
 
@@ -48,7 +49,7 @@ def symbol_page(doc, symbol: str):
     # TODO : some way to close the ohlc subscription when we dont need it anymore...
 
 
-async def main():
+async def main(symbols: List[Symbol]):
 
     # # Client can be global: there is only one.
     # rest = RestClient(server=Server())
@@ -64,7 +65,7 @@ async def main():
     # TODO : build a layout to explore different TF
 
     print("Starting Tornado Server...")
-    server = start_tornado(symbols=["COTIBNB", "BNBEUR"])
+    server = start_tornado(symbols=[s.symbol for s in symbols])
     # Note : the bkapp is run for each request to the url...
 
     # bg task...
