@@ -3,13 +3,13 @@ interactions:
     body: null
     headers:
       Accept:
-      - '*/*'
+        - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+        - gzip, deflate
       Connection:
-      - keep-alive
+        - keep-alive
       User-Agent:
-      - python-requests/2.25.0
+        - python-requests/2.25.0
     method: GET
     uri: https://api.binance.com/api/v3/exchangeInfo
   response:
@@ -669,60 +669,61 @@ interactions:
         NGyYJftj2ClyWLDkdno4NWFSYgw+1B3Rsy2Y/Lf//f8H35zMOv69EwA=
     headers:
       Access-Control-Allow-Methods:
-      - GET, HEAD, OPTIONS
+        - GET, HEAD, OPTIONS
       Access-Control-Allow-Origin:
-      - '*'
+        - '*'
       Cache-Control:
-      - no-cache, no-store, must-revalidate
+        - no-cache, no-store, must-revalidate
       Connection:
-      - keep-alive
+        - keep-alive
       Content-Length:
-      - '37148'
+        - '37148'
       Content-Security-Policy:
-      - default-src 'self'
+        - default-src 'self'
       Content-Type:
-      - application/json;charset=UTF-8
+        - application/json;charset=UTF-8
       Date:
-      - Sat, 21 Nov 2020 09:59:49 GMT
+        - Sat, 21 Nov 2020 09:59:49 GMT
       Expires:
-      - '0'
+        - '0'
       Pragma:
-      - no-cache
+        - no-cache
       Server:
-      - nginx
+        - nginx
       Strict-Transport-Security:
-      - max-age=31536000; includeSubdomains
+        - max-age=31536000; includeSubdomains
       Via:
-      - 1.1 9f8ec9bb50c39de1cdbf541a9313a473.cloudfront.net (CloudFront)
+        - 1.1 9f8ec9bb50c39de1cdbf541a9313a473.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - qarqfInHNFnL9KtwRDIeCR9lu9-3KUqouOJgOGs3B8HCnsADuDvTpA==
+        - qarqfInHNFnL9KtwRDIeCR9lu9-3KUqouOJgOGs3B8HCnsADuDvTpA==
       X-Amz-Cf-Pop:
-      - CDG3-C1
+        - CDG3-C1
       X-Cache:
-      - Miss from cloudfront
+        - Miss from cloudfront
       X-Content-Security-Policy:
-      - default-src 'self'
+        - default-src 'self'
       X-Content-Type-Options:
-      - nosniff
+        - nosniff
       X-Frame-Options:
-      - SAMEORIGIN
+        - SAMEORIGIN
       X-WebKit-CSP:
-      - default-src 'self'
+        - default-src 'self'
       X-Xss-Protection:
-      - 1; mode=block
+        - 1; mode=block
       content-encoding:
-      - gzip
+        - gzip
       x-mbx-used-weight:
-      - '1'
+        - '1'
       x-mbx-used-weight-1m:
-      - '1'
+        - '1'
       x-mbx-uuid:
-      - 9dc714f6-b171-401b-ae75-f35dfb9662e7
+        - 9dc714f6-b171-401b-ae75-f35dfb9662e7
     status:
       code: 200
       message: OK
 - request:
-    body: null
+    body: symbol=COTIBNB&side=BUY&type=MARKET&quantity=300
+    # &timestamp=1605967825000&signature=7182beabcca19fb44dcf3d5ac2661c3be7f02c3be4e5c21d52a7c7674acf5cb1
     headers:
       Accept:
       - '*/*'
@@ -730,25 +731,20 @@ interactions:
       - gzip, deflate
       Connection:
       - keep-alive
+      Content-Length:
+      - '147'
       User-Agent:
-      - python-requests/2.24.0
-    method: GET
-    uri: https://api.binance.com/api/v3/myTrades?endTime=1598610740551&limit=1000&startTime=1598524340551&symbol=COTIBNB
+      - python-requests/2.25.0
+    method: POST
+    uri: https://api.binance.com/api/v3/order
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/8XXS2/TQBAA4P/ic6hmZ+fZG+FUiYKQuCEOpQQR0RCI3UOF+O+Mm4JiS2svrRG5
-        eVdy9ss8dvLuR9Pe7T7sb5rz5sXrtxfrV+tm1Ww/NufojuirZn/4uDlcxEIyogzMD0svt23XLz9L
-        q+bbYXu9iTfAGUBGSQDxku/dXSxl6BePn37xdt9t3tzvwJmr5Yf16/1ut23b7f7rw2tABDIPdp63
-        7aaL7eMZu+0uvjKxGyObEKnFwdv17d3m0Jx/urppN/3z5dWX/rk73N4/rjdtd3nVXX8+Lv1cTfqJ
-        Rn7BDLN+81q/iU74BbDSL8RE7Mv7ZeRPJHnW71DtV5jy43/2E4/9xkrz8edqP3PZb5pzpV8jMCBw
-        4v/tfQrfEg/5TAl0lk/VfM0TfGav5RtSjkpakh/nRh7xNcKVZvlwWv2SivrkkUte0KeMCHX6zKI5
-        wr+4Xp6sdy3qc0qouaDHBFgZ+9AbRvgX1sufPD/qGcTZ5/QJq1M/60TqZ85exycDiCqiZfkJAYZ8
-        FqTZ4IPZCT9N5D65JrECP2dmq+Mri5tJXrTx936Ukd9BZdbvNAh/kQ8eLasUfRCUyrlHFTR+gn/A
-        1yfzUct+iwS3kj88Vht+BcsxbS7ut2HnZ4mI4Xz1Y3X1x2xXrv7q1h/Tc1QSLjv3hJ90OPfHTSwV
-        /n6aq/Nz/xeh5I+pq9LfpwAQ2MLdj4FGfKb5qy9p9djLaWLsJfTK8vcIi2o/oy/Lp3H0TWWeXz/2
-        0dTYlx3qrn6Jk6KLLzz4xLU1jH78DaUKvp4mP8pE84vNYvPn/kqr5GcKvaWli19GU/9j/FTmx9gH
-        xd4PfU//G77rI/jvfwGCR3tw9RAAAA==
+        H4sIAAAAAAAA/21RTW/CIBj+L5w7A2I/b1ar6+xm3NrDsuxQKS4YKK7QZZ3xvw+qPTSR2/PB+zy8
+        nIHqxF5yEIHFNk/jlxg4QDYVbdIKRBjBwPUCfKMyprSlH5ADCGe01tvBCZaHPXn8w09vm6NMi6JY
+        xwFPjmaYbspalUTnTFAQIQ+6oecHU2/quw44NYwYFsAJvJ0+nn3tdGdoDEcC/aWk1bS6K5JWiJaX
+        mv3QXSs1vZrgZObiwaJ0qVtl2FWaZcnSljOl0nolm77FOl9YrjtZ8Dx/3SS5vcUqi+Pi3YAD49xM
+        +DiPqiMXXRO+7zaTQjClmKyHl2Ic+HikzJWi2qb0H2B2VlG71lmAQhhePi//JDkT4qgBAAA=
     headers:
       Access-Control-Allow-Methods:
       - GET, HEAD, OPTIONS
@@ -759,13 +755,13 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '649'
+      - '281'
       Content-Security-Policy:
       - default-src 'self'
       Content-Type:
       - application/json;charset=UTF-8
       Date:
-      - Wed, 04 Nov 2020 18:46:51 GMT
+      - Sat, 21 Nov 2020 14:10:26 GMT
       Expires:
       - '0'
       Pragma:
@@ -775,9 +771,9 @@ interactions:
       Strict-Transport-Security:
       - max-age=31536000; includeSubdomains
       Via:
-      - 1.1 d329fabd272496968fdfd3a5a47b9950.cloudfront.net (CloudFront)
+      - 1.1 fd4e0938b4c73969ed42c5d06bb1bd81.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - t5KMsyU00SGl1rRsVJ-l7uj_7RtvMKl3o6l_7pPLhUFMTut-WOPn_g==
+      - c0y_JLg2-LZXbUkZvppW622olsWkhA025p_fO4jnqVT_lig3z6Vlyw==
       X-Amz-Cf-Pop:
       - CDG3-C1
       X-Cache:
@@ -794,12 +790,16 @@ interactions:
       - 1; mode=block
       content-encoding:
       - gzip
+      x-mbx-order-count-10s:
+      - '2'
+      x-mbx-order-count-1d:
+      - '2'
       x-mbx-used-weight:
-      - '5'
+      - '2'
       x-mbx-used-weight-1m:
-      - '5'
+      - '2'
       x-mbx-uuid:
-      - 3e55e859-70bb-4918-aaa4-9e1169f42f8b
+      - f205cec8-b1c6-451b-afab-7335134ffc19
     status:
       code: 200
       message: OK

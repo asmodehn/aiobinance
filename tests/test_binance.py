@@ -4,10 +4,13 @@ from decimal import Decimal
 import pytest
 
 import aiobinance.binance
+from aiobinance.api.exchange import Exchange
+from aiobinance.api.market import Market
 from aiobinance.model import TradeFrame
 from aiobinance.model.account import Account
-from aiobinance.model.exchange import Exchange, Filter, RateLimit, Symbol
+from aiobinance.model.exchange import Filter, RateLimit, Symbol
 from aiobinance.model.ohlcv import OHLCV, Candle
+from aiobinance.model.order import LimitOrder, MarketOrder
 from aiobinance.model.ticker import Ticker
 from aiobinance.model.trade import Trade
 
@@ -60,49 +63,45 @@ def test_exchange_from_binance():
         tzinfo=timezone.utc,
     )
 
-    # Validating only one symbol...
-    assert (
-        Symbol(
-            base_asset="ETH",
-            base_asset_precision=8,
-            base_commission_precision=8,
-            filters=[
-                Filter(
-                    filter_type="PRICE_FILTER",
-                    min_price=Decimal("0.00000100"),
-                    max_price=Decimal("100000.00000000"),
-                    tick_size=Decimal("0.00000100"),
-                ),
-                Filter(filter_type="PERCENT_PRICE"),
-                Filter(filter_type="LOT_SIZE"),
-                Filter(filter_type="MIN_NOTIONAL"),
-                Filter(filter_type="ICEBERG_PARTS"),
-                Filter(filter_type="MARKET_LOT_SIZE"),
-                Filter(filter_type="MAX_NUM_ALGO_ORDERS"),
-                Filter(filter_type="MAX_NUM_ORDERS"),
-            ],
-            iceberg_allowed=True,
-            is_margin_trading_allowed=True,
-            is_spot_trading_allowed=True,
-            oco_allowed=True,
-            order_types=[
-                "LIMIT",
-                "LIMIT_MAKER",
-                "MARKET",
-                "STOP_LOSS_LIMIT",
-                "TAKE_PROFIT_LIMIT",
-            ],
-            permissions=["SPOT", "MARGIN"],
-            quote_asset="BTC",
-            quote_asset_precision=8,
-            quote_commission_precision=8,
-            quote_order_qty_market_allowed=True,
-            quote_precision=8,
-            status="TRADING",
-            symbol="ETHBTC",
-        )
-        in exchange.symbols
-    )
+    # Validating only one market...
+    ethbtc_market = exchange.market["ETHBTC"]
+    assert ethbtc_market.base_asset == "ETH"
+    assert ethbtc_market.base_asset_precision == 8
+    assert ethbtc_market.base_commission_precision == 8
+    assert ethbtc_market.filters == [
+        Filter(
+            filter_type="PRICE_FILTER",
+            min_price=Decimal("0.00000100"),
+            max_price=Decimal("100000.00000000"),
+            tick_size=Decimal("0.00000100"),
+        ),
+        Filter(filter_type="PERCENT_PRICE"),
+        Filter(filter_type="LOT_SIZE"),
+        Filter(filter_type="MIN_NOTIONAL"),
+        Filter(filter_type="ICEBERG_PARTS"),
+        Filter(filter_type="MARKET_LOT_SIZE"),
+        Filter(filter_type="MAX_NUM_ALGO_ORDERS"),
+        Filter(filter_type="MAX_NUM_ORDERS"),
+    ]
+    assert ethbtc_market.iceberg_allowed is True
+    assert ethbtc_market.is_margin_trading_allowed is True
+    assert ethbtc_market.is_spot_trading_allowed is True
+    assert ethbtc_market.oco_allowed is True
+    assert ethbtc_market.order_types == [
+        "LIMIT",
+        "LIMIT_MAKER",
+        "MARKET",
+        "STOP_LOSS_LIMIT",
+        "TAKE_PROFIT_LIMIT",
+    ]
+    assert ethbtc_market.permissions == ["SPOT", "MARGIN"]
+    assert ethbtc_market.quote_asset == "BTC"
+    assert ethbtc_market.quote_asset_precision == 8
+    assert ethbtc_market.quote_commission_precision == 8
+    assert ethbtc_market.quote_order_qty_market_allowed is True
+    assert ethbtc_market.quote_precision == 8
+    assert ethbtc_market.status == "TRADING"
+    assert ethbtc_market.symbol == "ETHBTC"
 
 
 @pytest.mark.vcr(
@@ -255,6 +254,36 @@ def test_ticker_from_binance():
     assert ticker.symbol == "COTIBNB"
     assert ticker.volume == Decimal("3013981.00000000")
     assert ticker.weighted_avg_price == Decimal("0.00120499")
+
+
+@pytest.mark.vcr(
+    filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
+)
+def test_limitorder_to_binance(keyfile):
+    """ send orders to binance """
+
+    res_order = aiobinance.binance.limitorder_to_binance(
+        symbol="COTIBNB",
+        side="BUY",
+        quantity=Decimal("300"),
+        price=Decimal("0.0015"),
+        credentials=keyfile,
+    )
+
+    assert res_order
+
+
+@pytest.mark.vcr(
+    filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
+)
+def test_marketorder_to_binance(keyfile):
+    """ send orders to binance """
+
+    res_order = aiobinance.binance.marketorder_to_binance(
+        symbol="COTIBNB", side="BUY", quantity=Decimal("300"), credentials=keyfile
+    )
+
+    assert res_order
 
 
 if __name__ == "__main__":
