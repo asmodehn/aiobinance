@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import pandas as pd
@@ -6,9 +6,72 @@ import pandas as pd
 from aiobinance.api import BinanceRaw
 from aiobinance.config import Credentials, load_api_keyfile
 from aiobinance.model.account import Account
+from aiobinance.model.exchange import Exchange, Filter, RateLimit, Symbol
 from aiobinance.model.ohlcv import OHLCV, Candle
 from aiobinance.model.ticker import Ticker
 from aiobinance.model.trade import Trade, TradeFrame
+
+
+def exchange_from_binance() -> Exchange:
+    api = BinanceRaw(API_KEY="", API_SECRET="")  # we dont need private requests here
+
+    res = api.call_api(command="exchangeInfo")
+
+    # timezone mess
+    if res["timezone"] == "UTC":
+        tz = timezone.utc
+    else:
+        raise RuntimeError("Unknown timezone !")
+
+    # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
+    # We do not want to change the semantics of the exchange exposed models here.
+    exchange = Exchange(
+        servertime=datetime.fromtimestamp(float(res["serverTime"]) / 1000, tz=tz),
+        rate_limits=[
+            RateLimit(
+                rate_limit_type=rl["rateLimitType"],
+                interval=rl["interval"],
+                interval_num=rl["intervalNum"],
+                limit=rl["limit"],
+            )
+            for rl in res["rateLimits"]
+        ],
+        exchange_filters=[
+            Filter(filter_type=f["filterType"]) for f in res["exchangeFilters"]
+        ],
+        symbols=[
+            Symbol(
+                symbol=s["symbol"],
+                status=s["status"],
+                base_asset=s["baseAsset"],
+                base_asset_precision=s["baseAssetPrecision"],
+                quote_asset=s["quoteAsset"],
+                quote_precision=s["quotePrecision"],
+                quote_asset_precision=s["quoteAssetPrecision"],
+                base_commission_precision=s["baseCommissionPrecision"],
+                quote_commission_precision=s["quoteCommissionPrecision"],
+                order_types=s["orderTypes"],
+                iceberg_allowed=s["icebergAllowed"],
+                oco_allowed=s["ocoAllowed"],
+                quote_order_qty_market_allowed=s["quoteOrderQtyMarketAllowed"],
+                is_spot_trading_allowed=s["isSpotTradingAllowed"],
+                is_margin_trading_allowed=s["isMarginTradingAllowed"],
+                filters=[
+                    Filter(
+                        filter_type=f["filterType"],
+                        min_price=f.get("minPrice"),
+                        max_price=f.get("maxPrice"),
+                        tick_size=f.get("tickSize"),
+                    )
+                    for f in s["filters"]
+                ],
+                permissions=s["permissions"],
+            )
+            for s in res["symbols"]
+        ],
+    )
+
+    return exchange
 
 
 def balance_from_binance(*, credentials: Credentials = load_api_keyfile()) -> Account:

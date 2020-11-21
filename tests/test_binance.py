@@ -6,9 +6,103 @@ import pytest
 import aiobinance.binance
 from aiobinance.model import TradeFrame
 from aiobinance.model.account import Account
+from aiobinance.model.exchange import Exchange, Filter, RateLimit, Symbol
 from aiobinance.model.ohlcv import OHLCV, Candle
 from aiobinance.model.ticker import Ticker
 from aiobinance.model.trade import Trade
+
+
+@pytest.mark.vcr
+def test_exchange_from_binance():
+    """ get binance exchange info"""
+
+    exchange = aiobinance.binance.exchange_from_binance()
+
+    assert isinstance(exchange, Exchange)
+
+    assert (
+        exchange.exchange_filters == []
+    )  # TODO : try to get better sample for testing this...
+    assert len(exchange.rate_limits) == 3
+
+    # Also validating subtypes...
+
+    assert (
+        RateLimit(
+            rate_limit_type="REQUEST_WEIGHT",
+            interval="MINUTE",
+            interval_num=1,
+            limit=1200,
+        )
+        in exchange.rate_limits
+    )
+    assert (
+        RateLimit(
+            rate_limit_type="ORDERS", interval="SECOND", interval_num=10, limit=100
+        )
+        in exchange.rate_limits
+    )
+    assert (
+        RateLimit(
+            rate_limit_type="ORDERS", interval="DAY", interval_num=1, limit=200_000
+        )
+        in exchange.rate_limits
+    )
+
+    assert exchange.servertime == datetime(
+        year=2020,
+        month=11,
+        day=21,
+        hour=9,
+        minute=59,
+        second=49,
+        microsecond=550000,
+        tzinfo=timezone.utc,
+    )
+
+    # Validating only one symbol...
+    assert (
+        Symbol(
+            base_asset="ETH",
+            base_asset_precision=8,
+            base_commission_precision=8,
+            filters=[
+                Filter(
+                    filter_type="PRICE_FILTER",
+                    min_price=Decimal("0.00000100"),
+                    max_price=Decimal("100000.00000000"),
+                    tick_size=Decimal("0.00000100"),
+                ),
+                Filter(filter_type="PERCENT_PRICE"),
+                Filter(filter_type="LOT_SIZE"),
+                Filter(filter_type="MIN_NOTIONAL"),
+                Filter(filter_type="ICEBERG_PARTS"),
+                Filter(filter_type="MARKET_LOT_SIZE"),
+                Filter(filter_type="MAX_NUM_ALGO_ORDERS"),
+                Filter(filter_type="MAX_NUM_ORDERS"),
+            ],
+            iceberg_allowed=True,
+            is_margin_trading_allowed=True,
+            is_spot_trading_allowed=True,
+            oco_allowed=True,
+            order_types=[
+                "LIMIT",
+                "LIMIT_MAKER",
+                "MARKET",
+                "STOP_LOSS_LIMIT",
+                "TAKE_PROFIT_LIMIT",
+            ],
+            permissions=["SPOT", "MARGIN"],
+            quote_asset="BTC",
+            quote_asset_precision=8,
+            quote_commission_precision=8,
+            quote_order_qty_market_allowed=True,
+            quote_precision=8,
+            status="TRADING",
+            symbol="ETHBTC",
+        )
+        in exchange.symbols
+    )
 
 
 @pytest.mark.vcr(
