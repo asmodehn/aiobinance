@@ -78,7 +78,9 @@ def balance(creds):
 
     account = retrieve_account(api=api)
 
-    print(account)
+    print(
+        account._model
+    )  # need to print the account data structure, until we have a better idea of what to do here...
 
 
 @account.command()  # TODO : this should return ALL trades. trades for a specific market should be in a market
