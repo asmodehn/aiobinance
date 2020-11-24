@@ -5,19 +5,36 @@ import click
 from click import Choice
 
 import aiobinance.binance as binance
+from aiobinance.api.account import retrieve_account
+from aiobinance.api.exchange import retrieve_exchange
+from aiobinance.api.market import Market
+from aiobinance.api.rawapi import Binance
+from aiobinance.cli.account import account, pass_creds
 from aiobinance.cli.params.date import Date
 
 local_tz = datetime.now(tz=timezone.utc).astimezone().tzinfo
 
+# Ref : https://click.palletsprojects.com/en/7.x/complex/#interleaved-commands
+pass_market = click.make_pass_decorator(Market)
+
 
 @click.group()
-def market():
+@click.argument("market", type=str, required=True)
+@click.pass_context
+def market(ctx, market):
     """ provides cli access to a specific market """
-    pass
+
+    # API for public endpoints only
+    api = Binance()
+
+    exchange = retrieve_exchange(api=api)
+
+    mkt = exchange.market[market]
+
+    ctx.obj = mkt
 
 
 @market.command()  # TODO : this should return immediate price from ticker for ALL markets. specific market should move into market group
-@click.argument("market_pair", required=True)
 @click.option(
     "--from", "from_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
 )  # default to yesterday
@@ -51,10 +68,9 @@ def market():
 )  # default to nothing -> calculated based on max data point (for one request only)
 @click.option("--utc", default=False, is_flag=True)
 @click.option("--html", default=False, is_flag=True)
-@click.pass_context
+@pass_market
 def price(
-    ctx,
-    market_pair,
+    market: Market,
     from_date: date,
     to_date: date,
     interval: Optional[str] = None,
@@ -74,11 +90,8 @@ def price(
     # print(f"from: {from_datetime}")
     # print(f"to: {to_datetime}")
 
-    ohlcv = binance.price_from_binance(
-        symbol=market_pair,
-        start_time=from_datetime,
-        end_time=to_datetime,
-        interval=interval,
+    ohlcv = market.price(
+        start_time=from_datetime, end_time=to_datetime, interval=interval
     )
 
     if html:
@@ -89,7 +102,7 @@ def price(
         import aiobinance.web
 
         report = aiobinance.web.price_plot(ohlcv=ohlcv)
-        output_file(f"{market_pair}_{from_date}_{to_date}_price.html")
+        output_file(f"{market.symbol}_{from_date}_{to_date}_price.html")
         show(report)
     else:
         # TODO : terminal plot ??

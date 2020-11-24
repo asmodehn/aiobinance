@@ -31,7 +31,7 @@ def account(ctx, apikey=None, secret=None):
         # tentative loading of the API key
         creds = load_api_keyfile()
 
-        if creds is None:
+        if creds.key is None:
             # no keyfile found
             print(f"{BINANCE_API_KEYFILE} Not Found !")
             # check for interactive terminal

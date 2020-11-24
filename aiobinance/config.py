@@ -2,6 +2,7 @@ import configparser
 import inspect
 import logging
 import os
+from typing import Optional
 
 import hypothesis.strategies as st
 
@@ -20,8 +21,9 @@ logger = logging.getLogger("aiobinance.config")
 
 @dataclass
 class Credentials:
-    key: str
-    secret: str
+    # Note : Credential MUST be created, but both of these should be None to signal a public connection
+    key: Optional[str] = None
+    secret: Optional[str] = None
 
     @validator("key", "secret")
     def min_size_creds(cls, v):
@@ -45,11 +47,13 @@ def credentials_strategy():
     )
 
 
-def load_api_keyfile(filepath=BINANCE_API_KEYFILE):
+def load_api_keyfile(filepath=BINANCE_API_KEYFILE) -> Credentials:
     """Load the Binance API keyfile"""
 
     if not os.path.exists(filepath):
         logger.warning("The API keyfile {} was not found!".format(filepath))
+
+        return Credentials()
 
     else:
         with open(filepath, mode="r", encoding="utf-8") as fd:
