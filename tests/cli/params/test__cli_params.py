@@ -5,7 +5,7 @@ from typing import Optional
 import click
 from hypothesis import given
 
-from aiobinance._cli_params import Date
+from aiobinance.cli.params.date import Date
 
 
 class TestDate(unittest.TestCase):
