@@ -4,13 +4,17 @@ from datetime import date, datetime, time, timedelta, timezone
 import click
 
 import aiobinance.binance as binance
+from aiobinance.api.account import retrieve_account
+from aiobinance.api.exchange import Exchange
+from aiobinance.api.rawapi import Binance
 from aiobinance.cli.params.date import Date
 from aiobinance.config import Credentials
 
 local_tz = datetime.now(tz=timezone.utc).astimezone().tzinfo
 
 # Ref : https://click.palletsprojects.com/en/7.x/complex/#interleaved-commands
-pass_creds = click.make_pass_decorator(Credentials)
+pass_creds = click.make_pass_decorator(Credentials)  # TODO use ensure for defaults ?
+pass_exchange = click.make_pass_decorator(Exchange)
 
 
 @click.group()
@@ -70,8 +74,11 @@ def auth(creds, store):
 def balance(creds):
     """ retrieve balance for the account"""
 
-    # we always have the key here (otherwise it has been stored already)
-    print(binance.balance_from_binance(credentials=creds))
+    api = Binance(credentials=creds)  # we need private requests here !
+
+    account = retrieve_account(api=api)
+
+    print(account)
 
 
 @account.command()  # TODO : this should return ALL trades. trades for a specific market should be in a market
@@ -101,6 +108,10 @@ def trades(
     else:
         to_datetime = datetime.combine(from_date + timedelta(days=1), time_zero)
     from_datetime = datetime.combine(from_date, time_zero)
+
+    # api = Binance(credentials=creds)  # we need private requests here !
+
+    # TODO : call trades
 
     trades = binance.trades_from_binance(
         symbol=market_pair,
