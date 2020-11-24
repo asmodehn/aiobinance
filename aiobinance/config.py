@@ -27,12 +27,16 @@ class Credentials:
 
     @validator("key", "secret")
     def min_size_creds(cls, v):
-        if len(v) < 5:
+        if v is not None and len(v) < 5:
             raise ValueError("too small (len < 5)")
         return v
 
     def __repr__(self):
         return f"{self.key}"
+
+    def __bool__(self):
+        # return false if both are set to none (unauthenticated)
+        return self.key is not None or self.secret is not None
 
 
 def credentials_strategy():
