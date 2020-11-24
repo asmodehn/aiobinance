@@ -5,10 +5,17 @@ import hmac
 import json
 import time
 import urllib
+from typing import Optional
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 import requests
+
+from aiobinance.config import Credentials
+
+
+class PrivateRequestNonAuthorized(Exception):
+    pass
 
 
 class Binance:
@@ -37,7 +44,7 @@ class Binance:
         },
         #  Private methods
         "createOrder": {"url": "order", "method": "POST", "private": True},
-        "testOrder": {"url": "test", "method": "POST", "private": True},
+        "testOrder": {"url": "order/test", "method": "POST", "private": True},
         "orderInfo": {"url": "order", "method": "GET", "private": True},
         "cancelOrder": {"url": "order", "method": "DELETE", "private": True},
         "openOrders": {"url": "openOrders", "method": "GET", "private": True},
@@ -46,9 +53,11 @@ class Binance:
         "myTrades": {"url": "myTrades", "method": "GET", "private": True},
     }
 
-    def __init__(self, API_KEY, API_SECRET):
-        self.API_KEY = API_KEY
-        self.API_SECRET = bytearray(API_SECRET, encoding="utf-8")
+    def __init__(
+        self,
+        credentials: Optional[Credentials] = None,
+    ):
+        self.credentials = credentials
         self.shift_seconds = 0
 
     def __getattr__(self, name):
@@ -115,16 +124,22 @@ class Binance:
 
         payload_str = urllib.parse.urlencode(payload)
         if self.methods[command]["private"]:
+            if self.credentials is None:
+                raise PrivateRequestNonAuthorized(
+                    f"{command} is a private request but credentials are {self.credentials}. Aborted."
+                )
             payload.update(
                 {"timestamp": int(time.time() + self.shift_seconds - 1) * 1000}
             )
             payload_str = urllib.parse.urlencode(payload).encode("utf-8")
             sign = hmac.new(
-                key=self.API_SECRET, msg=payload_str, digestmod=hashlib.sha256
+                key=bytearray(self.credentials.secret, encoding="utf-8"),
+                msg=payload_str,
+                digestmod=hashlib.sha256,
             ).hexdigest()
 
             payload_str = payload_str.decode("utf-8") + "&signature=" + str(sign)
-            headers = {"X-MBX-APIKEY": self.API_KEY}
+            headers = {"X-MBX-APIKEY": self.credentials.key}
 
         if self.methods[command]["method"] == "GET":
             api_url += "?" + payload_str
