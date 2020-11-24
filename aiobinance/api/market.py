@@ -17,47 +17,76 @@ class Market:
     """ A class to simplify interacting with binance markets through the REST API."""
 
     api: Binance
-    symbol: str
-    status: str
-    base_asset: str
-    base_asset_precision: int
-    quote_asset: str
-    quote_precision: int
-    quote_asset_precision: int
+    _model: Symbol
 
-    base_commission_precision: int
-    quote_commission_precision: int
+    @property
+    def symbol(self):
+        return self._model.symbol
 
-    order_types: List[str]
+    @property
+    def status(self):
+        return self._model.status
 
-    iceberg_allowed: bool
-    oco_allowed: bool
-    is_spot_trading_allowed: bool
-    is_margin_trading_allowed: bool
-    quote_order_qty_market_allowed: bool
+    @property
+    def base_asset(self):
+        return self._model.base_asset
 
-    filters: List[Filter]
+    @property
+    def base_asset_precision(self):
+        return self._model.base_asset_precision
+
+    @property
+    def quote_asset(self):
+        return self._model.quote_asset
+
+    @property
+    def quote_precision(self):
+        return self._model.quote_precision
+
+    @property
+    def quote_asset_precision(self):
+        return self._model.quote_asset_precision
+
+    @property
+    def base_commission_precision(self):
+        return self._model.base_commission_precision
+
+    @property
+    def quote_commieeion_precision(self):
+        return self._model.quote_commission_precision
+
+    @property
+    def order_types(self):
+        return self._model.order_types
+
+    @property
+    def iceber_allowed(self):
+        return self._model.iceberg_allowed
+
+    @property
+    def oco_allowed(self):
+        return self._model.oco_allowed
+
+    @property
+    def is_spot_trading_allowed(self):
+        return self._model.is_spot_trading_allowed
+
+    @property
+    def is_margin_trading_allowed(self):
+        return self._model.is_margin_trading_allowed
+
+    @property
+    def quote_order_qty_market_allowed(self):
+        return self._model.quote_order_qty_market_allowed
+
+    @property
+    def filters(self):
+        return self._model.filters
 
     def __init__(
         self,
         api: Binance,
-        symbol: str,
-        status: str,
-        base_asset: str,
-        base_asset_precision: int,
-        quote_asset: str,
-        quote_precision: int,
-        quote_asset_precision: int,
-        base_commission_precision: int,
-        quote_commission_precision: int,
-        order_types: List[str],
-        iceberg_allowed: bool,
-        oco_allowed: bool,
-        is_spot_trading_allowed: bool,
-        is_margin_trading_allowed: bool,
-        quote_order_qty_market_allowed: bool,
-        filters: List[Filter],
-        permissions: List[str],
+        model: Symbol,
         async_loop=None,
     ):
 
@@ -65,28 +94,7 @@ class Market:
         # currently polling in the background, later TODO : websockets
 
         self.api = api
-        self.symbol = symbol
-        self.status = status
-        self.base_asset = base_asset
-        self.base_asset_precision = base_asset_precision
-        self.quote_asset = quote_asset
-        self.quote_precision = quote_precision
-        self.quote_asset_precision = quote_asset_precision
-
-        self.base_commission_precision = base_commission_precision
-        self.quote_commission_precision = quote_commission_precision
-
-        self.order_types = order_types
-
-        self.iceberg_allowed = iceberg_allowed
-        self.oco_allowed = oco_allowed
-        self.is_spot_trading_allowed = is_spot_trading_allowed
-        self.is_margin_trading_allowed = is_margin_trading_allowed
-        self.quote_order_qty_market_allowed = quote_order_qty_market_allowed
-
-        self.filters = filters
-
-        self.permissions = permissions
+        self._model = model
 
     def __call__(self, *args, **kwargs):
         """ triggers an update (polling style)"""

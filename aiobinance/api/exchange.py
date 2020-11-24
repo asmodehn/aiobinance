@@ -33,23 +33,7 @@ class Exchange:
         self.market = {
             s.symbol: Market(
                 api=self.api,
-                symbol=s.symbol,
-                status=s.status,
-                base_asset=s.base_asset,
-                base_asset_precision=s.base_asset_precision,
-                quote_asset=s.quote_asset,
-                quote_precision=s.quote_precision,
-                quote_asset_precision=s.quote_asset_precision,
-                base_commission_precision=s.base_commission_precision,
-                quote_commission_precision=s.quote_commission_precision,
-                order_types=s.order_types,
-                iceberg_allowed=s.iceberg_allowed,
-                oco_allowed=s.oco_allowed,
-                is_spot_trading_allowed=s.is_spot_trading_allowed,
-                is_margin_trading_allowed=s.is_margin_trading_allowed,
-                quote_order_qty_market_allowed=s.quote_order_qty_market_allowed,
-                filters=s.filters,
-                permissions=s.permissions,
+                model=s,
                 async_loop=async_loop,
             )
             for s in symbols
