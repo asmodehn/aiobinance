@@ -19,6 +19,7 @@ setup(
         "hypothesis",
         "bokeh",
         "tabulate",
+        "result",
     ],
     zip_safe=False,
 )
