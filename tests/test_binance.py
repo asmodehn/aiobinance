@@ -2,15 +2,16 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
+from result import Result
 
 import aiobinance.binance
+from aiobinance.api.account import Account
 from aiobinance.api.exchange import Exchange
 from aiobinance.api.market import Market
 from aiobinance.model import TradeFrame
-from aiobinance.model.account import Account
 from aiobinance.model.exchange import Filter, RateLimit, Symbol
 from aiobinance.model.ohlcv import OHLCV, Candle
-from aiobinance.model.order import LimitOrder, MarketOrder
+from aiobinance.model.order import LimitOrder, MarketOrder, OrderFill
 from aiobinance.model.ticker import Ticker
 from aiobinance.model.trade import Trade
 
@@ -259,7 +260,7 @@ def test_ticker_from_binance():
 @pytest.mark.vcr(
     filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
 )
-def test_limitorder_to_binance(keyfile):
+def test_limitorder_test_to_binance(keyfile):
     """ send orders to binance """
 
     res_order = aiobinance.binance.limitorder_to_binance(
@@ -270,7 +271,94 @@ def test_limitorder_to_binance(keyfile):
         credentials=keyfile,
     )
 
-    assert res_order
+    assert res_order and isinstance(res_order, Result)
+    assert isinstance(res_order.value, LimitOrder)
+    assert res_order.value.clientOrderId == ""
+    assert res_order.value.cummulativeQuoteQty.is_zero()
+    assert res_order.value.executedQty.is_zero()
+    assert res_order.value.fills == []
+    assert res_order.value.icebergQty is None
+    assert res_order.value.order_id == -1
+    assert res_order.value.order_list_id == -1
+    assert res_order.value.origQty == Decimal("300")
+    assert res_order.value.price == Decimal("0.0015")
+    assert res_order.value.side == "BUY"
+    assert res_order.value.status == "TEST"
+    assert res_order.value.symbol == "COTIBNB"
+    assert res_order.value.timeInForce == "GTC"
+    assert res_order.value.type == "LIMIT"
+
+    # transac time has a dynamic value because it does not depend on recorded traffic !
+    # This is measuring with second precision a time in ms
+    assert res_order.value.transactTime // 1000 == int(
+        datetime.now(tz=timezone.utc).timestamp()
+    )
+
+
+@pytest.mark.vcr(
+    filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
+)
+def test_limitorder_to_binance(keyfile):
+    """ send orders to binance """
+
+    res_order = aiobinance.binance.limitorder_to_binance(
+        symbol="COTIBNB",
+        side="BUY",
+        quantity=Decimal("300"),
+        price=Decimal("0.0015"),
+        credentials=keyfile,
+        test=False,
+    )
+
+    assert res_order and isinstance(res_order, Result)
+    assert isinstance(res_order.value, LimitOrder)
+    assert res_order.value.clientOrderId == "UIwsOoNnCNJlxHFCwtikDI"
+    assert res_order.value.cummulativeQuoteQty.is_zero()
+    assert res_order.value.executedQty.is_zero()
+    assert res_order.value.fills == []
+    assert res_order.value.icebergQty is None
+    assert res_order.value.order_id == 31085682
+    assert res_order.value.order_list_id == -1
+    assert res_order.value.origQty == Decimal("300")
+    assert res_order.value.price == Decimal("0.0015")
+    assert res_order.value.side == "BUY"
+    assert res_order.value.status == "NEW"
+    assert res_order.value.symbol == "COTIBNB"
+    assert res_order.value.timeInForce == "GTC"
+    assert res_order.value.transactTime == 1605967825942
+    assert res_order.value.type == "LIMIT"
+
+
+@pytest.mark.vcr(
+    filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
+)
+def test_marketorder_test_to_binance(keyfile):
+    """ send orders to binance """
+
+    res_order = aiobinance.binance.marketorder_to_binance(
+        symbol="COTIBNB", side="BUY", quantity=Decimal("300"), credentials=keyfile
+    )
+
+    assert res_order and isinstance(res_order, Result)
+    assert isinstance(res_order.value, MarketOrder)
+    assert res_order.value.clientOrderId == ""
+    assert res_order.value.cummulativeQuoteQty.is_zero()
+    assert res_order.value.executedQty.is_zero()
+    assert res_order.value.fills == []
+    assert res_order.value.order_id == -1
+    assert res_order.value.order_list_id == -1
+    assert res_order.value.origQty == Decimal("300")
+    assert res_order.value.quoteOrderQty is None
+    assert res_order.value.side == "BUY"
+    assert res_order.value.status == "TEST"
+    assert res_order.value.symbol == "COTIBNB"
+    assert res_order.value.type == "MARKET"
+
+    # transac time has a dynamic value because it does not depend on recorded traffic !
+    # This is measuring with second precision a time in ms
+    assert res_order.value.transactTime // 1000 == int(
+        datetime.now(tz=timezone.utc).timestamp()
+    )
 
 
 @pytest.mark.vcr(
@@ -280,10 +368,36 @@ def test_marketorder_to_binance(keyfile):
     """ send orders to binance """
 
     res_order = aiobinance.binance.marketorder_to_binance(
-        symbol="COTIBNB", side="BUY", quantity=Decimal("300"), credentials=keyfile
+        symbol="COTIBNB",
+        side="BUY",
+        quantity=Decimal("300"),
+        credentials=keyfile,
+        test=False,
     )
 
-    assert res_order
+    assert res_order and isinstance(res_order, Result)
+    assert isinstance(res_order.value, MarketOrder)
+    assert res_order.value.clientOrderId == "DfbcHz3JSKjoIUUUGB8lEj"
+    assert res_order.value.cummulativeQuoteQty == Decimal("0.45300000")
+    assert res_order.value.executedQty == Decimal("300.00000000")
+    assert res_order.value.fills == [
+        OrderFill(
+            price=Decimal("0.00151000"),
+            qty=Decimal("300.00000000"),
+            commission=Decimal("0.00033873"),
+            commissionAsset="BNB",
+            tradeId=481909,
+        )
+    ]
+    assert res_order.value.order_id == 31085683
+    assert res_order.value.order_list_id == -1
+    assert res_order.value.origQty == Decimal("300")
+    assert res_order.value.quoteOrderQty is None
+    assert res_order.value.side == "BUY"
+    assert res_order.value.status == "FILLED"
+    assert res_order.value.symbol == "COTIBNB"
+    assert res_order.value.transactTime == 1605967826275
+    assert res_order.value.type == "MARKET"
 
 
 if __name__ == "__main__":

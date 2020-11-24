@@ -3,8 +3,10 @@ from decimal import Decimal
 from typing import Optional
 
 import pandas as pd
+from result import Result
 
 from aiobinance.api import BinanceRaw
+from aiobinance.api.account import retrieve_account
 from aiobinance.api.exchange import Exchange, retrieve_exchange
 from aiobinance.api.market import Market
 from aiobinance.config import Credentials, load_api_keyfile
@@ -15,9 +17,11 @@ from aiobinance.model.order import LimitOrder, MarketOrder, Order
 from aiobinance.model.ticker import Ticker
 from aiobinance.model.trade import Trade, TradeFrame
 
+# TODO : note this module will eventually disappear... code will be moved to various modules around...
+
 
 def exchange_from_binance() -> Exchange:
-    api = BinanceRaw(API_KEY="", API_SECRET="")  # we don't need private requests here
+    api = BinanceRaw()  # we don't need private requests here
 
     exchange = retrieve_exchange(api=api)
 
@@ -25,27 +29,9 @@ def exchange_from_binance() -> Exchange:
 
 
 def balance_from_binance(*, credentials: Credentials = load_api_keyfile()) -> Account:
-    api = BinanceRaw(
-        API_KEY=credentials.key, API_SECRET=credentials.secret
-    )  # we need private requests here !
+    api = BinanceRaw(credentials=credentials)  # we need private requests here !
 
-    res = api.call_api(command="account")
-
-    # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
-    # We do not want to change the semantics of the exchange exposed models here.
-    account = Account(
-        makerCommission=res["makerCommission"],
-        takerCommission=res["takerCommission"],
-        buyerCommission=res["buyerCommission"],
-        sellerCommission=res["sellerCommission"],
-        canTrade=res["canTrade"],
-        canWithdraw=res["canWithdraw"],
-        canDeposit=res["canDeposit"],
-        updateTime=res["updateTime"],
-        accountType=res["accountType"],  # should be "SPOT"
-        balances=res["balances"],
-        permissions=res["permissions"],
-    )
+    account = retrieve_account(api=api)
 
     return account
 
@@ -57,9 +43,7 @@ def trades_from_binance(
     end_time: datetime,
     credentials: Credentials = load_api_keyfile()
 ) -> TradeFrame:
-    api = BinanceRaw(
-        API_KEY=credentials.key, API_SECRET=credentials.secret
-    )  # we need private requests here !
+    api = BinanceRaw(credentials=credentials)  # we need private requests here !
 
     exchange = retrieve_exchange(api=api)
 
@@ -70,7 +54,7 @@ def trades_from_binance(
 def price_from_binance(
     symbol: str, *, start_time: datetime, end_time: datetime, interval=None
 ) -> OHLCV:
-    api = BinanceRaw(API_KEY="", API_SECRET="")  # we dont need private requests here
+    api = BinanceRaw(credentials=None)  # we dont need private requests here
     # Ref : https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-data
 
     exchange = retrieve_exchange(api=api)
@@ -84,7 +68,7 @@ def price_from_binance(
 def ticker24_from_binance(
     symbol: str,
 ):
-    api = BinanceRaw(API_KEY="", API_SECRET="")  # we dont need private requests here
+    api = BinanceRaw(credentials=None)  # we dont need private requests here
 
     exchange = retrieve_exchange(api=api)
 
@@ -98,16 +82,17 @@ def limitorder_to_binance(
     price: Decimal,
     quantity: Decimal,
     *,
-    credentials: Credentials = load_api_keyfile()
-) -> LimitOrder:
+    credentials: Credentials = load_api_keyfile(),
+    test: bool = True
+) -> Result[LimitOrder, None]:  # TODO : better error ?
     api = BinanceRaw(
-        API_KEY=credentials.key, API_SECRET=credentials.secret
+        credentials=Credentials(key=credentials.key, secret=credentials.secret)
     )  # we need private requests here !
 
     exchange = retrieve_exchange(api=api)
 
     order = exchange.market[symbol].limit_order(
-        side=side, price=price, quantity=quantity
+        side=side, price=price, quantity=quantity, test=test
     )
     return order
 
@@ -117,15 +102,18 @@ def marketorder_to_binance(
     side: str,
     quantity: Decimal,
     *,
-    credentials: Credentials = load_api_keyfile()
-) -> TradeFrame:
+    credentials: Credentials = load_api_keyfile(),
+    test: bool = True
+) -> Result[TradeFrame, None]:  # TODO : better error ?
     api = BinanceRaw(
-        API_KEY=credentials.key, API_SECRET=credentials.secret
+        credentials=Credentials(key=credentials.key, secret=credentials.secret)
     )  # we need private requests here !
 
     exchange = retrieve_exchange(api=api)
 
-    order = exchange.market[symbol].market_order(side=side, quantity=quantity)
+    order = exchange.market[symbol].market_order(
+        side=side, quantity=quantity, test=test
+    )
     return order
 
 

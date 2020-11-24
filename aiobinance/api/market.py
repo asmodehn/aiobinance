@@ -1,6 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
+
+from result import Err, Ok, Result
 
 from aiobinance.api.rawapi import Binance
 from aiobinance.model import OHLCV, TradeFrame
@@ -223,7 +225,8 @@ class Market:
         side: str,
         quantity: Optional[Decimal] = None,
         quote_order_qty: Optional[Decimal] = None,
-    ) -> MarketOrder:
+        test=True,  # test order by default for safety
+    ) -> Result[MarketOrder, None]:
 
         # quick assert check
         if quantity is not None:
@@ -249,24 +252,46 @@ class Market:
                 }
             )
 
-        res = self.api.call_api(command="createOrder", **sent_params)
+        if test:
+            res = self.api.call_api(command="testOrder", **sent_params)
+            return Ok(
+                MarketOrder(
+                    symbol=sent_params["symbol"],
+                    side=sent_params["side"],
+                    type=sent_params["type"],
+                    origQty=sent_params["quantity"],
+                    # fake attr for test order
+                    order_id=-1,
+                    order_list_id=-1,
+                    clientOrderId="",
+                    transactTime=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
+                    executedQty=Decimal(0),
+                    cummulativeQuoteQty=Decimal(0),
+                    status="TEST",
+                    fills=[],
+                )
+            )
 
-        return MarketOrder(
-            symbol=res["symbol"],
-            order_id=res["orderId"],
-            order_list_id=res["orderListId"],
-            clientOrderId=res["clientOrderId"],
-            transactTime=res["transactTime"],
-            # price=res['price'],  # price is set but at '0.0' and doesnt hold any meaning...
-            origQty=res["origQty"],
-            executedQty=res["executedQty"],
-            cummulativeQuoteQty=res["cummulativeQuoteQty"],
-            status=res["status"],
-            # timeInForce=res['timeInForce'],# seems this is always GTC, and doesnt hold much value with market orders that are execute ASAP...
-            type=res["type"],
-            side=res["side"],
-            fills=[OrderFill(**f) for f in res["fills"]],
-        )
+        else:
+            res = self.api.call_api(command="createOrder", **sent_params)
+            return Ok(
+                MarketOrder(
+                    symbol=res["symbol"],
+                    order_id=res["orderId"],
+                    order_list_id=res["orderListId"],
+                    clientOrderId=res["clientOrderId"],
+                    transactTime=res["transactTime"],
+                    # price=res['price'],  # price is set but at '0.0' and doesnt hold any meaning...
+                    origQty=res["origQty"],
+                    executedQty=res["executedQty"],
+                    cummulativeQuoteQty=res["cummulativeQuoteQty"],
+                    status=res["status"],
+                    # timeInForce=res['timeInForce'],# seems this is always GTC, and doesnt hold much value with market orders that are execute ASAP...
+                    type=res["type"],
+                    side=res["side"],
+                    fills=[OrderFill(**f) for f in res["fills"]],
+                )
+            )
 
     def limit_order(
         self,
@@ -276,7 +301,8 @@ class Market:
         quantity: Decimal,
         timeInForce="GTC",
         icebergQty: Optional[Decimal] = None,
-    ) -> LimitOrder:
+        test=True,  # test order by default for safety
+    ) -> Result[LimitOrder, None]:
 
         sent_params = {
             "symbol": self.symbol,
@@ -293,24 +319,52 @@ class Market:
                 }
             )
 
-        res = self.api.call_api(command="createOrder", **sent_params)
+        if test:
+            res = self.api.call_api(command="testOrder", **sent_params)
+            if res == {}:
+                # filling up with order info, as it has been accepted
+                return Ok(
+                    LimitOrder(
+                        symbol=sent_params["symbol"],
+                        side=sent_params["side"],
+                        type=sent_params["type"],
+                        timeInForce=sent_params["timeInForce"],
+                        origQty=sent_params["quantity"],
+                        price=sent_params["price"],
+                        # fake attr for test order
+                        order_id=-1,
+                        order_list_id=-1,
+                        clientOrderId="",
+                        transactTime=int(
+                            datetime.now(tz=timezone.utc).timestamp() * 1000
+                        ),
+                        executedQty=Decimal(0),
+                        cummulativeQuoteQty=Decimal(0),
+                        status="TEST",
+                        fills=[],
+                    )
+                )
+        else:
+            res = self.api.call_api(command="createOrder", **sent_params)
 
-        return LimitOrder(
-            symbol=res["symbol"],
-            order_id=res["orderId"],
-            order_list_id=res["orderListId"],
-            clientOrderId=res["clientOrderId"],
-            transactTime=res["transactTime"],
-            price=res["price"],
-            origQty=res["origQty"],
-            executedQty=res["executedQty"],
-            cummulativeQuoteQty=res["cummulativeQuoteQty"],
-            status=res["status"],
-            timeInForce=res["timeInForce"],
-            type=res["type"],
-            side=res["side"],
-            fills=[OrderFill(**f) for f in res["fills"]],
-        )
+            return Ok(
+                LimitOrder(
+                    symbol=res["symbol"],
+                    order_id=res["orderId"],
+                    order_list_id=res["orderListId"],
+                    clientOrderId=res["clientOrderId"],
+                    transactTime=res["transactTime"],
+                    price=res["price"],
+                    origQty=res["origQty"],
+                    executedQty=res["executedQty"],
+                    cummulativeQuoteQty=res["cummulativeQuoteQty"],
+                    status=res["status"],
+                    timeInForce=res["timeInForce"],
+                    type=res["type"],
+                    side=res["side"],
+                    fills=[OrderFill(**f) for f in res["fills"]],
+                )
+            )
 
 
 if __name__ == "__main__":
