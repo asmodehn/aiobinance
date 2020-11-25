@@ -60,7 +60,7 @@ class Market:
         return self._model.order_types
 
     @property
-    def iceber_allowed(self):
+    def iceberg_allowed(self):
         return self._model.iceberg_allowed
 
     @property
@@ -82,6 +82,10 @@ class Market:
     @property
     def filters(self):
         return self._model.filters
+
+    @property
+    def permissions(self):
+        return self._model.permissions
 
     def __init__(
         self,
@@ -124,6 +128,9 @@ class Market:
             endTime=end_timestamp,
             limit=1000,
         )
+
+        if res.is_ok():
+            res = res.value
 
         # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
         # We do not want to change the semantics of the exchange exposed models here.
@@ -168,6 +175,9 @@ class Market:
             endTime=end_timestamp,
             limit=1000,
         )
+
+        if res.is_ok():
+            res = res.value
 
         # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
         # We do not want to change the semantics of the exchange exposed models here.
