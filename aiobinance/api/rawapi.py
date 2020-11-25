@@ -5,11 +5,12 @@ import hmac
 import json
 import time
 import urllib
-from typing import Optional
+from typing import Dict, Optional
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 import requests
+from result import Err, Ok, Result
 
 from aiobinance.config import Credentials
 
@@ -114,7 +115,7 @@ class Binance:
         # otherwise the original '1M' setting
         return interval
 
-    def call_api(self, **kwargs):
+    def call_api(self, **kwargs) -> Result[Dict, Dict]:
 
         command = kwargs.pop("command")
         api_url = "https://api.binance.com/api/v3/" + self.methods[command]["url"]
@@ -155,5 +156,5 @@ class Binance:
         if "code" in response.text:
             print(response.text)
             response = response.json()
-            return response["error"]
-        return response.json()
+            return Err(response)
+        return Ok(response.json())

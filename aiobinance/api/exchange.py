@@ -46,6 +46,12 @@ def retrieve_exchange(api: Binance) -> Exchange:
 
     res = api.call_api(command="exchangeInfo")
 
+    if res.is_ok():
+        res = res.value
+    else:
+        # TODO : handle API error properly
+        raise RuntimeError(res.value)
+
     # timezone mess
     if res["timezone"] == "UTC":
         tz = timezone.utc

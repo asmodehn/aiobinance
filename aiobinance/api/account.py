@@ -78,6 +78,12 @@ def retrieve_account(*, api: Binance) -> Account:
 
         res = api.call_api(command="account")
 
+        if res.is_ok():
+            res = res.value
+        else:
+            # TODO : handle API error properly
+            raise RuntimeError(res.value)
+
         # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
         # We do not want to change the semantics of the exchange exposed models here.
         account = AccountModel(

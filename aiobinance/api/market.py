@@ -52,7 +52,7 @@ class Market:
         return self._model.base_commission_precision
 
     @property
-    def quote_commieeion_precision(self):
+    def quote_commission_precision(self):
         return self._model.quote_commission_precision
 
     @property
@@ -199,6 +199,12 @@ class Market:
             symbol=self.symbol,
         )
 
+        if res.is_ok():
+            res = res.value
+        else:
+            # TODO : handle API error properly
+            raise RuntimeError(res.value)
+
         # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
         # We do not want to change the semantics of the exchange exposed models here.
         return Ticker(
@@ -250,7 +256,8 @@ class Market:
             "symbol": self.symbol,
             "side": side,
             "type": "MARKET",
-            "quantity": quantity,
+            # Ref : https://github.com/sammchardy/python-binance/issues/57#issuecomment-354062222
+            "quantity": "{:0.0{}f}".format(quantity, self.base_asset_precision),
         }
 
         if quote_order_qty is not None:
@@ -262,6 +269,13 @@ class Market:
 
         if test:
             res = self.api.call_api(command="testOrder", **sent_params)
+
+            if res.is_ok():
+                res = res.value
+            else:
+                # TODO : handle API error properly
+                raise RuntimeError(res.value)
+
             return Ok(
                 MarketOrder(
                     symbol=sent_params["symbol"],
@@ -282,6 +296,13 @@ class Market:
 
         else:
             res = self.api.call_api(command="createOrder", **sent_params)
+
+            if res.is_ok():
+                res = res.value
+            else:
+                # TODO : handle API error properly
+                raise RuntimeError(res.value)
+
             return Ok(
                 MarketOrder(
                     symbol=res["symbol"],
@@ -317,8 +338,9 @@ class Market:
             "side": side,
             "type": "LIMIT",
             "timeInForce": timeInForce,
-            "quantity": quantity,
-            "price": price,
+            # Ref : https://github.com/sammchardy/python-binance/issues/57#issuecomment-354062222
+            "quantity": "{:0.0{}f}".format(quantity, self.base_asset_precision),
+            "price": "{:0.0{}f}".format(price, self.quote_asset_precision),
         }
         if icebergQty is not None:
             sent_params.update(
@@ -329,6 +351,14 @@ class Market:
 
         if test:
             res = self.api.call_api(command="testOrder", **sent_params)
+
+            if res.is_ok():
+                res = res.value
+            else:
+                # TODO : handle API error properly
+                raise RuntimeError(res.value)
+
+            # TODO : review if sequence here...
             if res == {}:
                 # filling up with order info, as it has been accepted
                 return Ok(
@@ -354,6 +384,12 @@ class Market:
                 )
         else:
             res = self.api.call_api(command="createOrder", **sent_params)
+
+            if res.is_ok():
+                res = res.value
+            else:
+                # TODO : handle API error properly
+                raise RuntimeError(res.value)
 
             return Ok(
                 LimitOrder(

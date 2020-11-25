@@ -10,6 +10,7 @@ from aiobinance.api.account import Account
 from aiobinance.api.exchange import retrieve_exchange
 from aiobinance.api.market import Market
 from aiobinance.api.rawapi import Binance
+from aiobinance.bot.trade_converge import TradeConverge
 from aiobinance.model.ticker import Ticker
 
 
@@ -18,12 +19,16 @@ class Trader:
         self.account = account
         self.market = market
 
+        # getting ticker only once (careful with side-effects...)
+        tkr = self.market.ticker24()
+
+        # currently only using this as a safe counter...
+        self.safe_counter = TradeConverge(
+            market=market, bid_price=tkr.bid_price, ask_price=tkr.ask_price
+        )
+
         self._loop = None
         self._running = None
-
-    def check_market(self):
-        tkr = self.market.ticker24()
-        print(tkr)
 
     # TODO :retrieve cost of asset in past trades, to determine cost...
     # TODO : some forcasting to determine opportunity...
@@ -33,81 +38,20 @@ class Trader:
         self, amount: Decimal, total_expected: Optional[Decimal] = None, test=True
     ):
 
-        # adjusting precision
-        with decimal.localcontext() as ctx:
-            ctx.prec = self.market.base_asset_precision
-            amount = ctx.create_decimal(amount)
-        with decimal.localcontext() as ctx:
-            ctx.prec = self.market.quote_asset_precision
-            total_expected = ctx.create_decimal(total_expected)
-
-        # TODO : get rid of market order, always pass limit
-        #  computing price is cheap here and can save us from bait orders/crazy slippage
-        if not total_expected:
-            passed_order = self.market.market_order(
-                side="SELL", quantity=amount, test=test
+        passed_order = asyncio.run(
+            self.safe_counter.sell(
+                amount=amount, expected_gain=total_expected, test=test
             )
-        else:
-            with decimal.localcontext() as ctx:
-                ctx.prec = (
-                    self.market.quote_precision
-                )  # we want a price (unit is quote currency)
-                ctx.rounding = decimal.ROUND_UP
-                sell_price = ctx.divide(total_expected, amount)
-
-            # some logic to verify price
-            tkr = self.market.ticker24()
-
-            if sell_price < tkr.ask_price:
-                # Preventing selling at lower price than market
-                print(
-                    f"Asked price {sell_price} is below market: {tkr.ask_price}. Correcting to {tkr.ask_price}."
-                )
-                sell_price = tkr.ask_price
-
-            passed_order = self.market.limit_order(
-                side="SELL", quantity=amount, price=sell_price, test=test
-            )
-        return passed_order.value
+        )
+        return passed_order
 
     def buy(self, amount: Decimal, total_expected: Optional[Decimal] = None, test=True):
-
-        # adjusting precision
-        with decimal.localcontext() as ctx:
-            ctx.prec = self.market.base_asset_precision
-            amount = ctx.create_decimal(amount)
-        with decimal.localcontext() as ctx:
-            ctx.prec = self.market.quote_asset_precision
-            total_expected = ctx.create_decimal(total_expected)
-
-        # TODO : get rid of market order, always pass limit
-        #  computing price is cheap here and can save us from bait orders/crazy slippage
-        if not total_expected:
-            passed_order = self.market.market_order(
-                side="BUY", quantity=amount, test=test
+        passed_order = asyncio.run(
+            self.safe_counter.buy(
+                amount=amount, expected_cost=total_expected, test=test
             )
-        else:
-            with decimal.localcontext() as ctx:
-                ctx.prec = (
-                    self.market.quote_precision
-                )  # we want a price (unit is quote currency)
-                ctx.rounding = decimal.ROUND_DOWN
-                buy_price = ctx.divide(total_expected, amount)
-
-            # some logic to verify price
-            tkr = self.market.ticker24()
-
-            if buy_price > tkr.bid_price:
-                # Preventing buying at a higher price than market
-                print(
-                    f"Bid price {buy_price} is above market: {tkr.bid_price}. Correcting to {tkr.bid_price}."
-                )
-                buy_price = tkr.bid_price
-
-            passed_order = self.market.limit_order(
-                side="BUY", quantity=amount, price=buy_price, test=test
-            )
-        return passed_order.value
+        )
+        return passed_order
 
 
 if __name__ == "__main__":
@@ -121,7 +65,6 @@ if __name__ == "__main__":
     account = retrieve_account(api=api)
 
     trader = Trader(account=account, market=account.exchange.market["COTIBNB"])
-    trader.check_market()
 
     print("Buy test order: ")
     # Decimal of float here to test precision. it should be built from string instead !
