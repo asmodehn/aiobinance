@@ -1,0 +1,222 @@
+from datetime import datetime, timezone
+from decimal import Decimal
+from typing import List, Optional
+
+import hypothesis.strategies as st
+from hypothesis.strategies import SearchStrategy
+from pydantic.dataclasses import dataclass
+from result import Ok, Result
+from typing_extensions import Literal
+
+# Ref : https://binance-docs.github.io/apidocs/spot/en/#filters
+
+
+@dataclass
+class Filter:
+    filter_type: str
+
+
+@dataclass
+class PriceFilter(Filter):
+
+    filter_type: Literal["PRICE_FILTER"]
+    min_price: Optional[Decimal] = None
+    max_price: Optional[Decimal] = None
+    tick_size: Optional[Decimal] = None
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            min_price=st.one_of(
+                st.none(), st.decimals(allow_nan=False, allow_infinity=False)
+            ),
+            max_price=st.one_of(
+                st.none(), st.decimals(allow_nan=False, allow_infinity=False)
+            ),
+            tick_size=st.one_of(
+                st.none(), st.decimals(allow_nan=False, allow_infinity=False)
+            ),
+        )
+
+
+@dataclass
+class PercentPrice(Filter):
+    filter_type: Literal["PERCENT_PRICE"]
+    multiplier_up: Decimal
+    multiplier_down: Decimal
+    avg_price_mins: int
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            multiplier_up=st.decimals(allow_nan=False, allow_infinity=False),
+            multiplier_down=st.decimals(allow_nan=False, allow_infinity=False),
+            avg_price_mins=st.integers(),
+        )
+
+
+@dataclass
+class LotSize(Filter):
+    filter_type: Literal["LOT_SIZE"]
+    min_qty: Decimal
+    max_qty: Decimal
+    step_size: Decimal
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            min_qty=st.decimals(allow_nan=False, allow_infinity=False),
+            max_qty=st.decimals(allow_nan=False, allow_infinity=False),
+            step_size=st.decimals(allow_nan=False, allow_infinity=False),
+        )
+
+
+@dataclass
+class MinNotional(Filter):
+    filter_type: Literal["MIN_NOTIONAL"]
+    min_notional: Decimal
+    apply_to_market: bool
+    avg_price_mins: int
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            min_notional=st.decimals(allow_nan=False, allow_infinity=False),
+            apply_to_market=st.booleans(),
+            avg_price_mins=st.integers(),
+        )
+
+
+@dataclass
+class IcebergParts(Filter):
+    filter_type: Literal["ICEBERG_PARTS"]
+    limit: int
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            limit=st.integers(),
+        )
+
+
+@dataclass
+class MarketLotSize(Filter):
+    filter_type: Literal["MARKET_LOT_SIZE"]
+    min_qty: Decimal
+    max_qty: Decimal
+    step_size: Decimal
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            min_qty=st.decimals(allow_nan=False, allow_infinity=False),
+            max_qty=st.decimals(allow_nan=False, allow_infinity=False),
+            step_size=st.decimals(allow_nan=False, allow_infinity=False),
+        )
+
+
+@dataclass
+class MaxNumOrders(Filter):
+    filter_type: Literal["MAX_NUM_ORDERS"]
+    max_num_orders: int
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            max_num_orders=st.integers(),
+        )
+
+
+@dataclass
+class MaxNumAlgoOrders(Filter):
+    filter_type: Literal["MAX_NUM_ALGO_ORDERS"]
+    max_num_algo_orders: int
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            max_num_algo_orders=st.integers(),
+        )
+
+
+@dataclass
+class MaxNumIcebergOrders(Filter):
+    filter_type: Literal["MAX_NUM_ICEBERG_ORDERS"]
+    max_num_iceberg_orders: int
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            max_num_iceberg_orders=st.integers(),
+        )
+
+
+@dataclass
+class MaxPosition(Filter):
+    filter_type: Literal["MAX_POSITION"]
+    max_position: Decimal
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            max_position=st.decimals(allow_nan=False, allow_infinity=False),
+        )
+
+
+@dataclass
+class ExchangeMaxNumOrders(Filter):
+    filter_type: Literal["EXCHANGE_MAX_NUM_ORDERS"]
+    max_num_orders: int
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            max_num_orders=st.integers(),
+        )
+
+
+@dataclass
+class ExchangeMaxAlgoOrders(Filter):
+    filter_type: Literal["EXCHANGE_MAX_ALGO_ORDERS"]
+    max_num_algo_orders: int
+
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            cls,
+            max_num_algo_orders=st.integers(),
+        )
+
+
+def st_filters(include_exchange_filters=True) -> SearchStrategy:
+    """ only generating possibly valid filter, as per the binance doc"""
+    possible_strats = [
+        PriceFilter.strategy(),
+        PercentPrice.strategy(),
+        LotSize.strategy(),
+        MinNotional.strategy(),
+        IcebergParts.strategy(),
+        MarketLotSize.strategy(),
+        MaxNumOrders.strategy(),
+        MaxNumAlgoOrders.strategy(),
+        MaxNumIcebergOrders.strategy(),
+        MaxPosition.strategy(),
+    ]
+    if include_exchange_filters:
+        possible_strats += [
+            ExchangeMaxNumOrders.strategy(),
+            ExchangeMaxAlgoOrders.strategy(),
+        ]
+
+    return st.one_of(possible_strats)
