@@ -144,7 +144,7 @@ class Binance:
 
         if self.methods[command]["method"] == "GET":
             api_url += "?" + payload_str
-
+        # TODO : review this... some commands put payload inside request body, which is not filtered on cassettes (annoyance...)
         # print(api_url, payload_str, self.methods[command])
         response = requests.request(
             method=self.methods[command]["method"],
