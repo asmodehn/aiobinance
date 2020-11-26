@@ -188,7 +188,7 @@ class PureMarket:
     def limit_order(
         self,
         *,
-        side,
+        side: OrderSide,
         price: Decimal,
         quantity: Decimal,
         timeInForce="GTC",

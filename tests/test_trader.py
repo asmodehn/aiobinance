@@ -5,8 +5,7 @@ import pytest
 
 from aiobinance.api.account import retrieve_account
 from aiobinance.api.rawapi import Binance
-from aiobinance.config import Credentials, load_api_keyfile
-from aiobinance.model.order import LimitOrder
+from aiobinance.model.order import LimitOrder, OrderSide
 from aiobinance.trader import Trader
 
 
@@ -37,7 +36,7 @@ def test_buy_test(keyfile):
     assert order.price == Decimal(
         "0.00142200"
     )  # calculated price from expectation & readjusted, at correct precision.
-    assert order.side == "BUY"
+    assert order.side == OrderSide.BUY
     assert order.status == "TEST"
     assert order.symbol == "COTIBNB"
     assert order.timeInForce == "GTC"
@@ -62,7 +61,7 @@ def test_buy_test(keyfile):
     assert order.price == Decimal(
         "0.00140000"
     )  # calculated price from expectation, with correct precision.
-    assert order.side == "BUY"
+    assert order.side == OrderSide.BUY
     assert order.status == "TEST"
     assert order.symbol == "COTIBNB"
     assert order.timeInForce == "GTC"
@@ -120,7 +119,7 @@ def test_sell_test(keyfile):
     assert order.price == Decimal(
         "0.00150000"
     )  # calculated price from expectation, with correct precision.
-    assert order.side == "SELL"
+    assert order.side == OrderSide.SELL
     assert order.status == "TEST"
     assert order.symbol == "COTIBNB"
     assert order.timeInForce == "GTC"
@@ -144,7 +143,7 @@ def test_sell_test(keyfile):
     assert order.price == Decimal(
         "0.00142300"
     )  # calculated price from expectation & adjusted, with correct precision.
-    assert order.side == "SELL"
+    assert order.side == OrderSide.SELL
     assert order.status == "TEST"
     assert order.symbol == "COTIBNB"
     assert order.timeInForce == "GTC"

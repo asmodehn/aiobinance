@@ -1,12 +1,18 @@
 import dataclasses
 import functools
+import re
 from datetime import datetime, timezone
 from typing import List
 
 from aiobinance.api.market import Market
+from aiobinance.api.pure.filters import Filter
+from aiobinance.api.pure.puremarket import PureMarket as Symbol
 from aiobinance.api.rawapi import Binance
 from aiobinance.model.exchange import Exchange as ExchangeInfo
-from aiobinance.model.exchange import Filter, RateLimit, Symbol
+from aiobinance.model.exchange import RateLimit
+
+# converting camel case (API) to snake case (aiobinance)
+camel_snake = re.compile(r"(?<!^)(?=[A-Z])")
 
 
 class Exchange:
@@ -92,11 +98,9 @@ def retrieve_exchange(api: Binance) -> Exchange:
                 is_spot_trading_allowed=s["isSpotTradingAllowed"],
                 is_margin_trading_allowed=s["isMarginTradingAllowed"],
                 filters=[
-                    Filter(
-                        filter_type=f["filterType"],
-                        min_price=f.get("minPrice"),
-                        max_price=f.get("maxPrice"),
-                        tick_size=f.get("tickSize"),
+                    Filter.factory(
+                        # we also convert the case of the keys...
+                        **{camel_snake.sub("_", fk).lower(): fv for fk, fv in f.items()}
                     )
                     for f in s["filters"]
                 ],

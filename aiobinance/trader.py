@@ -10,8 +10,7 @@ from aiobinance.api.account import Account
 from aiobinance.api.exchange import retrieve_exchange
 from aiobinance.api.market import Market
 from aiobinance.api.rawapi import Binance
-from aiobinance.bot.trade_converge import TradeConverge
-from aiobinance.model.ticker import Ticker
+from aiobinance.bot.safecounter import SafeCounter
 
 
 class Trader:
@@ -23,9 +22,7 @@ class Trader:
         tkr = self.market.ticker24()
 
         # currently only using this as a safe counter...
-        self.safe_counter = TradeConverge(
-            market=market, bid_price=tkr.bid_price, ask_price=tkr.ask_price
-        )
+        self.safe_counter = SafeCounter.from_ticker(mkt=market, tkr=tkr)
 
         self._loop = None
         self._running = None

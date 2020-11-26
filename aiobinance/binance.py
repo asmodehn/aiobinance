@@ -11,10 +11,8 @@ from aiobinance.api.exchange import Exchange, retrieve_exchange
 from aiobinance.api.market import Market
 from aiobinance.config import Credentials, load_api_keyfile
 from aiobinance.model.account import Account
-from aiobinance.model.exchange import Filter, RateLimit, Symbol
 from aiobinance.model.ohlcv import OHLCV, Candle
-from aiobinance.model.order import LimitOrder, MarketOrder, Order
-from aiobinance.model.ticker import Ticker
+from aiobinance.model.order import LimitOrder, MarketOrder, Order, OrderSide
 from aiobinance.model.trade import Trade, TradeFrame
 
 # TODO : note this module will eventually disappear... code will be moved to various modules around...
@@ -78,7 +76,7 @@ def ticker24_from_binance(
 
 def limitorder_to_binance(
     symbol: str,
-    side: str,
+    side: OrderSide,
     price: Decimal,
     quantity: Decimal,
     *,
@@ -99,7 +97,7 @@ def limitorder_to_binance(
 
 def marketorder_to_binance(
     symbol: str,
-    side: str,
+    side: OrderSide,
     quantity: Decimal,
     *,
     credentials: Credentials = load_api_keyfile(),

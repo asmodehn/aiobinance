@@ -42,6 +42,36 @@ class Filter:
 
         return st.one_of(possible_strats)
 
+    @staticmethod
+    def factory(**kwargs):
+        #  a kind of abstract factory...
+        if kwargs["filter_type"] == "PRICE_FILTER":
+            return PriceFilter(**kwargs)
+        elif kwargs["filter_type"] == "PERCENT_PRICE":
+            return PercentPrice(**kwargs)
+        elif kwargs["filter_type"] == "LOT_SIZE":
+            return LotSize(**kwargs)
+        elif kwargs["filter_type"] == "MIN_NOTIONAL":
+            return MinNotional(**kwargs)
+        elif kwargs["filter_type"] == "ICEBERG_PARTS":
+            return IcebergParts(**kwargs)
+        elif kwargs["filter_type"] == "MARKET_LOT_SIZE":
+            return MarketLotSize(**kwargs)
+        elif kwargs["filter_type"] == "MAX_NUM_ORDERS":
+            return MaxNumOrders(**kwargs)
+        elif kwargs["filter_type"] == "MAX_NUM_ALGO_ORDERS":
+            return MaxNumAlgoOrders(**kwargs)
+        elif kwargs["filter_type"] == "MAX_NUM_ICEBERG_ORDERS":
+            return MaxNumIcebergOrders(**kwargs)
+        elif kwargs["filter_type"] == "MAX_POSITION":
+            return MaxPosition(**kwargs)
+        elif kwargs["filter_type"] == "EXCHANGE_MAX_NUM_ORDERS":
+            return ExchangeMaxNumOrders(**kwargs)
+        elif kwargs["filter_type"] == "EXCHANGE_MAX_ALGO_ORDERS":
+            return ExchangeMaxAlgoOrders(**kwargs)
+        else:
+            raise RuntimeError("Unknown filter type...")
+
 
 @dataclass
 class PriceFilter(Filter):

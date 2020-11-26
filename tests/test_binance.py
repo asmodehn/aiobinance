@@ -9,9 +9,9 @@ from aiobinance.api.account import Account
 from aiobinance.api.exchange import Exchange
 from aiobinance.api.market import Market
 from aiobinance.model import TradeFrame
-from aiobinance.model.exchange import Filter, RateLimit, Symbol
+from aiobinance.model.exchange import Filter, RateLimit
 from aiobinance.model.ohlcv import OHLCV, Candle
-from aiobinance.model.order import LimitOrder, MarketOrder, OrderFill
+from aiobinance.model.order import LimitOrder, MarketOrder, OrderFill, OrderSide
 from aiobinance.model.ticker import Ticker
 from aiobinance.model.trade import Trade
 
@@ -70,19 +70,39 @@ def test_exchange_from_binance():
     assert ethbtc_market.base_asset_precision == 8
     assert ethbtc_market.base_commission_precision == 8
     assert ethbtc_market.filters == [
-        Filter(
+        Filter.factory(
             filter_type="PRICE_FILTER",
             min_price=Decimal("0.00000100"),
             max_price=Decimal("100000.00000000"),
             tick_size=Decimal("0.00000100"),
         ),
-        Filter(filter_type="PERCENT_PRICE"),
-        Filter(filter_type="LOT_SIZE"),
-        Filter(filter_type="MIN_NOTIONAL"),
-        Filter(filter_type="ICEBERG_PARTS"),
-        Filter(filter_type="MARKET_LOT_SIZE"),
-        Filter(filter_type="MAX_NUM_ALGO_ORDERS"),
-        Filter(filter_type="MAX_NUM_ORDERS"),
+        Filter.factory(
+            filter_type="PERCENT_PRICE",
+            multiplier_up=Decimal("5"),
+            multiplier_down=Decimal("0.2"),
+            avg_price_mins=5,
+        ),
+        Filter.factory(
+            filter_type="LOT_SIZE",
+            min_qty=Decimal("0.00100000"),
+            max_qty=Decimal("100000.00000000"),
+            step_size=Decimal("0.00100000"),
+        ),
+        Filter.factory(
+            filter_type="MIN_NOTIONAL",
+            min_notional=Decimal("0.00010000"),
+            apply_to_market=True,
+            avg_price_mins=5,
+        ),
+        Filter.factory(filter_type="ICEBERG_PARTS", limit=10),
+        Filter.factory(
+            filter_type="MARKET_LOT_SIZE",
+            min_qty=Decimal("0E-8"),
+            max_qty=Decimal("4961.68384167"),
+            step_size=Decimal("0E-8"),
+        ),
+        Filter.factory(filter_type="MAX_NUM_ALGO_ORDERS", max_num_algo_orders=5),
+        Filter.factory(filter_type="MAX_NUM_ORDERS", max_num_orders=200),
     ]
     assert ethbtc_market.iceberg_allowed is True
     assert ethbtc_market.is_margin_trading_allowed is True
@@ -265,7 +285,7 @@ def test_limitorder_test_to_binance(keyfile):
 
     res_order = aiobinance.binance.limitorder_to_binance(
         symbol="COTIBNB",
-        side="BUY",
+        side=OrderSide("BUY"),
         quantity=Decimal("300"),
         price=Decimal("0.0015"),
         credentials=keyfile,
@@ -282,7 +302,7 @@ def test_limitorder_test_to_binance(keyfile):
     assert res_order.value.order_list_id == -1
     assert res_order.value.origQty == Decimal("300")
     assert res_order.value.price == Decimal("0.0015")
-    assert res_order.value.side == "BUY"
+    assert res_order.value.side == OrderSide.BUY
     assert res_order.value.status == "TEST"
     assert res_order.value.symbol == "COTIBNB"
     assert res_order.value.timeInForce == "GTC"
@@ -303,7 +323,7 @@ def test_limitorder_to_binance(keyfile):
 
     res_order = aiobinance.binance.limitorder_to_binance(
         symbol="COTIBNB",
-        side="BUY",
+        side=OrderSide("BUY"),
         quantity=Decimal("300"),
         price=Decimal("0.0015"),
         credentials=keyfile,
@@ -321,7 +341,7 @@ def test_limitorder_to_binance(keyfile):
     assert res_order.value.order_list_id == -1
     assert res_order.value.origQty == Decimal("300")
     assert res_order.value.price == Decimal("0.0015")
-    assert res_order.value.side == "BUY"
+    assert res_order.value.side == OrderSide.BUY
     assert res_order.value.status == "NEW"
     assert res_order.value.symbol == "COTIBNB"
     assert res_order.value.timeInForce == "GTC"
@@ -336,7 +356,10 @@ def test_marketorder_test_to_binance(keyfile):
     """ send orders to binance """
 
     res_order = aiobinance.binance.marketorder_to_binance(
-        symbol="COTIBNB", side="BUY", quantity=Decimal("300"), credentials=keyfile
+        symbol="COTIBNB",
+        side=OrderSide("BUY"),
+        quantity=Decimal("300"),
+        credentials=keyfile,
     )
 
     assert res_order and isinstance(res_order, Result)
@@ -349,7 +372,7 @@ def test_marketorder_test_to_binance(keyfile):
     assert res_order.value.order_list_id == -1
     assert res_order.value.origQty == Decimal("300")
     assert res_order.value.quoteOrderQty is None
-    assert res_order.value.side == "BUY"
+    assert res_order.value.side == OrderSide.BUY
     assert res_order.value.status == "TEST"
     assert res_order.value.symbol == "COTIBNB"
     assert res_order.value.type == "MARKET"
@@ -369,7 +392,7 @@ def test_marketorder_to_binance(keyfile):
 
     res_order = aiobinance.binance.marketorder_to_binance(
         symbol="COTIBNB",
-        side="BUY",
+        side=OrderSide.BUY,
         quantity=Decimal("300"),
         credentials=keyfile,
         test=False,
@@ -393,7 +416,7 @@ def test_marketorder_to_binance(keyfile):
     assert res_order.value.order_list_id == -1
     assert res_order.value.origQty == Decimal("300")
     assert res_order.value.quoteOrderQty is None
-    assert res_order.value.side == "BUY"
+    assert res_order.value.side == OrderSide.BUY
     assert res_order.value.status == "FILLED"
     assert res_order.value.symbol == "COTIBNB"
     assert res_order.value.transactTime == 1605967826275

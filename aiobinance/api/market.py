@@ -4,11 +4,12 @@ from typing import List, Optional
 
 from result import Err, Ok, Result
 
+from aiobinance.api.pure.puremarket import PureMarket
+from aiobinance.api.pure.puremarket import PureMarket as Symbol
 from aiobinance.api.rawapi import Binance
 from aiobinance.model import OHLCV, TradeFrame
-from aiobinance.model.exchange import Filter, Symbol
 from aiobinance.model.ohlcv import Candle
-from aiobinance.model.order import LimitOrder, MarketOrder, OrderFill
+from aiobinance.model.order import LimitOrder, MarketOrder, OrderFill, OrderSide
 from aiobinance.model.ticker import Ticker
 from aiobinance.model.trade import Trade
 
@@ -17,7 +18,7 @@ class Market:
     """ A class to simplify interacting with binance markets through the REST API."""
 
     api: Binance
-    _model: Symbol
+    _model: PureMarket
 
     @property
     def symbol(self):
@@ -90,7 +91,7 @@ class Market:
     def __init__(
         self,
         api: Binance,
-        model: Symbol,
+        model: PureMarket,
         async_loop=None,
     ):
 
@@ -246,13 +247,14 @@ class Market:
     def market_order(
         self,
         *,
-        side: str,
+        side: OrderSide,
         quantity: Optional[Decimal] = None,
         quote_order_qty: Optional[Decimal] = None,
         test=True,  # test order by default for safety
     ) -> Result[MarketOrder, None]:
 
         # quick assert check
+        # TODO : decide if we have two methods, or none at all...
         if quantity is not None:
             assert (
                 quote_order_qty is None
@@ -262,19 +264,14 @@ class Market:
                 quantity is None
             ), "Both quantity and quoteOrderQty params cannot be set for send_market_buy_order()"
 
-        sent_params = {
-            "symbol": self.symbol,
-            "side": side,
-            "type": "MARKET",
-            # Ref : https://github.com/sammchardy/python-binance/issues/57#issuecomment-354062222
-            "quantity": "{:0.0{}f}".format(quantity, self.base_asset_precision),
-        }
-
         if quote_order_qty is not None:
-            sent_params.update(
-                {
-                    "quoteOrderQty": quote_order_qty,
-                }
+            # not implemented just yet...
+            sent_params, test_order = self._model.market_order_quote(
+                side=side, quantity=quote_order_qty
+            )
+        else:
+            sent_params, test_order = self._model.market_order_base(
+                side=side, quantity=quantity
             )
 
         if test:
@@ -286,23 +283,7 @@ class Market:
                 # TODO : handle API error properly
                 raise RuntimeError(res.value)
 
-            return Ok(
-                MarketOrder(
-                    symbol=sent_params["symbol"],
-                    side=sent_params["side"],
-                    type=sent_params["type"],
-                    origQty=sent_params["quantity"],
-                    # fake attr for test order
-                    order_id=-1,
-                    order_list_id=-1,
-                    clientOrderId="",
-                    transactTime=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
-                    executedQty=Decimal(0),
-                    cummulativeQuoteQty=Decimal(0),
-                    status="TEST",
-                    fills=[],
-                )
-            )
+            return Ok(test_order)
 
         else:
             res = self.api.call_api(command="createOrder", **sent_params)
@@ -335,7 +316,7 @@ class Market:
     def limit_order(
         self,
         *,
-        side,
+        side: OrderSide,
         price: Decimal,
         quantity: Decimal,
         timeInForce="GTC",
@@ -343,15 +324,10 @@ class Market:
         test=True,  # test order by default for safety
     ) -> Result[LimitOrder, None]:
 
-        sent_params = {
-            "symbol": self.symbol,
-            "side": side,
-            "type": "LIMIT",
-            "timeInForce": timeInForce,
-            # Ref : https://github.com/sammchardy/python-binance/issues/57#issuecomment-354062222
-            "quantity": "{:0.0{}f}".format(quantity, self.base_asset_precision),
-            "price": "{:0.0{}f}".format(price, self.quote_asset_precision),
-        }
+        sent_params, test_order = self._model.limit_order(
+            side=side, quantity=quantity, price=price
+        )
+
         if icebergQty is not None:
             sent_params.update(
                 {
@@ -371,27 +347,7 @@ class Market:
             # TODO : review if sequence here...
             if res == {}:
                 # filling up with order info, as it has been accepted
-                return Ok(
-                    LimitOrder(
-                        symbol=sent_params["symbol"],
-                        side=sent_params["side"],
-                        type=sent_params["type"],
-                        timeInForce=sent_params["timeInForce"],
-                        origQty=sent_params["quantity"],
-                        price=sent_params["price"],
-                        # fake attr for test order
-                        order_id=-1,
-                        order_list_id=-1,
-                        clientOrderId="",
-                        transactTime=int(
-                            datetime.now(tz=timezone.utc).timestamp() * 1000
-                        ),
-                        executedQty=Decimal(0),
-                        cummulativeQuoteQty=Decimal(0),
-                        status="TEST",
-                        fills=[],
-                    )
-                )
+                return Ok(test_order)
         else:
             res = self.api.call_api(command="createOrder", **sent_params)
 
