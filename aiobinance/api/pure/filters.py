@@ -15,6 +15,33 @@ from typing_extensions import Literal
 class Filter:
     filter_type: str
 
+    @classmethod
+    def strategy_symbol(cls) -> SearchStrategy:
+        """ only generating possibly valid filter, as per the binance doc"""
+        possible_strats = [
+            PriceFilter.strategy(),
+            PercentPrice.strategy(),
+            LotSize.strategy(),
+            MinNotional.strategy(),
+            IcebergParts.strategy(),
+            MarketLotSize.strategy(),
+            MaxNumOrders.strategy(),
+            MaxNumAlgoOrders.strategy(),
+            MaxNumIcebergOrders.strategy(),
+            MaxPosition.strategy(),
+        ]
+
+        return st.one_of(possible_strats)
+
+    @classmethod
+    def strategy_exchange(cls) -> SearchStrategy:
+        possible_strats = [
+            ExchangeMaxNumOrders.strategy(),
+            ExchangeMaxAlgoOrders.strategy(),
+        ]
+
+        return st.one_of(possible_strats)
+
 
 @dataclass
 class PriceFilter(Filter):
@@ -197,26 +224,3 @@ class ExchangeMaxAlgoOrders(Filter):
             cls,
             max_num_algo_orders=st.integers(),
         )
-
-
-def st_filters(include_exchange_filters=True) -> SearchStrategy:
-    """ only generating possibly valid filter, as per the binance doc"""
-    possible_strats = [
-        PriceFilter.strategy(),
-        PercentPrice.strategy(),
-        LotSize.strategy(),
-        MinNotional.strategy(),
-        IcebergParts.strategy(),
-        MarketLotSize.strategy(),
-        MaxNumOrders.strategy(),
-        MaxNumAlgoOrders.strategy(),
-        MaxNumIcebergOrders.strategy(),
-        MaxPosition.strategy(),
-    ]
-    if include_exchange_filters:
-        possible_strats += [
-            ExchangeMaxNumOrders.strategy(),
-            ExchangeMaxAlgoOrders.strategy(),
-        ]
-
-    return st.one_of(possible_strats)
