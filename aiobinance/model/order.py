@@ -1,8 +1,10 @@
 from dataclasses import asdict, fields
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from typing import List, Optional
 
+import hypothesis.strategies as st
 from pydantic.dataclasses import dataclass
 
 # Leveraging pydantic to validate based on type hints
@@ -10,6 +12,15 @@ from pydantic.dataclasses import dataclass
 """ This module defined order datastructure, as returned by binance.
 NOT the information we need to send to the exchange...
 """
+
+
+class OrderSide(Enum):
+    BUY = "BUY"
+    SELL = "SELL"
+
+    @classmethod
+    def strategy(cls):
+        return st.sampled_from(cls)
 
 
 @dataclass
@@ -24,7 +35,7 @@ class OrderFill:
 @dataclass
 class Order:  # TODO : probably better to split in various python types...
     symbol: str
-    side: str
+    side: OrderSide
     type: str
 
     order_id: int
