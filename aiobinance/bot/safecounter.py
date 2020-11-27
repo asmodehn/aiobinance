@@ -9,9 +9,8 @@ from typing import Any, Callable, Optional
 from result import Result
 
 from aiobinance.api.market import Market
-from aiobinance.model import OHLCV
-from aiobinance.model.order import LimitOrder, OrderSide
-from aiobinance.model.ticker import Ticker
+from aiobinance.api.pure.order import LimitOrder, OrderSide
+from aiobinance.api.pure.ticker import Ticker
 
 
 class SafeCounter:
