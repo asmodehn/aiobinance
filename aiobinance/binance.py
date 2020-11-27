@@ -9,10 +9,10 @@ from aiobinance.api import BinanceRaw
 from aiobinance.api.account import retrieve_account
 from aiobinance.api.exchange import Exchange, retrieve_exchange
 from aiobinance.api.market import Market
+from aiobinance.api.pure.account import Account
+from aiobinance.api.pure.order import LimitOrder, MarketOrder, Order, OrderSide
 from aiobinance.config import Credentials, load_api_keyfile
-from aiobinance.model.account import Account
 from aiobinance.model.ohlcv import OHLCV, Candle
-from aiobinance.model.order import LimitOrder, MarketOrder, Order, OrderSide
 from aiobinance.model.trade import Trade, TradeFrame
 
 # TODO : note this module will eventually disappear... code will be moved to various modules around...

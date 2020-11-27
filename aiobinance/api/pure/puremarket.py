@@ -7,7 +7,7 @@ from hypothesis.strategies import SearchStrategy
 from pydantic.dataclasses import dataclass
 
 from aiobinance.api.pure.filters import Filter
-from aiobinance.model.order import LimitOrder, MarketOrder, OrderSide
+from aiobinance.api.pure.order import LimitOrder, MarketOrder, OrderSide
 
 
 @dataclass

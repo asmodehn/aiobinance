@@ -5,8 +5,8 @@ from decimal import Decimal
 import hypothesis.strategies as st
 from hypothesis import Verbosity, given, settings
 
+from aiobinance.api.pure.order import LimitOrder, MarketOrder, OrderSide
 from aiobinance.api.pure.puremarket import PureMarket
-from aiobinance.model.order import LimitOrder, MarketOrder, OrderSide
 
 
 class TestPureMarket(unittest.TestCase):

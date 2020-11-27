@@ -2,7 +2,12 @@ import unittest
 
 from hypothesis import given
 
-from aiobinance.model.account import Account, AssetAmount, st_accounts, st_assetamounts
+from aiobinance.api.pure.account import (
+    Account,
+    AssetAmount,
+    st_accounts,
+    st_assetamounts,
+)
 
 
 class TestAssetAmount(unittest.TestCase):

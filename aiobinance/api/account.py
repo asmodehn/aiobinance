@@ -1,7 +1,6 @@
 from aiobinance.api.exchange import Exchange, retrieve_exchange
+from aiobinance.api.pure.account import Account as AccountModel
 from aiobinance.api.rawapi import Binance
-from aiobinance.model.account import Account as AccountModel
-from aiobinance.model.order import Order
 
 
 class Account:

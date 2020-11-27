@@ -4,8 +4,8 @@ from decimal import Decimal
 import pytest
 
 from aiobinance.api.account import retrieve_account
+from aiobinance.api.pure.order import LimitOrder, OrderSide
 from aiobinance.api.rawapi import Binance
-from aiobinance.model.order import LimitOrder, OrderSide
 from aiobinance.trader import Trader
 
 

@@ -2,7 +2,7 @@ import unittest
 
 from hypothesis import given
 
-from aiobinance.model.ticker import Ticker, st_ticker
+from aiobinance.api.pure.ticker import Ticker, st_ticker
 
 
 class TestTicker(unittest.TestCase):

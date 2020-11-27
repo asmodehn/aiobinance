@@ -5,11 +5,11 @@ from datetime import datetime, timezone
 from typing import List
 
 from aiobinance.api.market import Market
+from aiobinance.api.pure.exchange import Exchange as ExchangeInfo
+from aiobinance.api.pure.exchange import RateLimit
 from aiobinance.api.pure.filters import Filter
 from aiobinance.api.pure.puremarket import PureMarket as Symbol
 from aiobinance.api.rawapi import Binance
-from aiobinance.model.exchange import Exchange as ExchangeInfo
-from aiobinance.model.exchange import RateLimit
 
 # converting camel case (API) to snake case (aiobinance)
 camel_snake = re.compile(r"(?<!^)(?=[A-Z])")

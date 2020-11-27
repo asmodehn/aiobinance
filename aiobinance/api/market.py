@@ -4,13 +4,12 @@ from typing import List, Optional
 
 from result import Err, Ok, Result
 
+from aiobinance.api.pure.order import LimitOrder, MarketOrder, OrderFill, OrderSide
 from aiobinance.api.pure.puremarket import PureMarket
-from aiobinance.api.pure.puremarket import PureMarket as Symbol
+from aiobinance.api.pure.ticker import Ticker
 from aiobinance.api.rawapi import Binance
 from aiobinance.model import OHLCV, TradeFrame
 from aiobinance.model.ohlcv import Candle
-from aiobinance.model.order import LimitOrder, MarketOrder, OrderFill, OrderSide
-from aiobinance.model.ticker import Ticker
 from aiobinance.model.trade import Trade
 
 

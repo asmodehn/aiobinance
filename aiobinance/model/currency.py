@@ -20,7 +20,7 @@ class CurrencyMeta(type):
             "__annotations__": {"amount": Decimal},
         }
 
-        def init(self, amount: typing.Union[str, float]):
+        def init(self, *, amount: typing.Union[str, float]):
             if isinstance(amount, float):
                 self.amount = self.context.create_decimal_from_float(amount)
             else:
@@ -37,7 +37,7 @@ class CurrencyMeta(type):
 
         def add(self, other):
             if isinstance(other, type(self)):
-                return type(self)(self.context.add(self.amount, other.amount))
+                return type(self)(amount=self.context.add(self.amount, other.amount))
             else:
                 raise RuntimeError(
                     f"Aborting. conversion rate of {type(self)} with {type(other)} unknown."

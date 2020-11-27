@@ -7,12 +7,11 @@ from result import Result
 import aiobinance.binance
 from aiobinance.api.account import Account
 from aiobinance.api.exchange import Exchange
-from aiobinance.api.market import Market
+from aiobinance.api.pure.exchange import Filter, RateLimit
+from aiobinance.api.pure.order import LimitOrder, MarketOrder, OrderFill, OrderSide
+from aiobinance.api.pure.ticker import Ticker
 from aiobinance.model import TradeFrame
-from aiobinance.model.exchange import Filter, RateLimit
 from aiobinance.model.ohlcv import OHLCV, Candle
-from aiobinance.model.order import LimitOrder, MarketOrder, OrderFill, OrderSide
-from aiobinance.model.ticker import Ticker
 from aiobinance.model.trade import Trade
 
 
