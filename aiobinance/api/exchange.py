@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 from typing import List
 
 from aiobinance.api.market import Market
+from aiobinance.api.model.filters import Filter
+from aiobinance.api.model.market_info import MarketInfo
 from aiobinance.api.pure.exchange import Exchange as ExchangeInfo
 from aiobinance.api.pure.exchange import RateLimit
-from aiobinance.api.pure.filters import Filter
-from aiobinance.api.pure.puremarket import PureMarket as Symbol
 from aiobinance.api.rawapi import Binance
 
 # converting camel case (API) to snake case (aiobinance)
@@ -26,7 +26,7 @@ class Exchange:
         servertime: datetime,
         rate_limits: List[RateLimit],
         exchange_filters: List[Filter],
-        symbols: List[Symbol],
+        symbols: List[MarketInfo],
         async_loop=None,
     ):
         # if an async loop is passed, call is run in the background to update data out-of-band
@@ -39,7 +39,7 @@ class Exchange:
         self.market = {
             s.symbol: Market(
                 api=self.api,
-                model=s,
+                info=s,
                 async_loop=async_loop,
             )
             for s in symbols
@@ -81,7 +81,7 @@ def retrieve_exchange(api: Binance) -> Exchange:
             Filter(filter_type=f["filterType"]) for f in res["exchangeFilters"]
         ],
         symbols=[
-            Symbol(
+            MarketInfo(
                 symbol=s["symbol"],
                 status=s["status"],
                 base_asset=s["baseAsset"],

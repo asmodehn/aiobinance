@@ -4,7 +4,8 @@ from typing import List, Optional
 
 from result import Err, Ok, Result
 
-from aiobinance.api.pure.order import LimitOrder, MarketOrder, OrderFill, OrderSide
+from aiobinance.api.model.market_info import MarketInfo
+from aiobinance.api.model.order import LimitOrder, MarketOrder, OrderFill, OrderSide
 from aiobinance.api.pure.puremarket import PureMarket
 from aiobinance.api.pure.ticker import Ticker
 from aiobinance.api.rawapi import Binance
@@ -13,84 +14,19 @@ from aiobinance.model.ohlcv import Candle
 from aiobinance.model.trade import Trade
 
 
-class Market:
-    """ A class to simplify interacting with binance markets through the REST API."""
+class Market(PureMarket):
+    """A class to simplify interacting with binance markets through the REST API.
+    Here we inherit from PureMarket, to get same methods signatures, therefore specifying the same behavior,
+     as with PureMarket which we test thoroughly without side effect.
+    While leveraging the inheritance relationship as a way to specify behavior of effectful code...
+    """
 
     api: Binance
-    _model: PureMarket
-
-    @property
-    def symbol(self):
-        return self._model.symbol
-
-    @property
-    def status(self):
-        return self._model.status
-
-    @property
-    def base_asset(self):
-        return self._model.base_asset
-
-    @property
-    def base_asset_precision(self):
-        return self._model.base_asset_precision
-
-    @property
-    def quote_asset(self):
-        return self._model.quote_asset
-
-    @property
-    def quote_precision(self):
-        return self._model.quote_precision
-
-    @property
-    def quote_asset_precision(self):
-        return self._model.quote_asset_precision
-
-    @property
-    def base_commission_precision(self):
-        return self._model.base_commission_precision
-
-    @property
-    def quote_commission_precision(self):
-        return self._model.quote_commission_precision
-
-    @property
-    def order_types(self):
-        return self._model.order_types
-
-    @property
-    def iceberg_allowed(self):
-        return self._model.iceberg_allowed
-
-    @property
-    def oco_allowed(self):
-        return self._model.oco_allowed
-
-    @property
-    def is_spot_trading_allowed(self):
-        return self._model.is_spot_trading_allowed
-
-    @property
-    def is_margin_trading_allowed(self):
-        return self._model.is_margin_trading_allowed
-
-    @property
-    def quote_order_qty_market_allowed(self):
-        return self._model.quote_order_qty_market_allowed
-
-    @property
-    def filters(self):
-        return self._model.filters
-
-    @property
-    def permissions(self):
-        return self._model.permissions
 
     def __init__(
         self,
         api: Binance,
-        model: PureMarket,
+        info: MarketInfo,
         async_loop=None,
     ):
 
@@ -98,13 +34,13 @@ class Market:
         # currently polling in the background, later TODO : websockets
 
         self.api = api
-        self._model = model
+        super(Market, self).__init__(info=info)
 
     def __call__(self, *args, **kwargs):
         """ triggers an update (polling style)"""
         raise NotImplementedError  # This is an optimization on simple request -> later
 
-    def price(
+    def price(  # TODO : build a pure mock version we can use for simulations...
         self, *, start_time: datetime, end_time: datetime, interval=None
     ) -> OHLCV:
 
@@ -122,7 +58,7 @@ class Market:
 
         res = self.api.call_api(
             command="klines",
-            symbol=self.symbol,
+            symbol=self.info.symbol,
             interval=interval,
             startTime=start_timestamp,
             endTime=end_timestamp,
@@ -154,7 +90,7 @@ class Market:
 
         return OHLCV(*candles)
 
-    def trades(
+    def trades(  # TODO : build a pure mock version we can use for simulations...
         self,
         *,
         start_time: datetime,
@@ -170,7 +106,7 @@ class Market:
 
         res = self.api.call_api(
             command="myTrades",
-            symbol=self.symbol,
+            symbol=self.info.symbol,
             startTime=start_timestamp,
             endTime=end_timestamp,
             limit=1000,
@@ -203,10 +139,12 @@ class Market:
         # We aggregate all formatted trades into a TradeFrame
         return TradeFrame(*trades)
 
-    def ticker24(self) -> Ticker:
+    def ticker24(
+        self,
+    ) -> Ticker:  # TODO : build a pure mock version we can use for simulations...
         res = self.api.call_api(
             command="ticker24hr",
-            symbol=self.symbol,
+            symbol=self.info.symbol,
         )
 
         if res.is_ok():
@@ -265,11 +203,18 @@ class Market:
 
         if quote_order_qty is not None:
             # not implemented just yet...
-            sent_params, test_order = self._model.market_order_quote(
+            sent_params = self.info._market_order_quote_params(
+                side=side, quantity=quote_order_qty
+            )
+
+            test_order = super(Market, self).market_order_quote(
                 side=side, quantity=quote_order_qty
             )
         else:
-            sent_params, test_order = self._model.market_order_base(
+            sent_params = self.info._market_order_base_params(
+                side=side, quantity=quantity
+            )
+            test_order = super(Market, self).market_order_base(
                 side=side, quantity=quantity
             )
 
@@ -323,7 +268,7 @@ class Market:
         test=True,  # test order by default for safety
     ) -> Result[LimitOrder, None]:
 
-        sent_params, test_order = self._model.limit_order(
+        sent_params = self.info._limit_order_params(
             side=side, quantity=quantity, price=price
         )
 
@@ -342,6 +287,10 @@ class Market:
             else:
                 # TODO : handle API error properly
                 raise RuntimeError(res.value)
+
+            test_order = super(Market, self).limit_order(
+                side=side, quantity=quantity, price=price
+            )
 
             # TODO : review if sequence here...
             if res == {}:
