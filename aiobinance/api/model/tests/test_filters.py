@@ -2,7 +2,7 @@ import unittest
 
 from hypothesis import Verbosity, given, settings
 
-from aiobinance.api.pure.filters import (
+from aiobinance.api.model.filters import (
     ExchangeMaxAlgoOrders,
     ExchangeMaxNumOrders,
     Filter,
@@ -21,7 +21,7 @@ from aiobinance.api.pure.filters import (
 
 class TestPriceFilter(unittest.TestCase):
     @given(fltr=PriceFilter.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)
@@ -30,7 +30,7 @@ class TestPriceFilter(unittest.TestCase):
 
 class TestPercentPrice(unittest.TestCase):
     @given(fltr=PercentPrice.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)
@@ -39,7 +39,7 @@ class TestPercentPrice(unittest.TestCase):
 
 class TestLotSize(unittest.TestCase):
     @given(fltr=LotSize.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)
@@ -48,7 +48,7 @@ class TestLotSize(unittest.TestCase):
 
 class TestMinNotional(unittest.TestCase):
     @given(fltr=MinNotional.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)
@@ -57,7 +57,7 @@ class TestMinNotional(unittest.TestCase):
 
 class TestIcebergParts(unittest.TestCase):
     @given(fltr=IcebergParts.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)
@@ -66,7 +66,7 @@ class TestIcebergParts(unittest.TestCase):
 
 class TestMarketLotSize(unittest.TestCase):
     @given(fltr=MarketLotSize.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)
@@ -75,7 +75,7 @@ class TestMarketLotSize(unittest.TestCase):
 
 class TestMaxNumOrders(unittest.TestCase):
     @given(fltr=MaxNumOrders.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)
@@ -84,7 +84,7 @@ class TestMaxNumOrders(unittest.TestCase):
 
 class TestMaxNumAlgoOrders(unittest.TestCase):
     @given(fltr=MaxNumAlgoOrders.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)
@@ -93,7 +93,7 @@ class TestMaxNumAlgoOrders(unittest.TestCase):
 
 class TestMaxNumIcebergOrders(unittest.TestCase):
     @given(fltr=MaxNumIcebergOrders.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)
@@ -102,7 +102,7 @@ class TestMaxNumIcebergOrders(unittest.TestCase):
 
 class TestMaxPosition(unittest.TestCase):
     @given(fltr=MaxPosition.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)
@@ -111,7 +111,7 @@ class TestMaxPosition(unittest.TestCase):
 
 class TestExchangeMaxNumOrders(unittest.TestCase):
     @given(fltr=ExchangeMaxNumOrders.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)
@@ -120,7 +120,7 @@ class TestExchangeMaxNumOrders(unittest.TestCase):
 
 class TestExchangeMaxAlgoOrders(unittest.TestCase):
     @given(fltr=ExchangeMaxAlgoOrders.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, fltr):
 
         assert isinstance(fltr, Filter)

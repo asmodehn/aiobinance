@@ -3,7 +3,7 @@ import unittest
 import hypothesis.strategies as st
 from hypothesis import Verbosity, given, settings
 
-from aiobinance.api.pure.order import OrderSide
+from aiobinance.api.model.order import OrderSide
 
 
 class TestOrderSide(unittest.TestCase):
