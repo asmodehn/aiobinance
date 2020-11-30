@@ -9,7 +9,9 @@ from bokeh.server.server import Server as BokehServer
 from bokeh.themes import Theme
 
 from aiobinance import price_from_binance, web
-from aiobinance.model.exchange import Symbol
+from aiobinance.api.exchange import retrieve_exchange
+from aiobinance.api.market import Market
+from aiobinance.api.rawapi import Binance
 from aiobinance.model.ohlcv import OHLCV
 
 
@@ -49,7 +51,7 @@ def symbol_page(doc, symbol: str):
     # TODO : some way to close the ohlc subscription when we dont need it anymore...
 
 
-async def main(symbols: List[Symbol]):
+async def main(symbols: List[Market]):
 
     # # Client can be global: there is only one.
     # rest = RestClient(server=Server())
@@ -88,5 +90,8 @@ if __name__ == "__main__":
     # This module taken independently starts the repl, as an interactive test.
     # It is connected to the binance but without any authentication or configuration.
     # These could be done interactively however...
+    api = Binance()  # we need private requests here !
 
-    asyncio.run(main(), debug=True)
+    exchange = retrieve_exchange(api=api)
+
+    asyncio.run(main([m for m in exchange.market.values()]), debug=True)
