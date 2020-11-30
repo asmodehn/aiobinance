@@ -5,13 +5,13 @@ from decimal import Decimal
 import hypothesis.strategies as st
 from hypothesis import Verbosity, given, settings
 
-from aiobinance.api.pure.order import LimitOrder, MarketOrder, OrderSide
+from aiobinance.api.model.order import LimitOrder, MarketOrder, OrderSide
 from aiobinance.api.pure.puremarket import PureMarket
 
 
 class TestPureMarket(unittest.TestCase):
     @given(pm=PureMarket.strategy())
-    @settings(verbosity=Verbosity.verbose)
+    # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, pm):
 
         assert isinstance(pm, PureMarket)
@@ -26,11 +26,11 @@ class TestPureMarket(unittest.TestCase):
         # now_secs = int(datetime.now(tz=timezone.utc).timestamp())
         sent, order = pm.market_order_base(side=side, quantity=qty)
 
-        assert sent["symbol"] == pm.symbol, f"{sent['symbol']} != {pm.symbol}"
+        assert sent["symbol"] == pm.info.symbol, f"{sent['symbol']} != {pm.info.symbol}"
         assert sent["side"] == side.value, f"{sent['side']} != {side.value}"
         assert sent["type"] == "MARKET", f"{sent['type']} != 'MARKET'"
 
-        rounded_qty = "{:0.0{}f}".format(qty, pm.base_asset_precision)
+        rounded_qty = "{:0.0{}f}".format(qty, pm.info.base_asset_precision)
         assert Decimal(sent["quantity"]) == Decimal(
             rounded_qty
         ), f"{Decimal(sent['quantity'])} != {Decimal(rounded_qty)}"
@@ -53,7 +53,7 @@ class TestPureMarket(unittest.TestCase):
 
         assert order.side == side, f"{order.side} != {side}"
         assert order.status == "TEST", f"{order.status} != 'TEST'"
-        assert order.symbol == pm.symbol, f"{order.status} != {pm.symbol}"
+        assert order.symbol == pm.info.symbol, f"{order.status} != {pm.info.symbol}"
         assert order.type == "MARKET", f"{order.type} != 'MARKET'"
 
         # too flaky (test must run in < 1sec), disabling
@@ -84,17 +84,17 @@ class TestPureMarket(unittest.TestCase):
         # now_secs = int(datetime.now(tz=timezone.utc).timestamp())
         sent, order = pm.limit_order(side=side, quantity=qty, price=price)
 
-        assert sent["symbol"] == pm.symbol, f"{sent['symbol']} != {pm.symbol}"
+        assert sent["symbol"] == pm.info.symbol, f"{sent['symbol']} != {pm.info.symbol}"
         assert sent["side"] == side.value, f"{sent['side']} != {side.value}"
         assert sent["type"] == "LIMIT", f"{sent['type']} != 'LIMIT'"
         assert sent["timeInForce"] == "GTC", f"{sent['timeInForce']} != 'GTC'"
 
-        rounded_qty = "{:0.0{}f}".format(qty, pm.base_asset_precision)
+        rounded_qty = "{:0.0{}f}".format(qty, pm.info.base_asset_precision)
         assert Decimal(sent["quantity"]) == Decimal(
             rounded_qty
         ), f"{Decimal(sent['quantity'])} != {Decimal(rounded_qty)}"
 
-        rounded_price = "{:0.0{}f}".format(price, pm.quote_asset_precision)
+        rounded_price = "{:0.0{}f}".format(price, pm.info.quote_asset_precision)
         assert Decimal(sent["price"]) == Decimal(
             rounded_price
         ), f"{Decimal(sent['price'])} != {Decimal(rounded_price)}"
@@ -121,7 +121,7 @@ class TestPureMarket(unittest.TestCase):
 
         assert order.side == side, f"{order.side} != {side}"
         assert order.status == "TEST", f"{order.status} != 'TEST'"
-        assert order.symbol == pm.symbol, f"{order.symbol} != {pm.symbol}"
+        assert order.symbol == pm.info.symbol, f"{order.symbol} != {pm.info.symbol}"
         assert order.timeInForce == "GTC", f"{order.timeInForce} != 'GTC'"
         assert order.type == "LIMIT", f"{order.type} != 'LIMIT'"
 

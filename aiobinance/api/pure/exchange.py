@@ -4,8 +4,8 @@ from typing import List, Optional
 
 from pydantic.dataclasses import dataclass
 
-from aiobinance.api.pure.filters import Filter
-from aiobinance.api.pure.puremarket import PureMarket
+from aiobinance.api.model.filters import Filter
+from aiobinance.api.model.market_info import MarketInfo
 
 
 @dataclass
@@ -26,4 +26,4 @@ class Exchange:
 
     exchange_filters: List[Filter]
 
-    symbols: List[PureMarket]
+    symbols: List[MarketInfo]

@@ -70,6 +70,8 @@ count: {self.count}
 
 # Strategies, inferring attributes from type hints by default
 def st_ticker():
+
+    # TODO : refine (prevent /0 on price, etc.)
     return st.builds(
         Ticker,
         price_change=st.decimals(allow_nan=False, allow_infinity=False),
