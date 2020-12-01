@@ -123,6 +123,8 @@ def test_sell_test(keyfile):
     # Sell test order overpriced
     cmd = cmd + "sell 300 COTI --receive 0.51 BNB"
     # TODO : ARGH it seems PRICE_FILTER is triggered with calculated prices like 0.00163333 WORAROUND ?
+    #  Info from : https://binance-docs.github.io/apidocs/spot/en/#filters
+    #  (price-minPrice) % tickSize == 0 for price filter to be happy !!
     result = runner.invoke(
         trader,
         cmd.split(),

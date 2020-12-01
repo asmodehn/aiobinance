@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple
 import hypothesis.strategies as st
 from hypothesis.strategies import SearchStrategy
 from pydantic.dataclasses import dataclass
+from result import Ok, Result
 
 from aiobinance.api.model.filters import Filter
 from aiobinance.api.model.market_info import MarketInfo
@@ -22,60 +23,6 @@ class PureMarket:
     def __init__(self, info: MarketInfo):
         self.info = info
 
-    def market_order_base(
-        self,
-        *,
-        side: OrderSide,
-        quantity: Optional[Decimal] = None,  # Base asset
-        test=True,
-    ) -> MarketOrder:
-        """ A market order passing without any side effect. """
-
-        sent_params = self.info._market_order_base_params(side=side, quantity=quantity)
-
-        return MarketOrder(
-            symbol=sent_params["symbol"],
-            side=OrderSide(sent_params["side"]),
-            type=sent_params["type"],
-            origQty=Decimal(sent_params["quantity"]),
-            # fake attr for test order
-            order_id=-1,
-            order_list_id=-1,
-            clientOrderId="",
-            transactTime=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
-            executedQty=Decimal(0),
-            cummulativeQuoteQty=Decimal(0),
-            status="TEST",
-            fills=[],
-        )
-
-    def market_order_quote(
-        self,
-        *,
-        side: OrderSide,
-        quantity: Optional[Decimal] = None,  # Quote asset
-        test=True,
-    ) -> MarketOrder:
-        """ A market order passing without any side effect. """
-
-        sent_params = self.info._market_order_quote_params(side=side, quantity=quantity)
-        raise NotImplementedError  # This needs to be reviewed, tested, and used...
-        return MarketOrder(
-            symbol=sent_params["symbol"],
-            side=sent_params["side"],
-            type=sent_params["type"],
-            # origQty=quantity,  # TODO : some calculation based on price is needed here...
-            # fake attr for test order
-            order_id=-1,
-            order_list_id=-1,
-            clientOrderId="",
-            transactTime=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
-            executedQty=Decimal(0),
-            cummulativeQuoteQty=Decimal(0),
-            status="TEST",
-            fills=[],
-        )
-
     def limit_order(
         self,
         *,
@@ -84,8 +31,10 @@ class PureMarket:
         quantity: Decimal,
         timeInForce="GTC",
         icebergQty: Optional[Decimal] = None,
-        test=True,
-    ) -> LimitOrder:
+        # Note : return type must be same as implementation
+        # (even if there will be no exception here)
+    ) -> Result[LimitOrder, Exception]:
+
         """ A limit order passing without any side effect. """
 
         sent_params = self.info._limit_order_params(
@@ -97,21 +46,23 @@ class PureMarket:
         )
 
         # filling up with order info, as it has been accepted
-        return LimitOrder(
-            symbol=sent_params["symbol"],
-            side=OrderSide(sent_params["side"]),
-            type=sent_params["type"],
-            timeInForce=sent_params["timeInForce"],
-            # we recreate decimal from passed string to adjust precision...
-            origQty=Decimal(sent_params["quantity"]),
-            price=Decimal(sent_params["price"]),
-            # fake attr for test order
-            order_id=-1,
-            order_list_id=-1,
-            clientOrderId="",
-            transactTime=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
-            executedQty=Decimal(0),
-            cummulativeQuoteQty=Decimal(0),
-            status="TEST",
-            fills=[],
+        return Ok(
+            LimitOrder(
+                symbol=sent_params["symbol"],
+                side=OrderSide(sent_params["side"]),
+                type=sent_params["type"],
+                timeInForce=sent_params["timeInForce"],
+                # we recreate decimal from passed string to adjust precision...
+                origQty=Decimal(sent_params["quantity"]),
+                price=Decimal(sent_params["price"]),
+                # fake attr for test order
+                order_id=-1,
+                order_list_id=-1,
+                clientOrderId="",
+                transactTime=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
+                executedQty=Decimal(0),
+                cummulativeQuoteQty=Decimal(0),
+                status="TEST",
+                fills=[],
+            )
         )

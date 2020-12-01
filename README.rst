@@ -7,6 +7,7 @@ Note: This is an opinionated trading client, it might not fit your style.
 Here are a few design choices we made::
 
 - Spot and Margin only: we aim to support beginners with basic trading activities, minimizing risk.
+- Discourage MARKET order, preventing potentially large slippage on large bait orders.
 - Mono-Account: One machine's user where the `python -m aiobinance` process is running.
 - Simple Data Model: we want a clean, binance-specific, data model, leveraging python's dataclasses and types
 - Various Human Machine Interfaces: we aim to support skilled technical folks, and provide CLI and Web interfaces

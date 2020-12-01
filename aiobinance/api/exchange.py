@@ -28,27 +28,27 @@ class Exchange:
         exchange_filters: List[Filter],
         symbols: List[MarketInfo],
         async_loop=None,
+        test=True,
     ):
         # if an async loop is passed, call is run in the background to update data out-of-band
         # currently polling in the background, later TODO : websockets
 
         self.api = api
+        self.test = (
+            test  # wether we will be able to actually do anything with this exchange
+        )
         self.servertime = servertime
         self.rate_limits = rate_limits
         self.exchange_filters = exchange_filters
         self.market = {
-            s.symbol: Market(
-                api=self.api,
-                info=s,
-                async_loop=async_loop,
-            )
+            s.symbol: Market(api=self.api, info=s, async_loop=async_loop, test=test)
             for s in symbols
         }
 
     # TODO : implement rate limiting somehow...
 
 
-def retrieve_exchange(api: Binance) -> Exchange:
+def retrieve_exchange(api: Binance, test: bool = True) -> Exchange:
 
     res = api.call_api(command="exchangeInfo")
 
@@ -116,4 +116,5 @@ def retrieve_exchange(api: Binance) -> Exchange:
         rate_limits=exchange.rate_limits,
         exchange_filters=exchange.exchange_filters,
         symbols=exchange.symbols,
+        test=test,
     )

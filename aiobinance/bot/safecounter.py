@@ -3,28 +3,30 @@ Module focusing on One Immediate Trade only, with given information.
 Goal here is to converge towards expected trade result and limit slippage...
 """
 import decimal
+import typing
 from decimal import Decimal
 from typing import Any, Callable, Optional
 
-from result import Result
+from result import Err, Ok, Result
 
-from aiobinance.api.market import Market
-from aiobinance.api.pure.order import LimitOrder, OrderSide
+from aiobinance.api.model.order import LimitOrder, OrderSide
+from aiobinance.api.pure.puremarket import PureMarket
 from aiobinance.api.pure.ticker import Ticker
 
 
+# TODO : review this since the separation of model and pure packages in api...
 class SafeCounter:
     """This is a counter where we can pass orders.
     However it has minimal safeguards in place
     """
 
     @classmethod
-    def from_ticker(cls, mkt: Market, tkr: Ticker):
+    def from_ticker(cls, mkt: PureMarket, tkr: Ticker):
         return cls(
             bid_price=tkr.bid_price,
             ask_price=tkr.ask_price,
-            base_asset_precision=mkt.base_asset_precision,
-            quote_asset_precision=mkt.quote_asset_precision,
+            base_asset_precision=mkt.info.base_asset_precision,
+            quote_asset_precision=mkt.info.quote_asset_precision,
             order_callable=mkt.limit_order,
         )
 
@@ -66,9 +68,12 @@ class SafeCounter:
         self.limit_order = order_callable
 
     async def sell(
-        self, amount: Decimal, expected_gain: Decimal, test=True, post_only=True
-    ) -> LimitOrder:
+        self, amount: Decimal, expected_gain: Decimal, post_only=True
+    ) -> Result[typing.Union[LimitOrder, None], Exception]:
         # TODO : post_only (kraken) is LIMIT_MAKER on binance
+
+        if amount.is_zero():
+            return Ok(None)
 
         # adjusting precision
         with decimal.localcontext() as ctx:
@@ -93,16 +98,20 @@ class SafeCounter:
 
         # TODO : await (so other things can keep going in background...)
         passed_order = self.limit_order(
-            side=OrderSide.SELL, quantity=amount, price=sell_price, test=test
+            side=OrderSide.SELL, quantity=amount, price=sell_price
         )
 
         #  TODO: await for trade
         #   trade detected : result analysis...
-        return passed_order.value
+        return passed_order
 
     async def buy(
-        self, amount: Decimal, expected_cost: Decimal, test=True, post_only=True
-    ) -> LimitOrder:
+        self, amount: Decimal, expected_cost: Decimal, post_only=True
+    ) -> Result[typing.Union[LimitOrder, None], Exception]:
+
+        if amount.is_zero():
+            return Ok(None)
+
         # TODO : post_only (kraken) is LIMIT_MAKER on binance
         # adjusting precision
         with decimal.localcontext() as ctx:
@@ -127,12 +136,12 @@ class SafeCounter:
 
         # TODO : await (so other things can keep going in background...)
         passed_order = self.limit_order(
-            side=OrderSide.BUY, quantity=amount, price=buy_price, test=test
+            side=OrderSide.BUY, quantity=amount, price=buy_price
         )
 
         #  TODO: await for trade
         #   trade detected : result analysis...
-        return passed_order.value
+        return passed_order
 
     async def trades(self):
 

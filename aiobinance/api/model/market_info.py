@@ -121,30 +121,6 @@ class MarketInfo:
             ),
         )
 
-    def _market_order_base_params(
-        self, side: OrderSide, quantity: Optional[Decimal] = None
-    ):
-        return {
-            "symbol": self.symbol,
-            "side": side.value,
-            "type": "MARKET",
-            # Ref : https://github.com/sammchardy/python-binance/issues/57#issuecomment-354062222
-            "quantity": "{:0.0{}f}".format(quantity, self.base_asset_precision),
-        }
-
-    def _market_order_quote_params(
-        self,
-        side: OrderSide,
-        quantity: Optional[Decimal] = None,  # Quote asset
-    ):
-        return {
-            "symbol": self.symbol,
-            "side": side,
-            "type": "MARKET",
-            # Ref : https://github.com/sammchardy/python-binance/issues/57#issuecomment-354062222
-            "quoteOrderQty": "{:0.0{}f}".format(quantity, self.base_asset_precision),
-        }
-
     def _limit_order_params(
         self,
         *,

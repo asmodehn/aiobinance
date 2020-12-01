@@ -9,8 +9,8 @@ from aiobinance.api import BinanceRaw
 from aiobinance.api.account import retrieve_account
 from aiobinance.api.exchange import Exchange, retrieve_exchange
 from aiobinance.api.market import Market
+from aiobinance.api.model.order import LimitOrder, MarketOrder, Order, OrderSide
 from aiobinance.api.pure.account import Account
-from aiobinance.api.pure.order import LimitOrder, MarketOrder, Order, OrderSide
 from aiobinance.config import Credentials, load_api_keyfile
 from aiobinance.model.ohlcv import OHLCV, Candle
 from aiobinance.model.trade import Trade, TradeFrame
@@ -87,30 +87,10 @@ def limitorder_to_binance(
         credentials=Credentials(key=credentials.key, secret=credentials.secret)
     )  # we need private requests here !
 
-    exchange = retrieve_exchange(api=api)
+    exchange = retrieve_exchange(api=api, test=test)
 
     order = exchange.market[symbol].limit_order(
-        side=side, price=price, quantity=quantity, test=test
-    )
-    return order
-
-
-def marketorder_to_binance(
-    symbol: str,
-    side: OrderSide,
-    quantity: Decimal,
-    *,
-    credentials: Credentials = load_api_keyfile(),
-    test: bool = True
-) -> Result[TradeFrame, None]:  # TODO : better error ?
-    api = BinanceRaw(
-        credentials=Credentials(key=credentials.key, secret=credentials.secret)
-    )  # we need private requests here !
-
-    exchange = retrieve_exchange(api=api)
-
-    order = exchange.market[symbol].market_order(
-        side=side, quantity=quantity, test=test
+        side=side, price=price, quantity=quantity
     )
     return order
 

@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from aiobinance.api.account import retrieve_account
-from aiobinance.api.pure.order import LimitOrder, OrderSide
+from aiobinance.api.model.order import LimitOrder, OrderSide
 from aiobinance.api.rawapi import Binance
 from aiobinance.trader import Trader
 
@@ -17,14 +17,14 @@ def test_buy_test(keyfile):
 
     api = Binance(credentials=keyfile)  # we might need private requests here !
 
-    account = retrieve_account(api=api)
+    account = retrieve_account(api=api, test=True)
 
     trader = Trader(account=account, market=account.exchange.market["COTIBNB"])
 
     # Buy test order overpriced => will readjust !
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.45), test=True)
-    assert order and isinstance(order, LimitOrder)
+    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.45))
+    assert isinstance(order, LimitOrder), f"{order}"
     assert order.clientOrderId == ""
     assert order.cummulativeQuoteQty.is_zero()
     assert order.executedQty.is_zero()
@@ -48,8 +48,8 @@ def test_buy_test(keyfile):
     # Buy test order underpriced
     # Note: it seems that PRICE_FILTER can prevent passing buy orders too far from current price...
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.42), test=True)
-    assert order and isinstance(order, LimitOrder)
+    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.42))
+    assert isinstance(order, LimitOrder), f"{order}"
     assert order.clientOrderId == ""
     assert order.cummulativeQuoteQty.is_zero()
     assert order.executedQty.is_zero()
@@ -80,13 +80,13 @@ def test_buy(keyfile):
 
     api = Binance(credentials=keyfile)  # we might need private requests here !
 
-    account = retrieve_account(api=api)
+    account = retrieve_account(api=api, test=False)
 
     trader = Trader(account=account, market=account.exchange.market["COTIBNB"])
 
     print("Buy test order: ")
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.45), test=False)
+    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.45))
     print(order)
 
     assert order
@@ -100,13 +100,13 @@ def test_sell_test(keyfile):
 
     api = Binance(credentials=keyfile)  # we might need private requests here !
 
-    account = retrieve_account(api=api)
+    account = retrieve_account(api=api, test=True)
 
     trader = Trader(account=account, market=account.exchange.market["COTIBNB"])
 
     # Sell test order overpriced
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.45), test=True)
+    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.45))
     assert order and isinstance(order, LimitOrder)
     assert order.clientOrderId == ""
     assert order.cummulativeQuoteQty.is_zero()
@@ -130,7 +130,7 @@ def test_sell_test(keyfile):
 
     # Sell test order underpriced => will readjust !
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.40), test=True)
+    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.40))
     assert order and isinstance(order, LimitOrder)
     assert order.clientOrderId == ""
     assert order.cummulativeQuoteQty.is_zero()
@@ -162,13 +162,13 @@ def test_sell(keyfile):
 
     api = Binance(credentials=keyfile)  # we might need private requests here !
 
-    account = retrieve_account(api=api)
+    account = retrieve_account(api=api, test=False)
 
     trader = Trader(account=account, market=account.exchange.market["COTIBNB"])
 
     print("Sell test order: ")
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.45), test=False)
+    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.45))
     print(order)
 
     assert order

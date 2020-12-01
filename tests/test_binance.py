@@ -7,8 +7,8 @@ from result import Result
 import aiobinance.binance
 from aiobinance.api.account import Account
 from aiobinance.api.exchange import Exchange
+from aiobinance.api.model.order import LimitOrder, MarketOrder, OrderFill, OrderSide
 from aiobinance.api.pure.exchange import Filter, RateLimit
-from aiobinance.api.pure.order import LimitOrder, MarketOrder, OrderFill, OrderSide
 from aiobinance.api.pure.ticker import Ticker
 from aiobinance.model import TradeFrame
 from aiobinance.model.ohlcv import OHLCV, Candle
@@ -65,10 +65,10 @@ def test_exchange_from_binance():
 
     # Validating only one market...
     ethbtc_market = exchange.market["ETHBTC"]
-    assert ethbtc_market.base_asset == "ETH"
-    assert ethbtc_market.base_asset_precision == 8
-    assert ethbtc_market.base_commission_precision == 8
-    assert ethbtc_market.filters == [
+    assert ethbtc_market.info.base_asset == "ETH"
+    assert ethbtc_market.info.base_asset_precision == 8
+    assert ethbtc_market.info.base_commission_precision == 8
+    assert ethbtc_market.info.filters == [
         Filter.factory(
             filter_type="PRICE_FILTER",
             min_price=Decimal("0.00000100"),
@@ -103,25 +103,25 @@ def test_exchange_from_binance():
         Filter.factory(filter_type="MAX_NUM_ALGO_ORDERS", max_num_algo_orders=5),
         Filter.factory(filter_type="MAX_NUM_ORDERS", max_num_orders=200),
     ]
-    assert ethbtc_market.iceberg_allowed is True
-    assert ethbtc_market.is_margin_trading_allowed is True
-    assert ethbtc_market.is_spot_trading_allowed is True
-    assert ethbtc_market.oco_allowed is True
-    assert ethbtc_market.order_types == [
+    assert ethbtc_market.info.iceberg_allowed is True
+    assert ethbtc_market.info.is_margin_trading_allowed is True
+    assert ethbtc_market.info.is_spot_trading_allowed is True
+    assert ethbtc_market.info.oco_allowed is True
+    assert ethbtc_market.info.order_types == [
         "LIMIT",
         "LIMIT_MAKER",
         "MARKET",
         "STOP_LOSS_LIMIT",
         "TAKE_PROFIT_LIMIT",
     ]
-    assert ethbtc_market.permissions == ["SPOT", "MARGIN"]
-    assert ethbtc_market.quote_asset == "BTC"
-    assert ethbtc_market.quote_asset_precision == 8
-    assert ethbtc_market.quote_commission_precision == 8
-    assert ethbtc_market.quote_order_qty_market_allowed is True
-    assert ethbtc_market.quote_precision == 8
-    assert ethbtc_market.status == "TRADING"
-    assert ethbtc_market.symbol == "ETHBTC"
+    assert ethbtc_market.info.permissions == ["SPOT", "MARGIN"]
+    assert ethbtc_market.info.quote_asset == "BTC"
+    assert ethbtc_market.info.quote_asset_precision == 8
+    assert ethbtc_market.info.quote_commission_precision == 8
+    assert ethbtc_market.info.quote_order_qty_market_allowed is True
+    assert ethbtc_market.info.quote_precision == 8
+    assert ethbtc_market.info.status == "TRADING"
+    assert ethbtc_market.info.symbol == "ETHBTC"
 
 
 @pytest.mark.vcr(
@@ -346,80 +346,6 @@ def test_limitorder_to_binance(keyfile):
     assert res_order.value.timeInForce == "GTC"
     assert res_order.value.transactTime == 1605967825942
     assert res_order.value.type == "LIMIT"
-
-
-@pytest.mark.vcr(
-    filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
-)
-def test_marketorder_test_to_binance(keyfile):
-    """ send orders to binance """
-
-    res_order = aiobinance.binance.marketorder_to_binance(
-        symbol="COTIBNB",
-        side=OrderSide("BUY"),
-        quantity=Decimal("300"),
-        credentials=keyfile,
-    )
-
-    assert res_order and isinstance(res_order, Result)
-    assert isinstance(res_order.value, MarketOrder)
-    assert res_order.value.clientOrderId == ""
-    assert res_order.value.cummulativeQuoteQty.is_zero()
-    assert res_order.value.executedQty.is_zero()
-    assert res_order.value.fills == []
-    assert res_order.value.order_id == -1
-    assert res_order.value.order_list_id == -1
-    assert res_order.value.origQty == Decimal("300")
-    assert res_order.value.quoteOrderQty is None
-    assert res_order.value.side == OrderSide.BUY
-    assert res_order.value.status == "TEST"
-    assert res_order.value.symbol == "COTIBNB"
-    assert res_order.value.type == "MARKET"
-
-    # transac time has a dynamic value because it does not depend on recorded traffic !
-    # This is measuring with second precision a time in ms
-    assert res_order.value.transactTime // 1000 == int(
-        datetime.now(tz=timezone.utc).timestamp()
-    )
-
-
-@pytest.mark.vcr(
-    filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
-)
-def test_marketorder_to_binance(keyfile):
-    """ send orders to binance """
-
-    res_order = aiobinance.binance.marketorder_to_binance(
-        symbol="COTIBNB",
-        side=OrderSide.BUY,
-        quantity=Decimal("300"),
-        credentials=keyfile,
-        test=False,
-    )
-
-    assert res_order and isinstance(res_order, Result)
-    assert isinstance(res_order.value, MarketOrder)
-    assert res_order.value.clientOrderId == "DfbcHz3JSKjoIUUUGB8lEj"
-    assert res_order.value.cummulativeQuoteQty == Decimal("0.45300000")
-    assert res_order.value.executedQty == Decimal("300.00000000")
-    assert res_order.value.fills == [
-        OrderFill(
-            price=Decimal("0.00151000"),
-            qty=Decimal("300.00000000"),
-            commission=Decimal("0.00033873"),
-            commissionAsset="BNB",
-            tradeId=481909,
-        )
-    ]
-    assert res_order.value.order_id == 31085683
-    assert res_order.value.order_list_id == -1
-    assert res_order.value.origQty == Decimal("300")
-    assert res_order.value.quoteOrderQty is None
-    assert res_order.value.side == OrderSide.BUY
-    assert res_order.value.status == "FILLED"
-    assert res_order.value.symbol == "COTIBNB"
-    assert res_order.value.transactTime == 1605967826275
-    assert res_order.value.type == "MARKET"
 
 
 if __name__ == "__main__":

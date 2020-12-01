@@ -9,8 +9,13 @@ from typing import Optional
 from aiobinance.api.account import Account
 from aiobinance.api.exchange import retrieve_exchange
 from aiobinance.api.market import Market
+from aiobinance.api.model.order import LimitOrder
 from aiobinance.api.rawapi import Binance
 from aiobinance.bot.safecounter import SafeCounter
+
+
+class TraderException(Exception):
+    pass
 
 
 class Trader:
@@ -33,22 +38,30 @@ class Trader:
 
     def sell(
         self, amount: Decimal, total_expected: Optional[Decimal] = None, test=True
-    ):
+    ) -> LimitOrder:
 
         passed_order = asyncio.run(
             self.safe_counter.sell(
                 amount=amount, expected_gain=total_expected, test=test
             )
         )
-        return passed_order
+        if passed_order.is_ok():
+            return passed_order.ok()
+        else:
+            raise TraderException(passed_order.err())
 
-    def buy(self, amount: Decimal, total_expected: Optional[Decimal] = None, test=True):
+    def buy(
+        self, amount: Decimal, total_expected: Optional[Decimal] = None, test=True
+    ) -> LimitOrder:
         passed_order = asyncio.run(
             self.safe_counter.buy(
                 amount=amount, expected_cost=total_expected, test=test
             )
         )
-        return passed_order
+        if passed_order.is_ok():
+            return passed_order.ok()
+        else:
+            raise TraderException(passed_order.err())
 
 
 if __name__ == "__main__":

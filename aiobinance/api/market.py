@@ -28,12 +28,14 @@ class Market(PureMarket):
         api: Binance,
         info: MarketInfo,
         async_loop=None,
+        test=True,  # only if you want order methods to be sending test orders...
     ):
 
         # if an async loop is passed, call is run in the background to update data out-of-band
         # currently polling in the background, later TODO : websockets
 
         self.api = api
+        self.test = test
         super(Market, self).__init__(info=info)
 
     def __call__(self, *args, **kwargs):
@@ -181,82 +183,6 @@ class Market(PureMarket):
     #  newOrderRespType: Optional[str] =None     # Set the response JSON. ACK, RESULT, or FULL; MARKET and LIMIT order types default to FULL, all other orders default to ACK.
     #  recvWindow: Optional[int] =None          # The value cannot be greater than 60000
 
-    def market_order(
-        self,
-        *,
-        side: OrderSide,
-        quantity: Optional[Decimal] = None,
-        quote_order_qty: Optional[Decimal] = None,
-        test=True,  # test order by default for safety
-    ) -> Result[MarketOrder, None]:
-
-        # quick assert check
-        # TODO : decide if we have two methods, or none at all...
-        if quantity is not None:
-            assert (
-                quote_order_qty is None
-            ), "Both quantity and quoteOrderQty params cannot be set for send_market_buy_order()"
-        elif quote_order_qty is not None:
-            assert (
-                quantity is None
-            ), "Both quantity and quoteOrderQty params cannot be set for send_market_buy_order()"
-
-        if quote_order_qty is not None:
-            # not implemented just yet...
-            sent_params = self.info._market_order_quote_params(
-                side=side, quantity=quote_order_qty
-            )
-
-            test_order = super(Market, self).market_order_quote(
-                side=side, quantity=quote_order_qty
-            )
-        else:
-            sent_params = self.info._market_order_base_params(
-                side=side, quantity=quantity
-            )
-            test_order = super(Market, self).market_order_base(
-                side=side, quantity=quantity
-            )
-
-        if test:
-            res = self.api.call_api(command="testOrder", **sent_params)
-
-            if res.is_ok():
-                res = res.value
-            else:
-                # TODO : handle API error properly
-                raise RuntimeError(res.value)
-
-            return Ok(test_order)
-
-        else:
-            res = self.api.call_api(command="createOrder", **sent_params)
-
-            if res.is_ok():
-                res = res.value
-            else:
-                # TODO : handle API error properly
-                raise RuntimeError(res.value)
-
-            return Ok(
-                MarketOrder(
-                    symbol=res["symbol"],
-                    order_id=res["orderId"],
-                    order_list_id=res["orderListId"],
-                    clientOrderId=res["clientOrderId"],
-                    transactTime=res["transactTime"],
-                    # price=res['price'],  # price is set but at '0.0' and doesnt hold any meaning...
-                    origQty=res["origQty"],
-                    executedQty=res["executedQty"],
-                    cummulativeQuoteQty=res["cummulativeQuoteQty"],
-                    status=res["status"],
-                    # timeInForce=res['timeInForce'],# seems this is always GTC, and doesnt hold much value with market orders that are execute ASAP...
-                    type=res["type"],
-                    side=res["side"],
-                    fills=[OrderFill(**f) for f in res["fills"]],
-                )
-            )
-
     def limit_order(
         self,
         *,
@@ -265,64 +191,56 @@ class Market(PureMarket):
         quantity: Decimal,
         timeInForce="GTC",
         icebergQty: Optional[Decimal] = None,
-        test=True,  # test order by default for safety
-    ) -> Result[LimitOrder, None]:
+    ) -> Result[LimitOrder, Exception]:
 
         sent_params = self.info._limit_order_params(
-            side=side, quantity=quantity, price=price
+            side=side,
+            quantity=quantity,
+            price=price,
+            timeInForce=timeInForce,
+            icebergQty=icebergQty,
         )
 
-        if icebergQty is not None:
-            sent_params.update(
-                {
-                    "icebergQty": icebergQty,
-                }
-            )
-
-        if test:
+        if self.test:
             res = self.api.call_api(command="testOrder", **sent_params)
-
-            if res.is_ok():
-                res = res.value
-            else:
-                # TODO : handle API error properly
-                raise RuntimeError(res.value)
-
-            test_order = super(Market, self).limit_order(
-                side=side, quantity=quantity, price=price
-            )
-
-            # TODO : review if sequence here...
-            if res == {}:
-                # filling up with order info, as it has been accepted
-                return Ok(test_order)
         else:
             res = self.api.call_api(command="createOrder", **sent_params)
 
-            if res.is_ok():
-                res = res.value
-            else:
-                # TODO : handle API error properly
-                raise RuntimeError(res.value)
-
-            return Ok(
-                LimitOrder(
-                    symbol=res["symbol"],
-                    order_id=res["orderId"],
-                    order_list_id=res["orderListId"],
-                    clientOrderId=res["clientOrderId"],
-                    transactTime=res["transactTime"],
-                    price=res["price"],
-                    origQty=res["origQty"],
-                    executedQty=res["executedQty"],
-                    cummulativeQuoteQty=res["cummulativeQuoteQty"],
-                    status=res["status"],
-                    timeInForce=res["timeInForce"],
-                    type=res["type"],
-                    side=res["side"],
-                    fills=[OrderFill(**f) for f in res["fills"]],
+        if res.is_ok():
+            res = res.value
+            if self.test:
+                test_order = super(Market, self).limit_order(
+                    side=side,
+                    quantity=quantity,
+                    price=price,
+                    timeInForce=timeInForce,
+                    icebergQty=icebergQty,
                 )
-            )
+
+                return test_order
+            else:
+                return Ok(
+                    LimitOrder(
+                        symbol=res["symbol"],
+                        order_id=res["orderId"],
+                        order_list_id=res["orderListId"],
+                        clientOrderId=res["clientOrderId"],
+                        transactTime=res["transactTime"],
+                        price=res["price"],
+                        origQty=res["origQty"],
+                        executedQty=res["executedQty"],
+                        cummulativeQuoteQty=res["cummulativeQuoteQty"],
+                        status=res["status"],
+                        timeInForce=res["timeInForce"],
+                        type=res["type"],
+                        side=res["side"],
+                        fills=[OrderFill(**f) for f in res["fills"]],
+                    )
+                )
+
+        else:
+            # TODO : handle API error properly
+            raise RuntimeError(res.value)
 
 
 if __name__ == "__main__":
