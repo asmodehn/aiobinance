@@ -7,6 +7,7 @@ from click.testing import CliRunner
 from aiobinance.cli.extras import extras
 
 
+@pytest.mark.vcr
 def test_hummingbot():
     # make temporary file with hummingbot csv format
     with tempfile.NamedTemporaryFile(mode="w", delete=False) as fp:
