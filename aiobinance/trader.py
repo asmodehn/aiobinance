@@ -37,13 +37,11 @@ class Trader:
     # TODO : then do some time-based arbitrage... hodl or fomo ?
 
     def sell(
-        self, amount: Decimal, total_expected: Optional[Decimal] = None, test=True
+        self, amount: Decimal, total_expected: Optional[Decimal] = None
     ) -> LimitOrder:
 
         passed_order = asyncio.run(
-            self.safe_counter.sell(
-                amount=amount, expected_gain=total_expected, test=test
-            )
+            self.safe_counter.sell(amount=amount, expected_gain=total_expected)
         )
         if passed_order.is_ok():
             return passed_order.ok()
@@ -51,12 +49,10 @@ class Trader:
             raise TraderException(passed_order.err())
 
     def buy(
-        self, amount: Decimal, total_expected: Optional[Decimal] = None, test=True
+        self, amount: Decimal, total_expected: Optional[Decimal] = None
     ) -> LimitOrder:
         passed_order = asyncio.run(
-            self.safe_counter.buy(
-                amount=amount, expected_cost=total_expected, test=test
-            )
+            self.safe_counter.buy(amount=amount, expected_cost=total_expected)
         )
         if passed_order.is_ok():
             return passed_order.ok()
@@ -72,16 +68,16 @@ if __name__ == "__main__":
 
     api = Binance(credentials=creds)  # we might need private requests here !
 
-    account = retrieve_account(api=api)
+    account = retrieve_account(api=api, test=True)
 
     trader = Trader(account=account, market=account.exchange.market["COTIBNB"])
 
     print("Buy test order: ")
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.45), test=True)
+    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.45))
     print(order)  # None is expected on test
 
     print("Buy sell order: ")
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.45), test=True)
+    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.45))
     print(order)  # None is expected on test

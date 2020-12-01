@@ -68,4 +68,7 @@ def tests(session):
     # displaying current machine date (it could influence tests if not handled properly)
     session.run(*"date --iso-8601=ns".split(), external=True)
 
-    session.run(*"pytest -sv".split())
+    session.run(*"pytest -sv --block-network".split())
+
+
+# TODO docs
