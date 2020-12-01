@@ -18,8 +18,9 @@ pass_account = click.make_pass_decorator(Account)
 @click.group()
 @click.option("--apikey", default=None)
 @click.option("--secret", default=None)
+@click.option("--confirm", default=False, is_flag=True)
 @click.pass_context
-def trader(ctx, apikey=None, secret=None):
+def trader(ctx, apikey=None, secret=None, confirm=False):
     """ Managing user account """
     from aiobinance.config import BINANCE_API_KEYFILE, load_api_keyfile
 
@@ -37,7 +38,7 @@ def trader(ctx, apikey=None, secret=None):
 
     api = Binance(credentials=creds)  # we need private requests here !
 
-    account = retrieve_account(api=api)
+    account = retrieve_account(api=api, test=not confirm)
     print(account)  # TMP
     ctx.obj = account
 
@@ -48,7 +49,6 @@ def trader(ctx, apikey=None, secret=None):
 )  # Note we use str here to not loose precision until decimal conversion
 @click.argument("currency", type=str)
 @click.option("--using", type=(str, str), required=True)
-@click.option("--confirm", default=False, is_flag=True)
 @pass_account
 def buy(
     account: Account,
@@ -71,7 +71,7 @@ def buy(
 
     trdr = Trader(account=account, market=account.exchange.market[smbl])
 
-    trade = trdr.buy(amount=amount, total_expected=using_amount, test=not confirm)
+    trade = trdr.buy(amount=amount, total_expected=using_amount)
 
     print(trade)
 
@@ -84,14 +84,12 @@ def buy(
 )  # Note we use str here to not loose precision until decimal conversion
 @click.argument("currency", type=str)
 @click.option("--receive", type=(str, str), required=True)
-@click.option("--confirm", default=False, is_flag=True)
 @pass_account
 def sell(
     account: Account,
     amount: str,
     currency: str,
     receive: typing.Tuple[str, str],
-    confirm: bool = False,
 ):
     """buy for this account"""
 
@@ -107,7 +105,7 @@ def sell(
 
     trdr = Trader(account=account, market=account.exchange.market[smbl])
 
-    trade = trdr.sell(amount=amount, total_expected=using_amount, test=not confirm)
+    trade = trdr.sell(amount=amount, total_expected=using_amount)
     # TODO : this is currently an order (as registered.) Trader needs to wait for trade...
     print(trade)
 

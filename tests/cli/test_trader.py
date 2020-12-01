@@ -94,9 +94,9 @@ def test_buy(keyfile):
 
     # passing keyfile so the results do not depend on environment (arguably too complex with 2 levels of envs)
     # but on how pytest is called to run the tests. We're testing the --apikey and --secret options at the same time.
-    cmd = f"--apikey {keyfile.key} --secret {keyfile.secret} "
+    cmd = f"--apikey {keyfile.key} --secret {keyfile.secret} --confirm "
     # Buy test order overpriced => will readjust !
-    cmd = cmd + "buy 300 COTI --using 0.45 BNB --confirm"
+    cmd = cmd + "buy 300 COTI --using 0.45 BNB"
     result = runner.invoke(
         trader,
         cmd.split(),
@@ -204,7 +204,7 @@ def test_sell(keyfile):
 
     # passing keyfile so the results do not depend on environment (arguably too complex with 2 levels of envs)
     # but on how pytest is called to run the tests. We're testing the --apikey and --secret options at the same time.
-    cmd = f"--apikey {keyfile.key} --secret {keyfile.secret} sell "
+    cmd = f"--apikey {keyfile.key} --secret {keyfile.secret} --confirm sell "
     result = runner.invoke(
         trader,
         cmd.split(),
