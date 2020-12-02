@@ -1,10 +1,9 @@
 import pytest
 from click.testing import CliRunner
 
-from aiobinance.cli.trader import trader
+from aiobinance.cli.trader import cli
 
 
-@pytest.mark.skip  # TMP !
 @pytest.mark.vcr(
     filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
 )
@@ -19,7 +18,7 @@ def test_buy_test(keyfile):
     # Buy test order overpriced => will readjust !
     cmd = cmd + "buy 300 COTI --using 0.50 BNB"
     result = runner.invoke(
-        trader,
+        cli,
         cmd.split(),
         input="2",
     )
@@ -54,7 +53,7 @@ def test_buy_test(keyfile):
     # Buy test order underpriced
     cmd = cmd + "buy 300 COTI --using 0.45 BNB"
     result = runner.invoke(
-        trader,
+        cli,
         cmd.split(),
         input="2",
     )
@@ -98,7 +97,7 @@ def test_buy(keyfile):
     # Buy test order overpriced => will readjust !
     cmd = cmd + "buy 300 COTI --using 0.45 BNB"
     result = runner.invoke(
-        trader,
+        cli,
         cmd.split(),
         input="2",
     )
@@ -126,7 +125,7 @@ def test_sell_test(keyfile):
     #  Info from : https://binance-docs.github.io/apidocs/spot/en/#filters
     #  (price-minPrice) % tickSize == 0 for price filter to be happy !!
     result = runner.invoke(
-        trader,
+        cli,
         cmd.split(),
         input="2",
     )
@@ -164,7 +163,7 @@ def test_sell_test(keyfile):
     # Sell test order underpriced => will readjust !
     cmd = cmd + "sell 300 COTI --receive 0.45 BNB"
     result = runner.invoke(
-        trader,
+        cli,
         cmd.split(),
         input="2",
     )
@@ -206,7 +205,7 @@ def test_sell(keyfile):
     # but on how pytest is called to run the tests. We're testing the --apikey and --secret options at the same time.
     cmd = f"--apikey {keyfile.key} --secret {keyfile.secret} --confirm sell "
     result = runner.invoke(
-        trader,
+        cli,
         cmd.split(),
         input="2",
     )

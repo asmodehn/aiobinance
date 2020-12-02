@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from click.testing import CliRunner
 
-from aiobinance.cli.market import market
+from aiobinance.cli.market import cli
 
 
 @pytest.mark.vcr
@@ -14,10 +14,10 @@ def test_price(keyfile):
     start_time = datetime.fromtimestamp(1598524340551 / 1000, tz=timezone.utc)
     end_time = start_time + timedelta(days=1)
 
-    cmd = f"COTIBNB price --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --interval 3m --utc"
+    cmd = f"price COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --interval 3m --utc"
     runner = CliRunner()
     result = runner.invoke(
-        market,
+        cli,
         cmd.split(),
         input="2",
     )

@@ -2,15 +2,10 @@ import click
 
 import aiobinance.binance as binance
 import aiobinance.hummingbot as hummingbot
+from aiobinance.cli.cli_group import cli
 
 
-@click.group()
-def extras():
-    """ command group for extra stuff"""
-    pass
-
-
-@extras.command(
+@cli.command(
     name="hummingbot"
 )  # TODO : move this to and "external" group and later into some kind of plugin...
 @click.argument("filename", type=click.Path(exists=True), required=True)
@@ -44,4 +39,4 @@ def hummingbot_instance(ctx, filename, html=False):
 
 if __name__ == "__main__":
     # testing only this cli command
-    extras()
+    cli()

@@ -8,6 +8,7 @@ from pydantic import typing
 from aiobinance.api.account import Account, retrieve_account
 from aiobinance.api.market import Market
 from aiobinance.api.rawapi import Binance
+from aiobinance.cli.cli_group import cli, pass_creds
 from aiobinance.config import Credentials
 from aiobinance.trader import Trader
 
@@ -15,49 +16,26 @@ from aiobinance.trader import Trader
 pass_account = click.make_pass_decorator(Account)
 
 
-@click.group()
-@click.option("--apikey", default=None)
-@click.option("--secret", default=None)
-@click.option("--confirm", default=False, is_flag=True)
-@click.pass_context
-def trader(ctx, apikey=None, secret=None, confirm=False):
-    """ Managing user account """
-    from aiobinance.config import BINANCE_API_KEYFILE, load_api_keyfile
-
-    if apikey is not None and secret is not None:
-        creds = Credentials(key=apikey, secret=secret)
-    else:
-        # tentative loading of the API key
-        creds = load_api_keyfile()
-
-    if not creds:
-        print(
-            "User not authenticated. Trade impossible. Please check the 'auth' command to fix this."
-        )
-        sys.exit(-1)
-
-    api = Binance(credentials=creds)  # we need private requests here !
-
-    account = retrieve_account(api=api, test=not confirm)
-    print(account)  # TMP
-    ctx.obj = account
-
-
-@trader.command()
+@cli.command()
 @click.argument(
     "amount", type=str
 )  # Note we use str here to not loose precision until decimal conversion
 @click.argument("currency", type=str)
 @click.option("--using", type=(str, str), required=True)
-@pass_account
+@click.option("--confirm", default=False, is_flag=True)
+@pass_creds
 def buy(
-    account: Account,
+    creds: Credentials,
     amount: str,
     currency: str,
     using: typing.Tuple[str, str],
     confirm: bool = False,
 ):
     """buy for this account"""
+
+    api = Binance(credentials=creds)  # we need private requests here !
+
+    account = retrieve_account(api=api, test=not confirm)
 
     amount = Decimal(amount)
 
@@ -78,20 +56,26 @@ def buy(
     # TODO : short trade analysis
 
 
-@trader.command()
+@cli.command()
 @click.argument(
     "amount", type=str
 )  # Note we use str here to not loose precision until decimal conversion
 @click.argument("currency", type=str)
 @click.option("--receive", type=(str, str), required=True)
-@pass_account
+@click.option("--confirm", default=False, is_flag=True)
+@pass_creds
 def sell(
-    account: Account,
+    creds: Credentials,
     amount: str,
     currency: str,
     receive: typing.Tuple[str, str],
+    confirm: bool = False,
 ):
     """buy for this account"""
+
+    api = Binance(credentials=creds)  # we need private requests here !
+
+    account = retrieve_account(api=api, test=not confirm)
 
     amount = Decimal(amount)
 
@@ -114,4 +98,4 @@ def sell(
 
 if __name__ == "__main__":
     # testing only this cli command
-    trader()
+    cli()

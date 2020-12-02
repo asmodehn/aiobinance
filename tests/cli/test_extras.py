@@ -4,7 +4,7 @@ import tempfile
 import pytest
 from click.testing import CliRunner
 
-from aiobinance.cli.extras import extras
+from aiobinance.cli.extras import cli
 
 
 @pytest.mark.vcr
@@ -23,7 +23,7 @@ conf_pure_mm_coti_bnb_binance.yml,pure_market_making,binance,1598526454743,COTIB
 
     cmd = f"hummingbot {fp.name}"
     runner = CliRunner()
-    result = runner.invoke(extras, cmd.split(), input="2")
+    result = runner.invoke(cli, cmd.split(), input="2")
 
     if result.exit_code == 0:
         assert (

@@ -5,50 +5,7 @@ import pytest
 from click.testing import CliRunner
 from hypothesis import given
 
-from aiobinance.cli.account import account
-from aiobinance.config import BINANCE_API_KEYFILE, credentials_strategy
-
-
-def test_auth_expected():
-    """ testing auth command depending on user's environment """
-    runner = CliRunner()
-    # Result and output depends on the environment of the user running the tests
-    if os.path.exists(BINANCE_API_KEYFILE):
-        result = runner.invoke(account, "auth".split(), input="2")
-        assert (
-            "apikey: " in result.output
-        )  # we cannot know the api key without depending on user system
-    else:
-        result = runner.invoke(
-            account, "--apikey My4P1K3y --secret T3sTS3cr3T auth".split(), input="2"
-        )
-        assert "apikey: My4P1K3y" in result.output
-    assert result.exit_code == 0
-
-
-def test_auth_pathological():
-    """  testing auth command depending on user's environment """
-    runner = CliRunner()
-    # Result and output depends on the environment of the user running the tests
-    if os.path.exists(BINANCE_API_KEYFILE):
-        result = runner.invoke(
-            account, "--apikey My4P1K3y --secret T3sTS3cr3T auth".split(), input="2"
-        )
-        assert (
-            "apikey: My4P1K3y" in result.output
-        )  # verify we override stored credentials
-        assert result.exit_code == 0
-    else:
-        result = runner.invoke(account, "auth".split(), input="2")
-        assert result.exit_code == 1
-        assert f"{BINANCE_API_KEYFILE} Not Found !" in result.output
-
-
-# TODO : test auth --store !!!
-
-
-# Note: `auth` is the only command we test with user's environment.
-# Other commands will use recorded cassettes, and fake requests with a fake apikey
+from aiobinance.cli.account import cli
 
 
 @pytest.mark.vcr(
@@ -63,7 +20,7 @@ def test_balance(keyfile):
     # but on how pytest is called to run the tests. We're testing the --apikey and --secret options at the same time.
     cmd = f"--apikey {keyfile.key} --secret {keyfile.secret} balance"
     result = runner.invoke(
-        account,
+        cli,
         cmd.split(),
         input="2",
     )
@@ -105,7 +62,7 @@ def test_trades(keyfile):
     cmd = f"--apikey {keyfile.key} --secret {keyfile.secret} trades COTIBNB --from {start_time.strftime('%Y-%m-%d')} --to {end_time.strftime('%Y-%m-%d')} --utc"
     runner = CliRunner()
     result = runner.invoke(
-        account,
+        cli,
         cmd.split(),
         input="2",
     )
