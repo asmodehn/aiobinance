@@ -6,15 +6,14 @@ from hypothesis import Verbosity, given, settings
 
 from aiobinance.api.model.market_info import MarketInfo
 from aiobinance.api.model.order import OrderSide
-from aiobinance.api.pure.puremarket import PureMarket
 
 
 class TestMarketInfo(unittest.TestCase):
-    @given(pm=PureMarket.strategy())
+    @given(mi=MarketInfo.strategy())
     # @settings(verbosity=Verbosity.verbose)
-    def test_strategy(self, pm):
+    def test_strategy(self, mi):
 
-        assert isinstance(pm, PureMarket)
+        assert isinstance(mi, MarketInfo)
 
     @given(
         mi=MarketInfo.strategy(),

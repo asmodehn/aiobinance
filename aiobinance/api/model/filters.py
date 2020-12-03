@@ -11,7 +11,7 @@ from typing_extensions import Literal
 # Ref : https://binance-docs.github.io/apidocs/spot/en/#filters
 
 
-@dataclass
+@dataclass(frozen=True)
 class Filter:
     filter_type: str
 
@@ -73,7 +73,7 @@ class Filter:
             raise RuntimeError("Unknown filter type...")
 
 
-@dataclass
+@dataclass(frozen=True)
 class PriceFilter(Filter):
 
     filter_type: Literal["PRICE_FILTER"]
@@ -97,7 +97,7 @@ class PriceFilter(Filter):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class PercentPrice(Filter):
     filter_type: Literal["PERCENT_PRICE"]
     multiplier_up: Decimal
@@ -114,7 +114,7 @@ class PercentPrice(Filter):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class LotSize(Filter):
     filter_type: Literal["LOT_SIZE"]
     min_qty: Decimal
@@ -131,7 +131,7 @@ class LotSize(Filter):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class MinNotional(Filter):
     filter_type: Literal["MIN_NOTIONAL"]
     min_notional: Decimal
@@ -148,7 +148,7 @@ class MinNotional(Filter):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class IcebergParts(Filter):
     filter_type: Literal["ICEBERG_PARTS"]
     limit: int
@@ -161,7 +161,7 @@ class IcebergParts(Filter):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class MarketLotSize(Filter):
     filter_type: Literal["MARKET_LOT_SIZE"]
     min_qty: Decimal
@@ -178,7 +178,7 @@ class MarketLotSize(Filter):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class MaxNumOrders(Filter):
     filter_type: Literal["MAX_NUM_ORDERS"]
     max_num_orders: int
@@ -191,7 +191,7 @@ class MaxNumOrders(Filter):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class MaxNumAlgoOrders(Filter):
     filter_type: Literal["MAX_NUM_ALGO_ORDERS"]
     max_num_algo_orders: int
@@ -204,7 +204,7 @@ class MaxNumAlgoOrders(Filter):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class MaxNumIcebergOrders(Filter):
     filter_type: Literal["MAX_NUM_ICEBERG_ORDERS"]
     max_num_iceberg_orders: int
@@ -217,7 +217,7 @@ class MaxNumIcebergOrders(Filter):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class MaxPosition(Filter):
     filter_type: Literal["MAX_POSITION"]
     max_position: Decimal
@@ -230,7 +230,7 @@ class MaxPosition(Filter):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class ExchangeMaxNumOrders(Filter):
     filter_type: Literal["EXCHANGE_MAX_NUM_ORDERS"]
     max_num_orders: int
@@ -243,7 +243,7 @@ class ExchangeMaxNumOrders(Filter):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class ExchangeMaxAlgoOrders(Filter):
     filter_type: Literal["EXCHANGE_MAX_ALGO_ORDERS"]
     max_num_algo_orders: int
@@ -254,3 +254,8 @@ class ExchangeMaxAlgoOrders(Filter):
             cls,
             max_num_algo_orders=st.integers(),
         )
+
+
+if __name__ == "__main__":
+    print(Filter.strategy_symbol().example())
+    print(Filter.strategy_exchange().example())

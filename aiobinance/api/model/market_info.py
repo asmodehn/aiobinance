@@ -10,7 +10,7 @@ from aiobinance.api.model.filters import Filter
 from aiobinance.api.model.order import LimitOrder, MarketOrder, OrderSide
 
 
-@dataclass
+@dataclass(frozen=True)
 class MarketInfo:
     """this is the pure part of a market.
     No side effect => test can be run automatically against this class.
@@ -146,3 +146,7 @@ class MarketInfo:
                 }
             )
         return sent_params
+
+
+if __name__ == "__main__":
+    print(MarketInfo.strategy().example())
