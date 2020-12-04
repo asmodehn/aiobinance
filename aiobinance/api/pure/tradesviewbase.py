@@ -63,6 +63,9 @@ class TradesViewBase:
         # updating by updating data
         self.frame = frame
 
+        # reapplying post_init as for new data (should not mess up with old data and eventually converge !)
+        self.__post_init__()
+
         # and invalidating related caches
         for p in popping:
             self.__dict__.pop(p, None)
@@ -84,6 +87,7 @@ class TradesViewBase:
             return self.frame == other.frame
 
     def __getitem__(self, item: Union[int, slice]) -> Union[TradesViewBase, Trade]:
+        # TODO : slice by time ???
         if isinstance(item, slice):
             # dataframe slice handled by pandas boolean indexer
             try:

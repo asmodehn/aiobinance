@@ -141,6 +141,9 @@ class TradeFrame:
     def __len__(self):
         return len(self.df)
 
+    def __add__(self, other: TradeFrame):
+        return TradeFrame(df=self.df.append(other.df, verify_integrity=True))
+
     def __str__(self):
         # optimize before display (high decimal precision is not manageable by humans)
         optdf = self.optimized()

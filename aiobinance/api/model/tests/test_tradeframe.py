@@ -82,6 +82,9 @@ class TestTradeFrame(unittest.TestCase):
         # making sure we have the usual copy behavior when taking slices
         assert tradeframe[s] is not tradeframe
 
+    def test_add_sequence(self):
+        raise self.skipTest("NOT IMPLEMENTED !")
+
     @given(tradeframe=TradeFrame.strategy())
     def test_str(self, tradeframe: TradeFrame):
         # Check sensible information is displayed (order doesnt matter for output to human)
