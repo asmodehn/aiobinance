@@ -72,8 +72,6 @@ class TradeFrame:
     #  order_list_id: Optional[int]
     #  is_best_match: Optional[bool]
 
-    # Strategies, inferring attributes from type hints by default
-
     @st.composite
     @staticmethod
     def strategy(draw, max_size=5):

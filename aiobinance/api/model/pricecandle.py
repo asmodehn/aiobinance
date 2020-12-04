@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, fields
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Iterable, List, Optional
 
@@ -42,9 +42,9 @@ class PriceCandle:
     # Strategies, inferring attributes from type hints by default
     @st.composite
     @staticmethod
-    def strategy(draw):
+    def strategy(draw, tf: Optional[timedelta] = None):
         ot = draw(st.datetimes())
-        ct = draw(st.datetimes(min_value=ot))
+        ct = draw(st.datetimes(min_value=ot)) if tf is None else ot + tf
         return PriceCandle(
             open_time=ot,
             open=draw(st.decimals(allow_nan=False, allow_infinity=False)),

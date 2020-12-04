@@ -21,7 +21,9 @@ class Trade:
     # REMINDER : as 'precise' and 'pythonic' semantic as possible
     time: datetime
     symbol: str  # TODO : improve
-    id: int
+    id: int  # TODO : careful there is a sup bound here to allow this as a DAtaFrame Index for easy manipulation...
+    # cf: TypeError: cannot do slice indexing on Index with these indexers [18446744073709551615] of type int
+    # cf:  E   OverflowError: Python int too large to convert to C long # pandas/_libs/hashtable_class_helper.pxi:1032: OverflowError
     price: Decimal
     qty: Decimal
     quote_qty: Decimal
