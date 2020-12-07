@@ -1,12 +1,13 @@
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from datetime import datetime
 from decimal import Decimal
 from pprint import pprint
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import hypothesis.strategies as st
 import numpy as np
 from hypothesis import infer
+from hypothesis.strategies import SearchStrategy
 from pydantic.dataclasses import dataclass
 
 
@@ -16,13 +17,25 @@ class AssetAmount:
     free: Decimal
     locked: Decimal
 
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            AssetAmount,
+            free=st.decimals(allow_nan=False, allow_infinity=False),
+            locked=st.decimals(allow_nan=False, allow_infinity=False),
+        )
+
+    def __dir__(self) -> Iterable[str]:
+        # hiding private methods and data validators
+        return [f.name for f in fields(self)]
+
     def __str__(self):
         return f"{self.free + self.locked} {self.asset} (free: {self.free}, locked: {self.locked})"
 
 
 # Leveraging pydantic to validate based on type hints
 @dataclass
-class Account:
+class AccountInfo:
     # REMINDER : as 'precise' and 'pythonic' semantic as possible
     makerCommission: int
     takerCommission: int
@@ -33,10 +46,20 @@ class Account:
     canDeposit: bool
     updateTime: datetime
     accountType: str  # should be "SPOT"
-    balances: List[AssetAmount]
+    balances: List[
+        AssetAmount
+    ]  # TODO : validate to not have balance of (0, 0) for an asset...
     permissions: List[str]
 
-    # TODO : validate to not have balance of (0, 0) for an asset...
+    @classmethod
+    def strategy(cls) -> SearchStrategy:
+        return st.builds(
+            AccountInfo, balances=st.lists(elements=AssetAmount.strategy())
+        )
+
+    def __dir__(self) -> Iterable[str]:
+        # hiding private methods and data validators
+        return [f.name for f in fields(self)]
 
     def __str__(self):
         accstr = f"""
@@ -66,16 +89,3 @@ buyerCommission: {self.buyerCommission}
 sellerCommission: {self.sellerCommission}
 """
         return accstr
-
-
-# Strategies, inferring attributes from type hints by default
-def st_assetamounts():
-    return st.builds(
-        AssetAmount,
-        free=st.decimals(allow_nan=False, allow_infinity=False),
-        locked=st.decimals(allow_nan=False, allow_infinity=False),
-    )
-
-
-def st_accounts():
-    return st.builds(Account, balances=st.lists(elements=st_assetamounts()))

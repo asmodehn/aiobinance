@@ -2,16 +2,17 @@ import unittest
 
 from hypothesis import given
 
-from aiobinance.api.pure.account import (
-    Account,
-    AssetAmount,
-    st_accounts,
-    st_assetamounts,
-)
+from aiobinance.api.model.account_info import AccountInfo, AssetAmount
 
 
 class TestAssetAmount(unittest.TestCase):
-    @given(assetamount=st_assetamounts())
+    @given(ei=AssetAmount.strategy())
+    # @settings(verbosity=Verbosity.verbose)
+    def test_strategy(self, ei):
+
+        assert isinstance(ei, AssetAmount)
+
+    @given(assetamount=AssetAmount.strategy())
     def test_str(self, assetamount):
         # Check sensible information is displayed
         assert f"{assetamount.free + assetamount.locked} {assetamount.asset}" in str(
@@ -20,7 +21,7 @@ class TestAssetAmount(unittest.TestCase):
         assert f"free: {assetamount.free}" in str(assetamount)
         assert f"locked: {assetamount.locked}" in str(assetamount)
 
-    @given(assetamount=st_assetamounts())
+    @given(assetamount=AssetAmount.strategy())
     def test_dir(self, assetamount: AssetAmount):
         # check all information is exposed
         assert {a for a in dir(assetamount)}.issuperset({"asset", "free", "locked"})
@@ -31,9 +32,15 @@ class TestAssetAmount(unittest.TestCase):
         )
 
 
-class TestAccount(unittest.TestCase):
-    @given(account=st_accounts())
-    def test_str(self, account: Account):
+class TestAccountInfo(unittest.TestCase):
+    @given(ei=AccountInfo.strategy())
+    # @settings(verbosity=Verbosity.verbose)
+    def test_strategy(self, ei):
+
+        assert isinstance(ei, AccountInfo)
+
+    @given(account=AccountInfo.strategy())
+    def test_str(self, account: AccountInfo):
         # Check sensible information is displayed
         assert f"accountType: {account.accountType}" in str(account)
         assert f"canTrade: {account.canTrade}" in str(account)
@@ -55,8 +62,8 @@ class TestAccount(unittest.TestCase):
         if account.sellerCommission > 0:
             assert f"sellerCommission: {account.sellerCommission}" in str(account)
 
-    @given(account=st_accounts())
-    def test_dir(self, account: Account):
+    @given(account=AccountInfo.strategy())
+    def test_dir(self, account: AccountInfo):
 
         # check all information is exposed
         assert {a for a in dir(account)}.issuperset(
