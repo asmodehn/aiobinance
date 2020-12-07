@@ -38,6 +38,15 @@ class TradeFrame:
     def id(self) -> List[int]:
         return self.df.id.to_list()
 
+    # TODO : put this in a  meta class to have it tied to the type itself !
+    @classmethod
+    def id_min(cls):
+        return np.iinfo(np.dtype("uint64")).min
+
+    @classmethod
+    def id_max(cls):
+        return np.iinfo(np.dtype("uint64")).max
+
     #
     # @property
     # def price(self) -> List[Decimal]:
@@ -84,13 +93,19 @@ class TradeFrame:
     def from_tradeslist(cls, *trades: Trade):
 
         df = pd.DataFrame.from_records(
-            [asdict(dc) for dc in trades], columns=[f.name for f in fields(Trade)]
+            # important : there is no specific domain semantic in the ordering in the list here,
+            #             it is just a side effect of python semantics
+            [asdict(dc) for dc in trades],
+            columns=[f.name for f in fields(Trade)],
         )
         return cls(df=df)
 
     def __post_init__(self):
-        # Here we follow binance format and enforce proper python types
-        # TODO : assert proper dataframe format of columns...
+        # enforce proper python/numpy/pandas data type
+        self.df.id = self.df.id.astype(
+            "uint64"
+        )  # TODO : min/max properties on the type itself...
+        # TODO : more !
         pass
 
     def __contains__(self, item: Trade):
@@ -142,7 +157,10 @@ class TradeFrame:
         return len(self.df)
 
     def __add__(self, other: TradeFrame):
-        return TradeFrame(df=self.df.append(other.df, verify_integrity=True))
+        # At the frame level we ignore the index (unintended record ordering)
+        return TradeFrame(
+            df=self.df.append(other.df, ignore_index=True, verify_integrity=True)
+        )
 
     def __str__(self):
         # optimize before display (high decimal precision is not manageable by humans)

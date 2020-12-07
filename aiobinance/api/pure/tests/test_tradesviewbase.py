@@ -47,14 +47,16 @@ class TestTradesViewBase(unittest.TestCase):
         # taking slice bounds to possibly englobe all ids, and a bit more...
         sb1 = data.draw(
             st.integers(
-                min_value=min(tradesview.id) - 1, max_value=max(tradesview.id) + 1
+                min_value=min(TradeFrame.id_min(), min(tradesview.id) - 1),
+                max_value=max(TradeFrame.id_max(), max(tradesview.id) + 1),
             )
             if tradesview
             else st.none()
         )
         sb2 = data.draw(
             st.integers(
-                min_value=min(tradesview.id) - 1, max_value=max(tradesview.id) + 1
+                min_value=min(TradeFrame.id_min(), min(tradesview.id) - 1),
+                max_value=max(TradeFrame.id_max(), max(tradesview.id) + 1),
             )
             if tradesview
             else st.none()
@@ -70,8 +72,9 @@ class TestTradesViewBase(unittest.TestCase):
         try:
             tfs = tradesview[s]
         except KeyError as ke:
-            # This may trigger, until we bound the test id set from hypothesis...
-            self.skipTest(ke)
+            # the test id set from hypothesis is bound to acceptable values,
+            # so if this case happen we should raise
+            raise ke
 
         assert isinstance(tfs, TradesViewBase)
         # CAREFUL slicing seems to be inclusive both on start and stop in pandas.DataFrame
@@ -111,10 +114,16 @@ class TestTradesViewBase(unittest.TestCase):
 
         tradesview(frame=tradeframe_new)
 
-        # after update, frames are equal
-        assert tradesview.frame == tradeframe_new
-        #  and properties actually change to match the new frame
-        assert tradesview.id == tradeframe_new.id
+        # after update they are essentially "the same" (altho not '==') in this precise sense:
+
+        # contains the same set of ids
+        assert set(tradesview.id) == set(tradeframe_new.id)
+
+        # have access to the same trades (might not be in the same order however)
+        for t in tradeframe_new:
+            assert t in tradesview
+        for t in tradesview:
+            assert t in tradesview
 
     @given(tradesview=TradesViewBase.strategy())
     def test_str(self, tradesview: TradesViewBase):

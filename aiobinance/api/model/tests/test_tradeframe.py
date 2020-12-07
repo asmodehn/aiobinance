@@ -82,8 +82,40 @@ class TestTradeFrame(unittest.TestCase):
         # making sure we have the usual copy behavior when taking slices
         assert tradeframe[s] is not tradeframe
 
-    def test_add_sequence(self):
-        raise self.skipTest("NOT IMPLEMENTED !")
+    @given(tf1=TradeFrame.strategy(), tf2=TradeFrame.strategy())
+    def test_add_sequence(self, tf1, tf2):
+
+        tfr = tf1 + tf2
+
+        # special case where one of them is empty
+        if len(tf2) == 0:
+            assert tfr == tf1
+            assert (
+                tfr is not tf1
+            )  # we get a copy, not the same frame ( in case it gets modified somehow...)
+        if len(tf1) == 0:
+            assert tfr == tf2
+            assert (
+                tfr is not tf2
+            )  # we get a copy, not the same frame ( in case it gets modified somehow...)
+
+        assert len(tfr) == len(tf1) + len(tf2)
+
+        # all there, keeping original ordering
+        counter = 0
+        for t in tf1:
+            assert isinstance(t, Trade)
+            assert t in tfr
+            assert tfr[counter] == t
+            counter += 1
+
+        # countinuing with second frame
+        counter = len(tf1)
+        for t in tf2:
+            assert isinstance(t, Trade)
+            assert t in tfr
+            assert tfr[counter] == t
+            counter += 1
 
     @given(tradeframe=TradeFrame.strategy())
     def test_str(self, tradeframe: TradeFrame):

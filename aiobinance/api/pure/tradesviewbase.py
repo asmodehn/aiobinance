@@ -74,6 +74,8 @@ class TradesViewBase:
         return self
 
     def __contains__(self, item: Trade):
+        # https://docs.python.org/2/reference/datamodel.html#object.__contains__
+        # TODO : if this is a mapping, we should do that on keys...
         return item in self.frame
 
     def __eq__(self, other: TradesViewBase) -> bool:
@@ -103,7 +105,6 @@ class TradesViewBase:
                     **self.frame.df.loc[item]
                 )  # simple since dataframe is  indexed on id
             except OverflowError as oe:
-                # TODO : handle/prevent overflow error when int is too large to be optimized by pandas/numpy
                 # E   OverflowError: Python int too large to convert to C long
                 # pandas/_libs/hashtable_class_helper.pxi:1032: OverflowError
                 raise KeyError(f"{item} is too high a value for Trade.id ") from oe

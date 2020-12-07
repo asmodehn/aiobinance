@@ -6,7 +6,7 @@ from hypothesis import given
 
 from aiobinance.api.model.exchange_info import ExchangeInfo
 from aiobinance.api.pure.exchangebase import ExchangeBase
-from aiobinance.api.pure.puremarket import PureMarket
+from aiobinance.api.pure.marketbase import MarketBase
 
 
 class TestExchangeBase(unittest.TestCase):
@@ -19,7 +19,7 @@ class TestExchangeBase(unittest.TestCase):
         else:
             # asserting that the init value is reflected properly
             assert eb.servertime == eb.info.servertime
-            assert eb.markets == {s.symbol: PureMarket(info=s) for s in eb.info.symbols}
+            assert eb.markets == {s.symbol: MarketBase(info=s) for s in eb.info.symbols}
 
     @given(eb=ExchangeBase.strategy(), info_update=ExchangeInfo.strategy())
     def test_call_update(self, eb: ExchangeBase, info_update: ExchangeInfo):
@@ -27,7 +27,7 @@ class TestExchangeBase(unittest.TestCase):
         eb(info=info_update)
         # asserting that the new value is reflected properly
         assert eb.servertime == info_update.servertime
-        assert eb.markets == {s.symbol: PureMarket(info=s) for s in info_update.symbols}
+        assert eb.markets == {s.symbol: MarketBase(info=s) for s in info_update.symbols}
 
 
 if __name__ == "__main__":

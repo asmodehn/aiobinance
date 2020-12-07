@@ -209,6 +209,12 @@ class OHLCFrame:
     def __len__(self):
         return len(self.df)
 
+    def __add__(self, other: OHLCFrame):
+        # At the frame level we ignore the index (unintended record ordering)
+        return OHLCFrame(
+            df=self.df.append(other.df, ignore_index=True, verify_integrity=True)
+        )
+
     def __str__(self):
         # optimize before display (high decimal precision is not manageable by humans)
         optdf = self.optimized()

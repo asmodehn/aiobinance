@@ -53,7 +53,9 @@ class Trade:
         return st.builds(
             cls,
             id=st.integers(
-                min_value=1000
+                # for proper dataframe storage, we should stay in numpy representables int...
+                min_value=np.iinfo(np.dtype("uint64")).min,
+                max_value=np.iinfo(np.dtype("uint64")).max,
             ),  # to avoid overlap of index and ids integers... TODO : validate in real usecase...
             price=st.decimals(allow_nan=False, allow_infinity=False),
             qty=st.decimals(allow_nan=False, allow_infinity=False),

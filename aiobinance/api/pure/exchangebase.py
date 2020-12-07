@@ -10,7 +10,7 @@ from hypothesis.strategies import SearchStrategy
 from pydantic.dataclasses import dataclass
 
 from aiobinance.api.model.exchange_info import ExchangeInfo
-from aiobinance.api.pure.puremarket import PureMarket
+from aiobinance.api.pure.marketbase import MarketBase
 
 
 @dataclass(frozen=False)
@@ -35,10 +35,10 @@ class ExchangeBase:
     def markets(
         self,
     ) -> Dict[
-        str, PureMarket
+        str, MarketBase
     ]:  # monotonically increase -> start empty and assume exchange only adds market during a run...
         return (
-            {s.symbol: PureMarket(info=s) for s in self.info.symbols}
+            {s.symbol: MarketBase(info=s) for s in self.info.symbols}
             if self.info is not None
             else {}
         )
@@ -73,7 +73,7 @@ class ExchangeBase:
 
 
 if __name__ == "__main__":
-    ei = ExchangeBase.strategy().example()
-    print(ei)
-    ei_updated = ei(info_update=ExchangeInfo.strategy().example())
-    print(ei_updated)
+    eb = ExchangeBase.strategy().example()
+    print(eb)
+    eb_updated = eb(info=ExchangeInfo.strategy().example())
+    print(eb_updated)

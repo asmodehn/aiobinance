@@ -6,18 +6,18 @@ import hypothesis.strategies as st
 from hypothesis import Verbosity, given, settings
 
 from aiobinance.api.model.order import LimitOrder, MarketOrder, OrderSide
-from aiobinance.api.pure.puremarket import PureMarket
+from aiobinance.api.pure.marketbase import MarketBase
 
 
 class TestPureMarket(unittest.TestCase):
-    @given(pm=PureMarket.strategy())
+    @given(pm=MarketBase.strategy())
     # @settings(verbosity=Verbosity.verbose)
     def test_strategy(self, pm):
 
-        assert isinstance(pm, PureMarket)
+        assert isinstance(pm, MarketBase)
 
     @given(
-        pm=PureMarket.strategy(),
+        pm=MarketBase.strategy(),
         side=OrderSide.strategy(),
         qty=st.decimals(allow_nan=False, allow_infinity=False),
         price=st.decimals(allow_nan=False, allow_infinity=False),
