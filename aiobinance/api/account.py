@@ -1,105 +1,107 @@
-from aiobinance.api.exchange import Exchange, retrieve_exchange
-from aiobinance.api.pure.account import Account as AccountModel
+from __future__ import annotations
+
+import asyncio
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
+from hypothesis.strategies import SearchStrategy
+
+from aiobinance.api.model.account_info import AccountInfo
+from aiobinance.api.pure.accountbase import AccountBase
 from aiobinance.api.rawapi import Binance
 
 
-class Account:
+@dataclass(frozen=False)
+class Account(AccountBase):
 
     """ A class to simplify interacting with binance account through the REST API."""
 
-    api: Binance
-    _model: AccountModel
+    api: Binance = field(init=True, default=Binance())
+    test: bool = field(init=True, default=True)
 
-    # set of properties acting as translation layer for the outside
-
-    @property
-    def accountType(self):
-        return self._model.accountType
-
-    @property
-    def balances(self):
-        return self._model.balances
-
-    @property
-    def buyerCommission(self):
-        return self._model.buyerCommission
-
-    @property
-    def canDeposit(self):
-        return self._model.canDeposit
-
-    @property
-    def canTrade(self):
-        return self._model.canTrade
-
-    @property
-    def canWithdraw(self):
-        return self._model.canWithdraw
-
-    @property
-    def makerCommission(self):
-        return self._model.makerCommission
-
-    @property
-    def permissions(self):
-        return self._model.permissions
-
-    @property
-    def sellerCommission(self):
-        return self._model.sellerCommission
-
-    @property
-    def takerCommission(self):
-        return self._model.takerCommission
-
-    @property
-    def updateTime(self):
-        return self._model.updateTime
+    @classmethod
+    def strategy(cls, **kwargs) -> SearchStrategy:
+        raise RuntimeError(
+            "Strategy should not be used with real implementation. Build an instance from actual data instead."
+        )
 
     # interactive behavior
 
-    def __init__(self, api: Binance, model: AccountModel, test: bool = True):
-        self.api = api
-        self._model = model
-        self.test = test  # wether we can change anything wiht this account...
-        self._exchange = None
+    async def __call__(
+        self, *, update_delta: Optional[timedelta] = None, **kwargs
+    ) -> Account:
 
-    @property
-    def exchange(self) -> Exchange:
-        if self._exchange is None:
-            self._exchange = retrieve_exchange(api=self.api, test=self.test)
-        return self._exchange
+        # TMP simulating future async api...
+        await asyncio.sleep(0.1)
+
+        info = kwargs.get(
+            "info", None
+        )  # we get the info param as override if present in kwargs
+
+        if info is None:
+
+            if self.api.creds is None:
+                raise RuntimeError("Credentials not specified !")
+
+            res = self.api.call_api(command="account")
+
+            if res.is_ok():
+                res = res.value
+            else:
+                # TODO : handle API error properly
+                raise RuntimeError(res.value)
+
+            # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
+            # We do not want to change the semantics of the exchange exposed models here.
+            info = AccountInfo(
+                makerCommission=res["makerCommission"],
+                takerCommission=res["takerCommission"],
+                buyerCommission=res["buyerCommission"],
+                sellerCommission=res["sellerCommission"],
+                canTrade=res["canTrade"],
+                canWithdraw=res["canWithdraw"],
+                canDeposit=res["canDeposit"],
+                updateTime=res["updateTime"],
+                accountType=res["accountType"],  # should be "SPOT"
+                balances=res["balances"],
+                permissions=res["permissions"],
+            )
+
+            # we update the current frozen instance (base class know how to)
+            super(Account, self).__call__(info=info)
+
+        return self
 
 
-def retrieve_account(*, api: Binance, test=True) -> Account:
+if __name__ == "__main__":
 
-    if api.creds is None:
-        raise RuntimeError("Credentials not specified !")
+    from aiobinance.config import load_api_keyfile
 
-    res = api.call_api(command="account")
+    api = Binance(credentials=load_api_keyfile())
 
-    if res.is_ok():
-        res = res.value
-    else:
-        # TODO : handle API error properly
-        raise RuntimeError(res.value)
+    # Testing with actual values and network connection here (only retrieving information)
+    acc = Account(api=api, test=True)
+    now = datetime.now(tz=timezone.utc)
 
-    # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
-    # We do not want to change the semantics of the exchange exposed models here.
-    account = AccountModel(
-        makerCommission=res["makerCommission"],
-        takerCommission=res["takerCommission"],
-        buyerCommission=res["buyerCommission"],
-        sellerCommission=res["sellerCommission"],
-        canTrade=res["canTrade"],
-        canWithdraw=res["canWithdraw"],
-        canDeposit=res["canDeposit"],
-        updateTime=res["updateTime"],
-        accountType=res["accountType"],  # should be "SPOT"
-        balances=res["balances"],
-        permissions=res["permissions"],
-    )
+    async def run_accnt():
+        global now
+        print(f"update_time: {acc.update_time}")
+        print(f"now: {now}")
 
-    instance = Account(api=api, model=account, test=test)
+        newnow = datetime.now(tz=timezone.utc)
+        await acc(update_delta=newnow - now)
+        print(f"update_time: {acc.update_time}")
+        now = newnow
+        print(f"now: {now}")
 
-    return instance
+        # TODO : something needs to happen for the account to get updated and get a new updated time...
+        await asyncio.sleep(1)
+
+        newnow = datetime.now(tz=timezone.utc)
+        await acc(update_delta=newnow - now)
+        print(f"update_time: {acc.update_time}")
+        now = newnow
+        print(f"now: {now}")
+
+    asyncio.run(run_accnt())

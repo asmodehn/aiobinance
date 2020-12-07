@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
@@ -8,13 +8,13 @@ from typing import Dict, List, Optional, Tuple
 import hypothesis.strategies as st
 from cached_property import cached_property
 from hypothesis.strategies import SearchStrategy
-from pydantic.dataclasses import dataclass
 from result import Ok, Result
 
 from aiobinance.api.model.filters import Filter
 from aiobinance.api.model.market_info import MarketInfo
 from aiobinance.api.model.order import LimitOrder, MarketOrder, OrderSide
-from aiobinance.api.pure.ohlcviewbase import OHLCFrame
+from aiobinance.api.pure.ohlcviewbase import OHLCFrame, OHLCViewBase
+from aiobinance.api.pure.tradesviewbase import TradesViewBase
 from aiobinance.model import TradeFrame
 
 
@@ -27,26 +27,20 @@ class MarketBase:  # TODO : rename to MakertBase for clarity...
         return st.builds(cls, info=MarketInfo.strategy())
 
     @cached_property
-    def price(  # TODO : build a pure mock version we can use for simulations...
-        self, *, start_time: datetime, end_time: datetime, interval=None
-    ) -> OHLCFrame:
+    def price(self) -> OHLCViewBase:
         # TODO : actual API request
-        return OHLCFrame()
+        return OHLCViewBase()
 
     @cached_property
     def trades(  # TODO : build a pure mock version we can use for simulations...
         self,
-        *,
-        start_time: datetime,
-        end_time: datetime,
-    ) -> TradeFrame:
+    ) -> TradesViewBase:
         # Note : A "random local mock matching engine" should be implemented as same level as market
         # As randomness is a side effect... Call it 'FakeMarket' maybe, it could return a "balanced set of trades",
         # that is something plausible, useful for tests, yet without longterm side-effects (given our simple box-based algorithms)
         # BUT NOT HERE ! lets try to remain side-effect-free here...
 
-        # TODO : actual API request
-        return TradeFrame()
+        return TradesViewBase()
 
     def __call__(self, *, info: Optional[MarketInfo] = None, **kwargs) -> MarketBase:
         # return same instance if no change

@@ -10,9 +10,6 @@ import numpy as np
 import pandas as pd
 from cached_property import cached_property
 from hypothesis.strategies import composite
-from pydantic import validator
-
-# Leveraging pydantic to validate based on type hints
 from tabulate import tabulate
 
 from aiobinance.api.model.trade import Trade

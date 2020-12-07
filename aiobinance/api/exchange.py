@@ -8,8 +8,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 import hypothesis.strategies as st
+from cached_property import cached_property
 from hypothesis.strategies import SearchStrategy
 
+from aiobinance.api.account import Account
 from aiobinance.api.market import Market
 from aiobinance.api.model.exchange_info import ExchangeInfo, RateLimit
 from aiobinance.api.model.filters import Filter
@@ -34,7 +36,11 @@ class Exchange(ExchangeBase):
             "Strategy should not be used with real implementation. Build an instance from actual data instead."
         )
 
-    @property
+    @cached_property  # TODO : maybe an authenticate call to update the api ???
+    def account(self) -> Account:
+        return Account(api=self.api, test=self.test)
+
+    @cached_property  # TODO : cached ??
     def markets(self) -> Dict[str, Market]:
         return (
             {
@@ -127,79 +133,6 @@ class Exchange(ExchangeBase):
         super(Exchange, self).__call__(info=info)
 
         return self
-
-
-# TODO : we can possibly drop this...
-def retrieve_exchange(api: Binance, test: bool = True) -> Exchange:
-
-    res = api.call_api(command="exchangeInfo")
-
-    if res.is_ok():
-        res = res.value
-    else:
-        # TODO : handle API error properly
-        raise RuntimeError(res.value)
-
-    # timezone mess
-    if res["timezone"] == "UTC":
-        tz = timezone.utc
-    else:
-        raise RuntimeError("Unknown timezone !")
-
-    # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
-    # We do not want to change the semantics of the exchange exposed models here.
-    exchange = ExchangeInfo(
-        servertime=datetime.fromtimestamp(float(res["serverTime"]) / 1000, tz=tz),
-        rate_limits=[
-            RateLimit(
-                rate_limit_type=rl["rateLimitType"],
-                interval=rl["interval"],
-                interval_num=rl["intervalNum"],
-                limit=rl["limit"],
-            )
-            for rl in res["rateLimits"]
-        ],
-        exchange_filters=[
-            Filter(filter_type=f["filterType"]) for f in res["exchangeFilters"]
-        ],
-        symbols=[
-            MarketInfo(
-                symbol=s["symbol"],
-                status=s["status"],
-                base_asset=s["baseAsset"],
-                base_asset_precision=s["baseAssetPrecision"],
-                quote_asset=s["quoteAsset"],
-                quote_precision=s["quotePrecision"],
-                quote_asset_precision=s["quoteAssetPrecision"],
-                base_commission_precision=s["baseCommissionPrecision"],
-                quote_commission_precision=s["quoteCommissionPrecision"],
-                order_types=s["orderTypes"],
-                iceberg_allowed=s["icebergAllowed"],
-                oco_allowed=s["ocoAllowed"],
-                quote_order_qty_market_allowed=s["quoteOrderQtyMarketAllowed"],
-                is_spot_trading_allowed=s["isSpotTradingAllowed"],
-                is_margin_trading_allowed=s["isMarginTradingAllowed"],
-                filters=[
-                    Filter.factory(
-                        # we also convert the case of the keys...
-                        **{camel_snake.sub("_", fk).lower(): fv for fk, fv in f.items()}
-                    )
-                    for f in s["filters"]
-                ],
-                permissions=s["permissions"],
-            )
-            for s in res["symbols"]
-        ],
-    )
-
-    return Exchange(
-        api=api,
-        servertime=exchange.servertime,
-        rate_limits=exchange.rate_limits,
-        exchange_filters=exchange.exchange_filters,
-        symbols=exchange.symbols,
-        test=test,
-    )
 
 
 if __name__ == "__main__":

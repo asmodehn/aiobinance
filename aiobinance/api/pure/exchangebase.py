@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import (
+    dataclass,  # careful to not mix hierarchy of pydantic dataclasses and dataclasses
+)
 from dataclasses import field
 from datetime import MINYEAR, datetime
 from typing import Dict, Optional
@@ -7,7 +10,6 @@ from typing import Dict, Optional
 import hypothesis.strategies as st
 from cached_property import cached_property
 from hypothesis.strategies import SearchStrategy
-from pydantic.dataclasses import dataclass
 
 from aiobinance.api.model.exchange_info import ExchangeInfo
 from aiobinance.api.pure.marketbase import MarketBase
