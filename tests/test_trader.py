@@ -3,27 +3,30 @@ from decimal import Decimal
 
 import pytest
 
-from aiobinance.api.account import retrieve_account
+from aiobinance.api.exchange import Exchange
 from aiobinance.api.model.order import LimitOrder, OrderSide
 from aiobinance.api.rawapi import Binance
 from aiobinance.trader import Trader
 
 
+@pytest.mark.asyncio
 @pytest.mark.vcr(
     filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
 )
-def test_buy_test(keyfile):
+async def test_buy_test(keyfile):
     """ have the trader buy something """
 
     api = Binance(credentials=keyfile)  # we might need private requests here !
 
-    account = retrieve_account(api=api, test=True)
+    exchange = Exchange(api=api, test=True)
 
-    trader = Trader(account=account, market=account.exchange.market["COTIBNB"])
+    await exchange()
+
+    trader = Trader(account=exchange.account, market=exchange.markets["COTIBNB"])
 
     # Buy test order overpriced => will readjust !
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.45))
+    order = await trader.buy(amount=Decimal(300), total_expected=Decimal(0.45))
     assert isinstance(order, LimitOrder), f"{order}"
     assert order.clientOrderId == ""
     assert order.cummulativeQuoteQty.is_zero()
@@ -48,7 +51,7 @@ def test_buy_test(keyfile):
     # Buy test order underpriced
     # Note: it seems that PRICE_FILTER can prevent passing buy orders too far from current price...
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.42))
+    order = await trader.buy(amount=Decimal(300), total_expected=Decimal(0.42))
     assert isinstance(order, LimitOrder), f"{order}"
     assert order.clientOrderId == ""
     assert order.cummulativeQuoteQty.is_zero()
@@ -72,41 +75,47 @@ def test_buy_test(keyfile):
 
 
 @pytest.mark.skip  # skip this while market is not in our interest... recording TODO
+@pytest.mark.asyncio
 @pytest.mark.vcr(
     filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
 )
-def test_buy(keyfile):
+async def test_buy(keyfile):
     """ have the trader buy something """
 
     api = Binance(credentials=keyfile)  # we might need private requests here !
 
-    account = retrieve_account(api=api, test=False)
+    exchange = Exchange(api=api, test=False)
 
-    trader = Trader(account=account, market=account.exchange.market["COTIBNB"])
+    await exchange()
+
+    trader = Trader(account=exchange.account, market=exchange.markets["COTIBNB"])
 
     print("Buy test order: ")
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.45))
+    order = await trader.buy(amount=Decimal(300), total_expected=Decimal(0.45))
     print(order)
 
     assert order
 
 
+@pytest.mark.asyncio
 @pytest.mark.vcr(
     filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
 )
-def test_sell_test(keyfile):
+async def test_sell_test(keyfile):
     """ have the trader buy something """
 
     api = Binance(credentials=keyfile)  # we might need private requests here !
 
-    account = retrieve_account(api=api, test=True)
+    exchange = Exchange(api=api, test=True)
 
-    trader = Trader(account=account, market=account.exchange.market["COTIBNB"])
+    await exchange()
+
+    trader = Trader(account=exchange.account, market=exchange.markets["COTIBNB"])
 
     # Sell test order overpriced
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.45))
+    order = await trader.sell(amount=Decimal(300), total_expected=Decimal(0.45))
     assert order and isinstance(order, LimitOrder)
     assert order.clientOrderId == ""
     assert order.cummulativeQuoteQty.is_zero()
@@ -130,7 +139,7 @@ def test_sell_test(keyfile):
 
     # Sell test order underpriced => will readjust !
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.40))
+    order = await trader.sell(amount=Decimal(300), total_expected=Decimal(0.40))
     assert order and isinstance(order, LimitOrder)
     assert order.clientOrderId == ""
     assert order.cummulativeQuoteQty.is_zero()
@@ -154,21 +163,24 @@ def test_sell_test(keyfile):
 
 
 @pytest.mark.skip  # skip this while market is not in our interest... recording TODO
+@pytest.mark.asyncio
 @pytest.mark.vcr(
     filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
 )
-def test_sell(keyfile):
+async def test_sell(keyfile):
     """ have the trader buy something """
 
     api = Binance(credentials=keyfile)  # we might need private requests here !
 
-    account = retrieve_account(api=api, test=False)
+    exchange = Exchange(api=api, test=False)
 
-    trader = Trader(account=account, market=account.exchange.market["COTIBNB"])
+    await exchange()
+
+    trader = Trader(account=exchange.account, market=exchange.markets["COTIBNB"])
 
     print("Sell test order: ")
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.45))
+    order = await trader.sell(amount=Decimal(300), total_expected=Decimal(0.45))
     print(order)
 
     assert order
