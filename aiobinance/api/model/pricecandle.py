@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, fields
-from datetime import datetime, timedelta
+from datetime import MAXYEAR, MINYEAR, datetime, timedelta
 from decimal import Decimal
 from typing import Iterable, List, Optional
 
@@ -9,7 +9,8 @@ import hypothesis.strategies as st
 import pandas as pd
 from bokeh.models import BooleanFilter, CDSView, ColumnDataSource, Legend
 from bokeh.plotting import Figure
-from hypothesis import infer
+from hypothesis import assume, infer
+from hypothesis.strategies import SearchStrategy
 from pydantic import validator
 from pydantic.dataclasses import dataclass
 
@@ -42,15 +43,37 @@ class PriceCandle:
     # Strategies, inferring attributes from type hints by default
     @st.composite
     @staticmethod
-    def strategy(draw, tf: Optional[timedelta] = None):
-        ot = draw(st.datetimes())
-        ct = draw(st.datetimes(min_value=ot)) if tf is None else ot + tf
+    def strategy(
+        draw, tba: SearchStrategy = st.datetimes(), tbb: SearchStrategy = st.datetimes()
+    ):
+        # drawing time bounds
+        tb1 = draw(tba)
+        tb2 = draw(tbb)
+        assume(tb1 != tb2)
+
+        ot = tb1 if tb1 < tb2 else tb2
+        ct = tb2 if tb1 < tb2 else tb1
+
+        # we need some coherence in ohlc values
+        open = draw(st.decimals(allow_nan=False, allow_infinity=False))
+        close = draw(st.decimals(allow_nan=False, allow_infinity=False))
+        high = draw(
+            st.decimals(
+                min_value=min(open, close), allow_nan=False, allow_infinity=False
+            )
+        )
+        low = draw(
+            st.decimals(
+                min_value=max(open, close), allow_nan=False, allow_infinity=False
+            )
+        )
+
         return PriceCandle(
             open_time=ot,
-            open=draw(st.decimals(allow_nan=False, allow_infinity=False)),
-            high=draw(st.decimals(allow_nan=False, allow_infinity=False)),
-            low=draw(st.decimals(allow_nan=False, allow_infinity=False)),
-            close=draw(st.decimals(allow_nan=False, allow_infinity=False)),
+            open=open,
+            high=high,
+            low=low,
+            close=close,
             volume=draw(st.decimals(allow_nan=False, allow_infinity=False)),
             close_time=ct,
             qav=draw(st.decimals(allow_nan=False, allow_infinity=False)),

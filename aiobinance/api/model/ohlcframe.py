@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, fields
-from datetime import datetime
+from datetime import MAXYEAR, MINYEAR, datetime, timedelta
 from decimal import Decimal
 from typing import Iterable, List, Optional, Union
 
@@ -9,7 +9,8 @@ import hypothesis.strategies as st
 import pandas as pd
 from bokeh.models import BooleanFilter, CDSView, ColumnDataSource, Legend
 from bokeh.plotting import Figure
-from hypothesis import infer
+from hypothesis import assume, infer
+from hypothesis.strategies import SearchStrategy
 from pydantic import validator
 
 # Leveraging pydantic to validate based on type hints
@@ -28,25 +29,77 @@ class OHLCFrame:
             [], columns=[f.name for f in fields(PriceCandle)]
         ),
     )
-    #
-    # @property
-    # def open_time(self) -> List[datetime]:
-    #     return self.df.open_time.to_list()
-    #
-    # @property
-    # def close_time(self) -> List[datetime]:
-    #     return self.df.close_time.to_list()
+
+    @property
+    def open_time(self) -> List[datetime]:
+        return self.df.open_time.to_list()
+
+    @property
+    def close_time(self) -> List[datetime]:
+        return self.df.close_time.to_list()
 
     @st.composite
     @staticmethod
-    def strategy(draw, max_size=5):
-        tl = st.lists(
-            elements=PriceCandle.strategy(),
-            max_size=max_size,
-            unique_by=lambda t: t.open_time,
-        )
-        # TODO : sort candles...
-        return OHLCFrame.from_candleslist(*draw(tl))
+    def strategy(
+        draw,
+        tfs: SearchStrategy = st.timedeltas(
+            min_value=timedelta(
+                days=-100
+            ),  # no point being crazy about time frame (need to fit in [MINYEAR..MAXYEAR])
+            max_value=timedelta(days=100),
+        ),
+        max_size=5,
+    ):
+
+        # we want consistent time frame for all candles
+        # cf. https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.PeriodIndex.html
+        tf = draw(tfs)
+
+        # generate all open times first (careful with datetime bounds)
+
+        if tf > timedelta():
+            try:  # CAREFUL: datetime min and max are different for computation
+                # see supported Operations https://docs.python.org/3/library/datetime.html#datetime-objects
+                otl = draw(
+                    st.lists(
+                        elements=st.datetimes(  # no need to be extra precise on max bound here
+                            max_value=datetime(year=MAXYEAR, month=12, day=31) - tf
+                        ),
+                        max_size=max_size,
+                    )
+                )
+            except OverflowError as oe:
+                print(f"{datetime.max} - {tf} OVERFLOWS !!!")
+                raise oe
+        else:
+            try:
+                otl = draw(
+                    st.lists(
+                        elements=st.datetimes(
+                            min_value=datetime(year=MINYEAR, month=1, day=1) - tf
+                        ),
+                        max_size=max_size,
+                    )
+                )
+            except OverflowError as oe:
+                print(f"{datetime.min} - {tf} OVERFLOWS !!!")
+                raise oe
+
+        cl = []
+        for ot in otl:
+            # drop times that are inside an accepted interval => prevents overlapping but allows holes in candles list
+            # REMINDER : this is valid at timeframe constant.
+            for c in cl:
+                assume(
+                    not (
+                        c.open_time <= ot and ot < c.close_time
+                    )  # if opentime in existing interval
+                    and not (c.open_time <= ot + tf and ot + tf < c.close_time)
+                )  # if closetime in existing interval
+            # if we are correct in our assumption, we add it to the list
+            cl.append(draw(PriceCandle.strategy(tba=st.just(ot), tbb=st.just(ot + tf))))
+
+        return OHLCFrame.from_candleslist(*cl)
 
     @classmethod
     def from_candleslist(cls, *candles: PriceCandle):
