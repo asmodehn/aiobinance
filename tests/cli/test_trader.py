@@ -7,17 +7,16 @@ from aiobinance.cli.trader import cli
 @pytest.mark.vcr(
     filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
 )
-def test_buy_test(keyfile):
+def test_buy_test(clirunner, keyfile):
 
     """ testing buy command with --keyfile or from cassettes """
-    runner = CliRunner()
 
     # passing keyfile so the results do not depend on environment (arguably too complex with 2 levels of envs)
     # but on how pytest is called to run the tests. We're testing the --apikey and --secret options at the same time.
     cmd = f"--apikey {keyfile.key} --secret {keyfile.secret} "
     # Buy test order overpriced => will readjust !
     cmd = cmd + "buy 300 COTI --using 0.50 BNB"
-    result = runner.invoke(
+    result = clirunner.invoke(
         cli,
         cmd.split(),
         input="2",
@@ -52,7 +51,7 @@ def test_buy_test(keyfile):
     cmd = f"--apikey {keyfile.key} --secret {keyfile.secret} "
     # Buy test order underpriced
     cmd = cmd + "buy 300 COTI --using 0.45 BNB"
-    result = runner.invoke(
+    result = clirunner.invoke(
         cli,
         cmd.split(),
         input="2",
@@ -86,17 +85,16 @@ def test_buy_test(keyfile):
 @pytest.mark.vcr(
     filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
 )
-def test_buy(keyfile):
+def test_buy(clirunner, keyfile):
 
     """ testing buy command with --keyfile or from cassettes """
-    runner = CliRunner()
 
     # passing keyfile so the results do not depend on environment (arguably too complex with 2 levels of envs)
     # but on how pytest is called to run the tests. We're testing the --apikey and --secret options at the same time.
     cmd = f"--apikey {keyfile.key} --secret {keyfile.secret} --confirm "
     # Buy test order overpriced => will readjust !
     cmd = cmd + "buy 300 COTI --using 0.45 BNB"
-    result = runner.invoke(
+    result = clirunner.invoke(
         cli,
         cmd.split(),
         input="2",
@@ -110,10 +108,9 @@ def test_buy(keyfile):
 @pytest.mark.vcr(
     filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
 )
-def test_sell_test(keyfile):
+def test_sell_test(clirunner, keyfile):
 
     """ testing sell command with --keyfile or from cassettes """
-    runner = CliRunner()
 
     # passing keyfile so the results do not depend on environment (arguably too complex with 2 levels of envs)
     # but on how pytest is called to run the tests. We're testing the --apikey and --secret options at the same time.
@@ -124,7 +121,7 @@ def test_sell_test(keyfile):
     # TODO : ARGH it seems PRICE_FILTER is triggered with calculated prices like 0.00163333 WORAROUND ?
     #  Info from : https://binance-docs.github.io/apidocs/spot/en/#filters
     #  (price-minPrice) % tickSize == 0 for price filter to be happy !!
-    result = runner.invoke(
+    result = clirunner.invoke(
         cli,
         cmd.split(),
         input="2",
@@ -162,7 +159,7 @@ def test_sell_test(keyfile):
 
     # Sell test order underpriced => will readjust !
     cmd = cmd + "sell 300 COTI --receive 0.45 BNB"
-    result = runner.invoke(
+    result = clirunner.invoke(
         cli,
         cmd.split(),
         input="2",
@@ -196,15 +193,14 @@ def test_sell_test(keyfile):
 @pytest.mark.vcr(
     filter_headers=["X-MBX-APIKEY"], filter_query_parameters=["timestamp", "signature"]
 )
-def test_sell(keyfile):
+def test_sell(clirunner, keyfile):
 
     """ testing sell command with --keyfile or from cassettes """
-    runner = CliRunner()
 
     # passing keyfile so the results do not depend on environment (arguably too complex with 2 levels of envs)
     # but on how pytest is called to run the tests. We're testing the --apikey and --secret options at the same time.
     cmd = f"--apikey {keyfile.key} --secret {keyfile.secret} --confirm sell "
-    result = runner.invoke(
+    result = clirunner.invoke(
         cli,
         cmd.split(),
         input="2",

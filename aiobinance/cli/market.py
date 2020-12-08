@@ -5,7 +5,7 @@ import click
 from click import Choice
 
 import aiobinance.binance as binance
-from aiobinance.api.exchange import retrieve_exchange
+from aiobinance.api.exchange import Exchange
 from aiobinance.api.market import Market
 from aiobinance.api.rawapi import Binance
 from aiobinance.cli.cli_group import cli
@@ -58,11 +58,17 @@ def price(
     html=True,
 ):
     """display prices"""
+    import asyncio
+
     # API for public endpoints only
     api = Binance()
 
-    exchange = retrieve_exchange(api=api)
-    market = exchange.market[market]
+    exchange = Exchange(api=api, test=True)
+
+    # while we are moving to an async interface
+    asyncio.run(exchange())  # retrieving data
+
+    market = exchange.markets[market]
 
     time_zero = time(tzinfo=timezone.utc) if utc else time(tzinfo=local_tz)
     if to_date == date.today():
@@ -75,8 +81,9 @@ def price(
     # print(f"from: {from_datetime}")
     # print(f"to: {to_datetime}")
 
-    ohlcv = market.price(
-        start_time=from_datetime, end_time=to_datetime, interval=interval
+    # while we are moving to an async interface
+    ohlcv = asyncio.run(
+        market.price(start_time=from_datetime, end_time=to_datetime, interval=interval)
     )
 
     if html:
@@ -86,7 +93,7 @@ def price(
 
         import aiobinance.web
 
-        report = aiobinance.web.price_plot(ohlcv=ohlcv)
+        report = aiobinance.web.price_plot(ohlcv=ohlcv.frame)
         output_file(f"{market.info.symbol}_{from_date}_{to_date}_price.html")
         show(report)
     else:

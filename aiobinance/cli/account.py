@@ -4,9 +4,11 @@ from datetime import date, datetime, time, timedelta, timezone
 import click
 
 import aiobinance.binance as binance
-from aiobinance.api.account import retrieve_account
+from aiobinance.api.account import Account
 from aiobinance.api.exchange import Exchange
+from aiobinance.api.ohlcview import OHLCView
 from aiobinance.api.rawapi import Binance
+from aiobinance.api.tradesview import TradesView
 from aiobinance.cli.cli_group import cli, pass_creds
 from aiobinance.cli.params.date import Date
 from aiobinance.config import Credentials
@@ -23,10 +25,14 @@ def balance(creds: Credentials):
 
     api = Binance(credentials=creds)  # we need private requests here !
 
-    account = retrieve_account(api=api)
+    account = Account(api=api)
+
+    import asyncio
+
+    asyncio.run(account())
 
     print(
-        account._model
+        account.info
     )  # need to print the account data structure, until we have a better idea of what to do here...
 
 
@@ -50,6 +56,7 @@ def trades(
     html=True,
 ):
     """display trades for this account"""
+    import asyncio
 
     time_zero = time(tzinfo=timezone.utc) if utc else time(tzinfo=local_tz)
     if to_date == date.today():
@@ -58,16 +65,12 @@ def trades(
         to_datetime = datetime.combine(from_date + timedelta(days=1), time_zero)
     from_datetime = datetime.combine(from_date, time_zero)
 
-    # api = Binance(credentials=creds)  # we need private requests here !
+    api = Binance(credentials=creds)  # we need private requests here !
 
-    # TODO : call trades
+    trades = TradesView(api=api, symbol=market_pair)
 
-    trades = binance.trades_from_binance(
-        symbol=market_pair,
-        start_time=from_datetime,
-        end_time=to_datetime,
-        credentials=creds,
-    )
+    # while we are moving to an async interface
+    asyncio.run(trades(start_time=from_datetime, stop_time=to_datetime))
 
     if html:
         from bokeh.io import output_file
@@ -75,13 +78,12 @@ def trades(
 
         import aiobinance.web
 
-        ohlcv = binance.price_from_binance(
-            symbol=market_pair,
-            start_time=from_datetime,
-            end_time=to_datetime,
-        )
+        ohlcv = OHLCView(api=api, symbol=market_pair)
 
-        report = aiobinance.web.price_plot(ohlcv=ohlcv, trades=trades)
+        # while we are moving to an async interface
+        asyncio.run(ohlcv(start_time=from_datetime, stop_time=to_datetime))
+
+        report = aiobinance.web.price_plot(ohlcv=ohlcv.frame, trades=trades.frame)
         output_file(f"{market_pair}_{from_date}_{to_date}_price.html")
         show(report)
 

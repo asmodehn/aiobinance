@@ -27,6 +27,9 @@ hypothesis = "*"
 ptpython = "*"
 tabulate = "*"
 result = "*"
+cached-property = "*"  # while we still support py 3.7 in functools from 3.8
+frozenlist = "*"
+pre-commit = "*"
 
 [requires]
 python_version = "3.8"

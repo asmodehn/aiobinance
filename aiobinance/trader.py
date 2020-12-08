@@ -7,7 +7,6 @@ from decimal import Decimal
 from typing import Optional
 
 from aiobinance.api.account import Account
-from aiobinance.api.exchange import retrieve_exchange
 from aiobinance.api.market import Market
 from aiobinance.api.model.order import LimitOrder
 from aiobinance.api.rawapi import Binance
@@ -36,24 +35,26 @@ class Trader:
     # TODO : some forcasting to determine opportunity...
     # TODO : then do some time-based arbitrage... hodl or fomo ?
 
-    def sell(
+    async def sell(
         self, amount: Decimal, total_expected: Optional[Decimal] = None
     ) -> LimitOrder:
 
-        passed_order = asyncio.run(
-            self.safe_counter.sell(amount=amount, expected_gain=total_expected)
+        passed_order = await self.safe_counter.sell(
+            amount=amount, expected_gain=total_expected
         )
+
         if passed_order.is_ok():
             return passed_order.ok()
         else:
             raise TraderException(passed_order.err())
 
-    def buy(
+    async def buy(
         self, amount: Decimal, total_expected: Optional[Decimal] = None
     ) -> LimitOrder:
-        passed_order = asyncio.run(
-            self.safe_counter.buy(amount=amount, expected_cost=total_expected)
+        passed_order = await self.safe_counter.buy(
+            amount=amount, expected_cost=total_expected
         )
+
         if passed_order.is_ok():
             return passed_order.ok()
         else:

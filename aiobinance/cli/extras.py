@@ -1,7 +1,11 @@
+import asyncio
+
 import click
 
 import aiobinance.binance as binance
 import aiobinance.hummingbot as hummingbot
+from aiobinance.api.ohlcview import OHLCView
+from aiobinance.api.rawapi import Binance
 from aiobinance.cli.cli_group import cli
 
 
@@ -18,10 +22,15 @@ def hummingbot_instance(ctx, filename, html=False):
 
     symbol = trades[0].symbol  # assuming only one symbol !
 
-    ohlcv = binance.price_from_binance(
-        start_time=trades[0].time,
-        end_time=trades[-1].time,
-        symbol=symbol,
+    api = Binance()
+
+    ohlcv = OHLCView(api=api, symbol=symbol)
+
+    asyncio.run(
+        ohlcv(
+            start_time=trades[0].time,
+            stop_time=trades[-1].time,
+        )
     )
 
     if html:

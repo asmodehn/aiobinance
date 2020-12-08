@@ -20,6 +20,7 @@ setup(
         "bokeh",
         "tabulate",
         "result",
+        "cached_property",  # todo : check py3.7 3.8 3.9 (from functools)
     ],
     zip_safe=False,
 )

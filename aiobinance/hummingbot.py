@@ -1,8 +1,7 @@
 import pandas as pd
 from pandas.io import json
 
-from aiobinance.model.ohlcv import OHLCV
-from aiobinance.model.trade import Trade, TradeFrame
+from aiobinance.api.model.tradeframe import Trade, TradeFrame
 
 
 # TODO: maybe this should be less generic : hummingbot_csv
@@ -51,4 +50,4 @@ def trades_from_csv(csv_filepath: str) -> TradeFrame:
         for r in csv_df.itertuples()
     ]
 
-    return TradeFrame(*trades)
+    return TradeFrame.from_tradeslist(*trades)

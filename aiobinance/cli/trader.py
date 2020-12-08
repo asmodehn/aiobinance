@@ -5,7 +5,8 @@ from decimal import Decimal
 import click
 from pydantic import typing
 
-from aiobinance.api.account import Account, retrieve_account
+from aiobinance.api.account import Account
+from aiobinance.api.exchange import Exchange
 from aiobinance.api.market import Market
 from aiobinance.api.rawapi import Binance
 from aiobinance.cli.cli_group import cli, pass_creds
@@ -35,7 +36,7 @@ def buy(
 
     api = Binance(credentials=creds)  # we need private requests here !
 
-    account = retrieve_account(api=api, test=not confirm)
+    exchange = Exchange(api=api, test=not confirm)
 
     amount = Decimal(amount)
 
@@ -45,9 +46,10 @@ def buy(
     using_amount = Decimal(using[0])
 
     # retrieve market
+    asyncio.run(exchange())
     smbl = currency + using[1]
 
-    trdr = Trader(account=account, market=account.exchange.market[smbl])
+    trdr = Trader(account=exchange.account, market=exchange.markets[smbl])
 
     trade = trdr.buy(amount=amount, total_expected=using_amount)
 
@@ -75,7 +77,7 @@ def sell(
 
     api = Binance(credentials=creds)  # we need private requests here !
 
-    account = retrieve_account(api=api, test=not confirm)
+    exchange = Exchange(api=api, test=not confirm)
 
     amount = Decimal(amount)
 
@@ -85,9 +87,10 @@ def sell(
     using_amount = Decimal(receive[0])
 
     # retrieve market
+    asyncio.run(exchange())
     smbl = currency + receive[1]
 
-    trdr = Trader(account=account, market=account.exchange.market[smbl])
+    trdr = Trader(account=exchange.account, market=exchange.markets[smbl])
 
     trade = trdr.sell(amount=amount, total_expected=using_amount)
     # TODO : this is currently an order (as registered.) Trader needs to wait for trade...
