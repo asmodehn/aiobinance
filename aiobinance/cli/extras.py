@@ -28,8 +28,8 @@ def hummingbot_instance(ctx, filename, html=False):
 
     asyncio.run(
         ohlcv(
-            start_time=trades[0].time,
-            stop_time=trades[-1].time,
+            start_time=trades[0].time_utc,
+            stop_time=trades[-1].time_utc,
         )
     )
 
