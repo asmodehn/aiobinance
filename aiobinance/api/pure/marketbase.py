@@ -13,9 +13,9 @@ from result import Ok, Result
 from aiobinance.api.model.filters import Filter
 from aiobinance.api.model.market_info import MarketInfo
 from aiobinance.api.model.order import LimitOrder, MarketOrder, OrderSide
+from aiobinance.api.model.tradeframe import TradeFrame
 from aiobinance.api.pure.ohlcviewbase import OHLCFrame, OHLCViewBase
 from aiobinance.api.pure.tradesviewbase import TradesViewBase
-from aiobinance.model import TradeFrame
 
 
 @dataclass(frozen=False)
