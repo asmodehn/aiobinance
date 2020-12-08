@@ -83,7 +83,7 @@ def price(
 
     # while we are moving to an async interface
     ohlcv = asyncio.run(
-        market.price(start_time=from_datetime, end_time=to_datetime, interval=interval)
+        market.price(start_time=from_datetime, stop_time=to_datetime, interval=interval)
     )
 
     if html:

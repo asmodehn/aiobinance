@@ -56,7 +56,7 @@ class TradesView(TradesViewBase):
         # We do not want to change the semantics of the exchange exposed models here.
         trades = [
             Trade(
-                time=r["time"],
+                time_utc=r["time"],
                 symbol=r["symbol"],
                 id=r["id"],
                 order_id=r["orderId"],
@@ -72,7 +72,7 @@ class TradesView(TradesViewBase):
             )
             for r in res
         ]
-
+        # TODO: probably better idea to store data in frame, before converting (but still verifying data type somehow...)
         frame = TradeFrame.from_tradeslist(*trades)
         # We aggregate all formatted trades into this TradesView
         super(TradesView, self).__call__(frame=self.frame + frame)

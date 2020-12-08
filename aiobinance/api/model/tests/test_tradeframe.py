@@ -10,6 +10,28 @@ from aiobinance.api.model.tradeframe import TradeFrame
 
 # test TradeFrame (should have columns even empty)
 class TestTradeFrame(unittest.TestCase):
+    @given(
+        trade1=st.one_of(st.none(), Trade.strategy()),
+        trade2=st.one_of(st.none(), Trade.strategy()),
+    )
+    def test_from_tradeslist(self, trade1, trade2):
+
+        if trade1 is not None and trade2 is not None:
+            tf = TradeFrame.from_tradeslist(trade1, trade2)
+        elif trade2 is not None:
+            tf = TradeFrame.from_tradeslist(trade2)
+        elif trade1 is not None:
+            tf = TradeFrame.from_tradeslist(trade1)
+        else:
+            tf = TradeFrame.from_tradeslist()
+
+        # making sure the dataframe dtypes are the ones specified by the record type
+        # careful : pandas may optimize these...
+        for fdt, cdt in zip(tf.df.dtypes.items(), Trade.as_dtype()):
+            assert fdt[0] == cdt[0]
+            # dtype should be same or provide safe conversion
+            assert fdt[1] == cdt[1] or fdt[1] < cdt[1]
+
     @given(tradeframe=TradeFrame.strategy())
     def test_eq_sequence(self, tradeframe: TradeFrame):
         assert tradeframe == tradeframe

@@ -49,8 +49,8 @@ async def test_trades_from_binance(keyfile):
     first = trades.frame[0]
     # CAREFUL : the frame has been reordered by ascending Trade.id field.
     # it just happen to be the same order, since Trade.id should follow time (= response order)...
-    assert start_time < first.time < end_time
-    assert first.time == datetime(
+    assert start_time < first.time_utc < end_time
+    assert first.time_utc == datetime(
         year=2020,
         month=8,
         day=27,
@@ -58,7 +58,7 @@ async def test_trades_from_binance(keyfile):
         minute=57,
         second=44,
         microsecond=478000,
-        tzinfo=timezone.utc,
+        # tzinfo=timezone.utc, # stored as naive datetime into the frame...
     )
     assert first.symbol == "COTIBNB"
     assert first.id == 299229

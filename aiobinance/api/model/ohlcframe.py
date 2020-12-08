@@ -44,7 +44,8 @@ class OHLCFrame:
         draw,
         tfs: SearchStrategy = st.timedeltas(
             min_value=timedelta(
-                days=-100
+                microseconds=1  # we do not want any timeframe <= 0
+                # timeframe has a non-null duration semantic ==>> always > 0
             ),  # no point being crazy about time frame (need to fit in [MINYEAR..MAXYEAR])
             max_value=timedelta(days=100),
         ),
@@ -55,46 +56,35 @@ class OHLCFrame:
         # cf. https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.PeriodIndex.html
         tf = draw(tfs)
 
+        assert tf > timedelta()  # break early if we dont have a positive timeframe
+
         # generate all open times first (careful with datetime bounds)
 
-        if tf > timedelta():
-            try:  # CAREFUL: datetime min and max are different for computation
-                # see supported Operations https://docs.python.org/3/library/datetime.html#datetime-objects
-                otl = draw(
-                    st.lists(
-                        elements=st.datetimes(  # no need to be extra precise on max bound here
-                            max_value=datetime(year=MAXYEAR, month=12, day=31) - tf
-                        ),
-                        max_size=max_size,
-                    )
+        try:  # CAREFUL: datetime min and max are different for computation
+            # see supported Operations https://docs.python.org/3/library/datetime.html#datetime-objects
+            otl = draw(
+                st.lists(
+                    elements=st.datetimes(  # no need to be extra precise on max bound here
+                        min_value=datetime(year=MINYEAR, month=1, day=1),
+                        max_value=datetime(year=MAXYEAR, month=12, day=31) - tf,
+                    ),
+                    max_size=max_size,
                 )
-            except OverflowError as oe:
-                print(f"{datetime.max} - {tf} OVERFLOWS !!!")
-                raise oe
-        else:
-            try:
-                otl = draw(
-                    st.lists(
-                        elements=st.datetimes(
-                            min_value=datetime(year=MINYEAR, month=1, day=1) - tf
-                        ),
-                        max_size=max_size,
-                    )
-                )
-            except OverflowError as oe:
-                print(f"{datetime.min} - {tf} OVERFLOWS !!!")
-                raise oe
+            )
+        except OverflowError as oe:
+            print(f"{datetime.max} - {tf} OVERFLOWS !!!")
+            raise oe
 
         cl = []
         for ot in otl:
             # drop times that are inside an accepted interval => prevents overlapping but allows holes in candles list
-            # REMINDER : this is valid at timeframe constant.
+            # REMINDER : this computation is valid only at constant timeframe.
             for c in cl:
                 assume(
-                    not (
-                        c.open_time <= ot and ot < c.close_time
+                    not (  # CAREFUL with time bounds (verify Binance semantics on time bounds for candles)
+                        c.open_time <= ot and ot <= c.close_time
                     )  # if opentime in existing interval
-                    and not (c.open_time <= ot + tf and ot + tf < c.close_time)
+                    and not (c.open_time <= ot + tf and ot + tf <= c.close_time)
                 )  # if closetime in existing interval
             # if we are correct in our assumption, we add it to the list
             cl.append(draw(PriceCandle.strategy(tba=st.just(ot), tbb=st.just(ot + tf))))

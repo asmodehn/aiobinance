@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import asdict, field, fields
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, getcontext
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import hypothesis.strategies as st
 import numpy as np
@@ -18,10 +18,11 @@ from tabulate import tabulate
 
 @dataclass(frozen=True)
 class Trade:
+    # TODO : directly use numpy dtypes here in hints instead of specific as_dtype() method ?
     # REMINDER : as 'precise' and 'pythonic' semantic as possible
-    time: datetime
+    time_utc: datetime  # Making it obvious that time here is meant to be utc, even if datetime is naive like with numpy
     symbol: str  # TODO : improve
-    id: int  # TODO : careful there is a sup bound here to allow this as a DAtaFrame Index for easy manipulation...
+    id: int
     # cf: TypeError: cannot do slice indexing on Index with these indexers [18446744073709551615] of type int
     # cf:  E   OverflowError: Python int too large to convert to C long # pandas/_libs/hashtable_class_helper.pxi:1032: OverflowError
     price: Decimal
@@ -42,16 +43,91 @@ class Trade:
         init=True, default=None
     )  # outside of binance, we might not have this information
 
-    @validator("time", pre=True)
-    def convert_pandas_timestamp(cls, v):
-        if isinstance(v, pd.Timestamp):
-            return v.to_pydatetime()
+    @validator("time_utc", pre=True)
+    def convert_pandas_timestamp(
+        cls, v: Union[float, int, datetime, np.datetime64, pd.Timestamp]
+    ) -> datetime:  # TODO : rename
+
+        if isinstance(v, int):  # timestamp [ns]
+            v = datetime.fromtimestamp(
+                v * 0.001, tz=timezone.utc
+            )  # assume original timestamp is in [ns] on UTC
+            # TODO : probably storing raw data in dataframe before conversion would be a good idea...
+            #  Pb : how to check validity...
+        if isinstance(v, float):  # timestamp [us] (from python)
+            v = datetime.fromtimestamp(v, tz=timezone.utc)
+
+        # making datetime tz-offset aware on UTC if needed
+        if isinstance(v, datetime):
+            if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
+                # naive => assume already UTC (no conversion)
+                v = v.replace(tzinfo=timezone.utc)
+            elif v.tzinfo != timezone.utc:  # aware and need conversion
+                # force conversion to utc (before stripping it in numpy)
+                v = v.astimezone(tz=timezone.utc)
+
+        # something else ? => rely on pandas for conversion until a better solution appears...
+        if isinstance(v, np.datetime64):
+            # because numpy doesnt have a proper datetime conversion story
+            # but pandas does...
+            v = pd.Timestamp(v, tz=timezone.utc)
+
+        if isinstance(v, pd.Timestamp):  # TODO  :timezone ?
+            v = v.to_pydatetime()
+
+        if not isinstance(v, datetime):
+            raise TypeError(f"{v} is not a datetime")
+        lowbound = pd.Timestamp.min.replace(tzinfo=timezone.utc).to_pydatetime()
+        highbound = pd.Timestamp.max.replace(tzinfo=timezone.utc).to_pydatetime()
+        if v < lowbound or v > highbound:
+            raise ValueError(
+                f"{v} is not in pandas.Timestamp bounds [{pd.Timestamp.min.to_pydatetime()}..{pd.Timestamp.max.to_pydatetime()}]"
+            )
         return v
+
+    @validator("id", pre=True)
+    def check_id(cls, v: Union[int, np.uint64]) -> int:
+        if isinstance(v, np.uint64):
+            v = int(v)
+        if not isinstance(v, int):
+            raise TypeError(f"{v} is not an int")
+        if v < np.iinfo(np.dtype("uint64")).min or v > np.iinfo(np.dtype("uint64")).max:
+            raise ValueError(
+                f"{v} is not in numpy.uint64 bounds [{np.iinfo(np.dtype('uint64')).min}..{np.iinfo(np.dtype('uint64')).max}]"
+            )
+        return v
+
+    @classmethod  # actually property of the class itself -> metaclass (see datacrytals...)
+    def as_dtype(cls) -> List[Tuple[str, np.dtype]]:
+        """ Interpretation of this dataclass as dtype for optimizations with numpy """
+        # Ref : https://numpy.org/devdocs/reference/arrays.dtypes.html#arrays-dtypes-constructing
+        specified = {
+            "time_utc": np.dtype(
+                "datetime64[ns]"
+            ),  # CAREFUL : timezone naive since numpy 1.11.0
+            # Note: datetime64[ms] is usual server timestamp, but not enough precise for python [us]
+            # Note: datetime64[ns] is the enforced format for pandas datetime/timestamp, but more precise than python [us]
+            "id": np.dtype("uint64"),
+        }
+        # TODO : min/max properties on the type itself...
+        # TODO : more strict column dtypes !
+
+        # CAREFUL order needs to match fields order here...
+        return [
+            (f.name, specified[f.name])
+            if f.name in specified
+            else (f.name, np.dtype("O"))
+            for f in fields(cls)
+        ]
 
     @classmethod
     def strategy(cls):
         return st.builds(
             cls,
+            time_utc=st.datetimes(
+                min_value=pd.Timestamp.min.to_pydatetime(),
+                max_value=pd.Timestamp.max.to_pydatetime(),
+            ),
             id=st.integers(
                 # for proper dataframe storage, we should stay in numpy representables int...
                 min_value=np.iinfo(np.dtype("uint64")).min,
@@ -65,7 +141,7 @@ class Trade:
 
     def __str__(self) -> str:
         s = f"""
-time: {self.time}
+time_utc: {self.time_utc}
 symbol: {self.symbol}
 id: {self.id}
 price: {self.price}

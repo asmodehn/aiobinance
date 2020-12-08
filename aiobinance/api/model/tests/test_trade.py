@@ -1,18 +1,69 @@
 import dataclasses
 import unittest
+from datetime import datetime, timedelta, timezone
 
 import hypothesis.strategies as st
-from hypothesis import given
+import numpy as np
+import pandas as pd
+from hypothesis import HealthCheck, given, settings
+from pydantic import ValidationError
 
 from aiobinance.api.model.trade import Trade
 
 
 class TestTrade(unittest.TestCase):
     @given(trade=Trade.strategy())
+    def test_strategy_dtypes(self, trade: Trade):
+        # TODO : test min / max values
+        arraylike = [tuple(dataclasses.asdict(trade).values())]
+        npa = np.array(arraylike, dtype=Trade.as_dtype())
+
+        try:
+            # confirm we do not loose any information by converting types and storing into a structured array
+            stored_trade = Trade(
+                **{f.name: v for f, v in zip(dataclasses.fields(Trade), npa[0])}
+            )
+        except ValidationError:
+            raise
+        assert stored_trade == trade
+
+    @given(
+        dt=st.datetimes(
+            min_value=pd.Timestamp.min.to_pydatetime(),
+            max_value=pd.Timestamp.max.to_pydatetime(),
+            timezones=st.none(),
+        )
+    )  # naive datetimes here: we are not testing timezone conversion.
+    @settings(suppress_health_check=[HealthCheck.too_slow])
+    def test_convert_time(self, dt: datetime):
+        # forcing naive datetime to be utc-aware
+        py_dt = Trade.convert_pandas_timestamp(dt)
+        for f in ["year", "month", "day", "hour", "minute", "second", "microsecond"]:
+            assert getattr(dt, f) == getattr(py_dt, f)  # same data
+        assert py_dt.tzinfo == timezone.utc  # now UTC timezone
+
+        # check with python timestamp
+        # NOTE : default [us] is IMPRECISE ! converting to/from timestamp seems to error on float precision...
+        py_ts = py_dt.timestamp()
+        # Therefore we assert on microsecond delta only...
+        converted = Trade.convert_pandas_timestamp(py_ts)  # expected [ns] timestamp
+        assert py_dt - converted < timedelta(milliseconds=1)
+
+        # check as a pandas timestamp
+        ts = pd.Timestamp(dt)
+        converted = Trade.convert_pandas_timestamp(ts)
+        assert py_dt == converted, f"{py_dt} != {converted}"
+
+        # REMINDER : Deprecated since version 1.11.0: NumPy does not store timezone information.
+        np_dt = np.datetime64(dt)
+        converted = Trade.convert_pandas_timestamp(np_dt)
+        assert py_dt == converted, f"{py_dt} != {converted}"
+
+    @given(trade=Trade.strategy())
     def test_str(self, trade: Trade):
         # Check sensible information is displayed (order doesnt matter for output to human)
         trade_str = str(trade)
-        assert f"time: {str(trade.time)}" in trade_str
+        assert f"time_utc: {str(trade.time_utc)}" in trade_str
         assert f"symbol: {str(trade.symbol)}" in trade_str
         assert f"id: {str(trade.id)}" in trade_str
         assert f"price: {str(trade.price)}" in trade_str
@@ -31,7 +82,7 @@ class TestTrade(unittest.TestCase):
     def test_dir(self, trade: Trade):
         # check all information is exposed
         expected = {
-            "time",
+            "time_utc",
             "symbol",
             "id",
             "price",

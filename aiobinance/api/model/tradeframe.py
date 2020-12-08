@@ -91,22 +91,22 @@ class TradeFrame:
 
     @classmethod
     def from_tradeslist(cls, *trades: Trade):
+        # related : https://github.com/pandas-dev/pandas/issues/9216
+        # building structured numpy array to specify optimal dtypes
+        # Ref : https://numpy.org/doc/stable/user/basics.rec.html
 
-        df = pd.DataFrame.from_records(
-            # important : there is no specific domain semantic in the ordering in the list here,
-            #             it is just a side effect of python semantics
-            [asdict(dc) for dc in trades],
-            columns=[f.name for f in fields(Trade)],
-        )
+        arraylike = [tuple(asdict(dc).values()) for dc in trades]
+
+        npa = np.array(arraylike, dtype=Trade.as_dtype())  # Drops timezone info...
+        # df = pd.DataFrame(data={
+        #     c: npa[c] for c, t in Trade.as_dtype()
+        # })
+
+        df = pd.DataFrame(
+            data=npa
+        )  # TODO : use nparray directly ??? CAREFUL : numpy doesnt do timezones...
+
         return cls(df=df)
-
-    def __post_init__(self):
-        # enforce proper python/numpy/pandas data type
-        self.df.id = self.df.id.astype(
-            "uint64"
-        )  # TODO : min/max properties on the type itself...
-        # TODO : more !
-        pass
 
     def __contains__(self, item: Trade):
         for t in self:  # iterates and cast to Trade

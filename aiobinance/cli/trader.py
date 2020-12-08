@@ -51,7 +51,7 @@ def buy(
 
     trdr = Trader(account=exchange.account, market=exchange.markets[smbl])
 
-    trade = trdr.buy(amount=amount, total_expected=using_amount)
+    trade = asyncio.run(trdr.buy(amount=amount, total_expected=using_amount))
 
     print(trade)
 
@@ -92,7 +92,7 @@ def sell(
 
     trdr = Trader(account=exchange.account, market=exchange.markets[smbl])
 
-    trade = trdr.sell(amount=amount, total_expected=using_amount)
+    trade = asyncio.run(trdr.sell(amount=amount, total_expected=using_amount))
     # TODO : this is currently an order (as registered.) Trader needs to wait for trade...
     print(trade)
 

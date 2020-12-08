@@ -27,23 +27,23 @@ conf_pure_mm_coti_bnb_binance.yml,pure_market_making,binance,1598526454743,COTIB
 
     if result.exit_code == 0:
         assert (
-            "|    | time                             | symbol   |     id |    price |   qty |   quote_qty |   commission | commission_asset   | is_buyer   | is_maker   | order_id   | order_list_id   | is_best_match   |"
+            "|    | time_utc                   | symbol   |     id |    price |   qty |   quote_qty |   commission | commission_asset   | is_buyer   | is_maker   | order_id   | order_list_id   | is_best_match   |"
             in result.output
         )
         assert (
-            "|  0 | 2020-08-27 10:32:20.551000+00:00 | COTIBNB  | 299167 | 0.003219 |   300 |      0.9657 |    0.0009657 | BNB                | True       | True       |            |                 |                 |"
+            "|  0 | 2020-08-27 10:32:20.551000 | COTIBNB  | 299167 | 0.003219 |   300 |      0.9657 |    0.0009657 | BNB                | True       | True       |            |                 |                 |"
             in result.output
         )
         assert (
-            "|  1 | 2020-08-27 10:57:44.613000+00:00 | COTIBNB  | 299229 | 0.003261 |   300 |      0.9783 |    0.0009783 | BNB                | False      | True       |            |                 |                 |"
+            "|  1 | 2020-08-27 10:57:44.613000 | COTIBNB  | 299229 | 0.003261 |   300 |      0.9783 |    0.0009783 | BNB                | False      | True       |            |                 |                 |"
             in result.output
         )
         assert (
-            "|  2 | 2020-08-27 11:07:34.594000+00:00 | COTIBNB  | 299244 | 0.003289 |   300 |      0.9867 |    0.0009867 | BNB                | False      | True       |            |                 |                 |"
+            "|  2 | 2020-08-27 11:07:34.594000 | COTIBNB  | 299244 | 0.003289 |   300 |      0.9867 |    0.0009867 | BNB                | False      | True       |            |                 |                 |"
             in result.output
         )
         assert (
-            "|  3 | 2020-08-27 11:07:34.743000+00:00 | COTIBNB  | 299246 | 0.00329  |   300 |      0.987  |    0.000987  | BNB                | False      | True       |            |                 |                 |"
+            "|  3 | 2020-08-27 11:07:34.743000 | COTIBNB  | 299246 | 0.00329  |   300 |      0.987  |    0.000987  | BNB                | False      | True       |            |                 |                 |"
             in result.output
         )
     else:

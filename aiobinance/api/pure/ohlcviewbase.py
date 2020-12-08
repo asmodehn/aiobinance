@@ -98,7 +98,7 @@ class OHLCViewBase:
         if isinstance(item, PriceCandle):
             return item in self.frame
         elif isinstance(item, datetime) and self.frame:  # continuous index
-            return self.frame.open_time[0] <= item < self.frame.close_time[-1]
+            return self.frame.open_time[0] <= item <= self.frame.close_time[-1]
         else:
             return False
 
@@ -129,8 +129,10 @@ class OHLCViewBase:
         elif isinstance(item, datetime):
             try:
                 rs = self.frame.df.loc[
-                    (self.frame.df.open_time <= item)
-                    & (item < self.frame.df.close_time)
+                    (
+                        self.frame.df.open_time <= item
+                    )  # CAREFUL with time bounds semantics !
+                    & (item <= self.frame.df.close_time)
                 ]
                 # This implies index unicity and non-overlapping of time intervals...
                 if len(rs) == 1:

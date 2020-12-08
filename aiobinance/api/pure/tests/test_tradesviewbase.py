@@ -47,16 +47,16 @@ class TestTradesViewBase(unittest.TestCase):
         # taking slice bounds to possibly englobe all ids, and a bit more...
         sb1 = data.draw(
             st.integers(
-                min_value=min(TradeFrame.id_min(), min(tradesview.id) - 1),
-                max_value=max(TradeFrame.id_max(), max(tradesview.id) + 1),
+                min_value=max(TradeFrame.id_min(), min(tradesview.id) - 1),
+                max_value=min(TradeFrame.id_max(), max(tradesview.id) + 1),
             )
             if tradesview
             else st.none()
         )
         sb2 = data.draw(
             st.integers(
-                min_value=min(TradeFrame.id_min(), min(tradesview.id) - 1),
-                max_value=max(TradeFrame.id_max(), max(tradesview.id) + 1),
+                min_value=max(TradeFrame.id_min(), min(tradesview.id) - 1),
+                max_value=min(TradeFrame.id_max(), max(tradesview.id) + 1),
             )
             if tradesview
             else st.none()
