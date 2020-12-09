@@ -2,20 +2,11 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
-from result import Result
 
-import aiobinance.binance
-from aiobinance.api.account import Account
 from aiobinance.api.exchange import Exchange
-from aiobinance.api.model.exchange_info import RateLimit
-from aiobinance.api.model.filters import Filter
-from aiobinance.api.model.ohlcframe import OHLCFrame, PriceCandle
-from aiobinance.api.model.order import LimitOrder, MarketOrder, OrderFill, OrderSide
-from aiobinance.api.model.trade import Trade
+from aiobinance.api.model.ohlcframe import PriceCandle
 from aiobinance.api.ohlcview import OHLCView
-from aiobinance.api.pure.ticker import Ticker
 from aiobinance.api.rawapi import Binance
-from aiobinance.model import TradeFrame
 
 
 @pytest.mark.asyncio
