@@ -9,8 +9,9 @@ import hypothesis.strategies as st
 from hypothesis import given
 from result import Ok, Result
 
+from aiobinance.api.model.market_info import MarketInfo
 from aiobinance.api.model.order import LimitOrder
-from aiobinance.api.pure.puremarket import PureMarket
+from aiobinance.api.pure.marketbase import MarketBase
 from aiobinance.api.pure.ticker import Ticker, st_ticker
 from aiobinance.bot.safecounter import SafeCounter
 
@@ -38,7 +39,7 @@ def st_safecounter(draw):
         )
     )  # picking 0.1% min and 10% max of delta between bid and ask
 
-    pm = draw(PureMarket.strategy())
+    pm = draw(st.builds(MarketBase, info=MarketInfo.strategy()))
 
     return SafeCounter(
         bid_price=bid_price,

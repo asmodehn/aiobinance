@@ -10,7 +10,7 @@ from typing import Any, Callable, Optional
 from result import Err, Ok, Result
 
 from aiobinance.api.model.order import LimitOrder, OrderSide
-from aiobinance.api.pure.puremarket import PureMarket
+from aiobinance.api.pure.marketbase import MarketBase
 from aiobinance.api.pure.ticker import Ticker
 
 
@@ -21,7 +21,7 @@ class SafeCounter:
     """
 
     @classmethod
-    def from_ticker(cls, mkt: PureMarket, tkr: Ticker):
+    def from_ticker(cls, mkt: MarketBase, tkr: Ticker):
         return cls(
             bid_price=tkr.bid_price,
             ask_price=tkr.ask_price,
@@ -45,7 +45,7 @@ class SafeCounter:
         quote_asset_precision: int,
         order_callable: Callable[
             [Any, Decimal, Decimal, Any, Optional[Decimal], Any],
-            Result[LimitOrder, None],
+            Result[LimitOrder, Exception],
         ],
     ):
         """Initializes a one-time trade with immediate order.
@@ -143,8 +143,8 @@ class SafeCounter:
         #   trade detected : result analysis...
         return passed_order
 
-    async def trades(self):
-
-        # wait for trades, only from passed order via this counter.
-        # TODO
-        raise NotImplementedError
+    # TODO ?
+    # async def trades(self):
+    #
+    #     # wait for trades, only from passed order via this counter.
+    #     self.
