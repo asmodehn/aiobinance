@@ -6,15 +6,14 @@ from decimal import Decimal
 import hypothesis.strategies as st
 from hypothesis import Verbosity, given, settings
 
-from aiobinance.api.mock.market import MockMarket
 from aiobinance.api.mock.mockexchange import MockExchange
+from aiobinance.api.mock.mockmarket import MockMarket
 from aiobinance.api.model.exchange_info import ExchangeInfo
 
 
-class TestMockExchange(unittest.IsolatedAsyncioTestCase):
-    @given(data=st.data())
-    def test_init(self, data):
-        me = data.draw(MockExchange.strategy())
+class TestMockExchange(unittest.TestCase):
+    @given(me=MockExchange.strategy(), data=st.data())
+    def test_init(self, me, data):
         if me.info is None:
             assert me.servertime == datetime(year=MINYEAR, month=1, day=1)
             assert me.markets == {}
@@ -32,7 +31,8 @@ class TestMockExchange(unittest.IsolatedAsyncioTestCase):
     def test_call_update(
         self, me: MockExchange, update_delta: timedelta, info_update: ExchangeInfo
     ):
-        # because hypothesis and unittest async dont go together just yet: https://github.com/HypothesisWorks/hypothesis/issues/2514
+        # because hypothesis and unittest async dont go together just yet:
+        # https://github.com/HypothesisWorks/hypothesis/issues/2514
         async def asyncrun():
             old_servertime = me.servertime
             old_markets = me.markets

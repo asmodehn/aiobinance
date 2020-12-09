@@ -1,20 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+
+# CAREFUL : dataclasses from python and pydantic dont mix in hierarchy
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
-import hypothesis.strategies as st
-from hypothesis.strategies import SearchStrategy
-from pydantic.dataclasses import dataclass
-
-from aiobinance.api.mock.market import MockMarket
-from aiobinance.api.model.exchange_info import ExchangeInfo, RateLimit
-from aiobinance.api.model.filters import Filter
+from aiobinance.api.mock.mockmarket import MockMarket
+from aiobinance.api.model.exchange_info import ExchangeInfo
 from aiobinance.api.pure.exchangebase import ExchangeBase
-from aiobinance.api.pure.puremarket import PureMarket
-from aiobinance.api.rawapi import Binance
 
 
 @dataclass(frozen=False)
@@ -74,6 +70,10 @@ class MockExchange(ExchangeBase):
         super(MockExchange, self).__call__(info=info)
 
         return self
+
+
+# TODO : understand why this might be needed, but anyway doesnt work...
+# MockExchange.update_forward_refs()
 
 
 if __name__ == "__main__":
