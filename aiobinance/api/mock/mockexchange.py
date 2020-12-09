@@ -5,8 +5,9 @@ import asyncio
 # CAREFUL : dataclasses from python and pydantic dont mix in hierarchy
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from functools import cached_property
 from typing import Dict, Optional
+
+from cached_property import cached_property
 
 from aiobinance.api.mock.mockmarket import MockMarket
 from aiobinance.api.model.exchange_info import ExchangeInfo
