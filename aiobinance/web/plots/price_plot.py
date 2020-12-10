@@ -1,13 +1,12 @@
 from bokeh.models import BooleanFilter, CDSView, ColumnDataSource
 from bokeh.plotting import Figure
 
-from ..model import OHLCV, TradeFrame
+from ...api.ohlcview import OHLCView
+from ...api.tradesview import TradesView
 
 
-def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
+def price_plot(ohlcv: OHLCView, trades: TradesView = None) -> Figure:
     ohlc_source = ohlcv.as_datasource(compute_mid_time=True)
-
-    opt_trades = trades.optimized()
 
     figure = Figure(
         plot_height=320,
@@ -70,6 +69,8 @@ def price_plot(ohlcv: OHLCV, trades: TradeFrame = None) -> Figure:
 
     # we can pass trades to plot together...
     if trades is not None and len(trades) > 0:
+        opt_trades = trades.frame.optimized()
+
         bought_source = ColumnDataSource(opt_trades.loc[opt_trades["is_buyer"]])
         sold_source = ColumnDataSource(opt_trades.loc[~opt_trades["is_buyer"]])
 
