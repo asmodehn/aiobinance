@@ -42,9 +42,7 @@ def cli(ctx, apikey=None, secret=None, store=False):
                 apikey = input("APIkey: ")
                 secret = input("secret: ")
                 creds = Credentials(key=apikey, secret=secret)
-            else:
-                print("Interactive terminal mandatory to enter credentials.")
-                sys.exit(1)  # exit status code
+            # else we assume the command doesnt require credentials
 
     if ctx.invoked_subcommand is None:
         # No subcommand invoke, just store the credentials
