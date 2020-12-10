@@ -44,10 +44,10 @@ def test_cli_pathological():
             "apikey: My4P1K3y" in result.output
         )  # verify we override stored credentials
         assert result.exit_code == 0
-    else:
-        result = runner.invoke(cli, "".split(), input="2")
-        assert result.exit_code == 1
-        assert f"{BINANCE_API_KEYFILE} Not Found !" in result.output
+    # else:  # Note this is now allowed to provide simple public api access
+    #     result = runner.invoke(cli, "".split(), input="2")
+    #     assert result.exit_code == 1
+    #     assert f"{BINANCE_API_KEYFILE} Not Found !" in result.output
 
 
 # TODO : test --store !!!
