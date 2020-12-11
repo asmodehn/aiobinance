@@ -8,10 +8,12 @@ from typing import Iterable, List, Optional, Union
 import hypothesis.strategies as st
 import numpy as np
 import pandas as pd
+from bokeh.models import ColumnDataSource
 from cached_property import cached_property
 from hypothesis.strategies import composite
 from tabulate import tabulate
 
+from aiobinance.api.model.order import OrderSide
 from aiobinance.api.model.trade import Trade
 
 # Note : these are python dataclasses as pydantic cannot really typecheck dataframe content...
@@ -53,6 +55,23 @@ class TradesViewBase:
         self.frame = TradeFrame(
             df=self.frame.df.set_index("id", drop=False).sort_index()
         )
+
+    def as_datasource(self, side: OrderSide) -> ColumnDataSource:
+        plotdf = self.frame.optimized()
+        # TODO : live bokeh updates ??
+
+        # select a subset of trades via boolean careful indexing with pandas
+        if side == OrderSide.BUY:
+            sided_plotdf = plotdf.loc[plotdf["is_buyer"] == True]  # noqa: E712
+        elif side == OrderSide.SELL:
+            # Note : for some reason "pd.Series ... is False" fails on pandas.
+            # __eq__ is overloaded and has the expected behavior
+            sided_plotdf = plotdf.loc[plotdf["is_buyer"] == False]  # noqa: E712
+        else:
+            raise NotImplementedError("More than 2 OrderSides ??")
+
+        # dropping id column to avoid conflict. (it is still the index and should be accessible as such)
+        return ColumnDataSource(sided_plotdf.drop(["id"], axis=1))
 
     def __call__(
         self, *, frame: Optional[TradeFrame] = None, **kwargs

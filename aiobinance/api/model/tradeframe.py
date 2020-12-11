@@ -178,6 +178,7 @@ class TradeFrame:
         opt_copy.qty = opt_copy.qty.to_numpy("float64")
         opt_copy.quote_qty = opt_copy.quote_qty.to_numpy("float64")
         opt_copy.commission = opt_copy.commission.to_numpy("float64")
+        # TODO : should we drop id if it is the index ??
         return opt_copy
 
 

@@ -1,6 +1,7 @@
 from bokeh.models import BooleanFilter, CDSView, ColumnDataSource
 from bokeh.plotting import Figure
 
+from ...api.model.order import OrderSide
 from ...api.ohlcview import OHLCView
 from ...api.tradesview import TradesView
 
@@ -69,15 +70,13 @@ def price_plot(ohlcv: OHLCView, trades: TradesView = None) -> Figure:
 
     # we can pass trades to plot together...
     if trades is not None and len(trades) > 0:
-        opt_trades = trades.frame.optimized()
-
-        bought_source = ColumnDataSource(opt_trades.loc[opt_trades["is_buyer"]])
-        sold_source = ColumnDataSource(opt_trades.loc[~opt_trades["is_buyer"]])
+        bought_source = trades.as_datasource(side=OrderSide.BUY)
+        sold_source = trades.as_datasource(side=OrderSide.SELL)
 
         figure.triangle(
             legend_label="BOUGHT",
             source=bought_source,
-            x="time",
+            x="time_utc",
             y="price",
             size=10,
             color="green",
@@ -86,7 +85,7 @@ def price_plot(ohlcv: OHLCView, trades: TradesView = None) -> Figure:
         figure.inverted_triangle(
             legend_label="SOLD",
             source=sold_source,
-            x="time",
+            x="time_utc",
             y="price",
             size=10,
             color="red",
