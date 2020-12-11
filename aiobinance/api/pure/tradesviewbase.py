@@ -22,10 +22,23 @@ from aiobinance.api.model.tradeframe import TradeFrame
 class TradesViewBase:
 
     frame: Optional[TradeFrame] = field(init=True, default=TradeFrame())
+    # market is the implicit symbol requested when updating
+    # ie : just a default value when calling...
+    market: Optional[str] = field(init=True, default=None)
+
+    @cached_property
+    def symbol(self) -> List[str]:
+        if self.frame:
+            return self.frame.symbol
+        else:
+            return []
 
     @cached_property
     def id(self) -> List[int]:
-        return self.frame.id
+        if self.frame:
+            return self.frame.id
+        else:
+            return []
 
     @staticmethod
     def strategy(max_size=5):
@@ -53,9 +66,12 @@ class TradesViewBase:
         if self.frame is None:
             # because we may have cached invalid values from initialization (self.info was None)
             popping.append("id")
+            popping.append("symbol")
         else:  # otherwise we detect change leveraging pandas
             if self.frame.id != frame.id:
                 popping.append("id")  # because id only depends on id
+            if self.frame.symbol != frame.symbol:
+                popping.append("symbol")
 
         # updating by updating data
         self.frame = frame
@@ -85,7 +101,7 @@ class TradesViewBase:
         else:  # delegate equality to the unique member: frame
             return self.frame == other.frame
 
-    def __getitem__(self, item: Union[int, slice]) -> Union[TradesViewBase, Trade]:
+    def __getitem__(self, item: Union[int, slice, str]) -> Union[TradesViewBase, Trade]:
         # TODO : slice by time ???
         if isinstance(item, slice):
             # dataframe slice handled by pandas boolean indexer
@@ -107,8 +123,14 @@ class TradesViewBase:
                 raise KeyError(f"{item} is too high a value for Trade.id ") from oe
             except IndexError as ie:
                 raise KeyError(f"No Trade.id matching {item}") from ie
+        elif isinstance(item, str):
+            tf = TradeFrame(df=self.frame.df.loc[self.frame.df["symbol"] == item])
+            return TradesViewBase(
+                frame=tf, market=item
+            )  # set the default symbol for update call
         else:
             raise KeyError(f"Invalid index {item}")
+        # TODO : select by symbol
 
     # NO SETTING ON TRADES :they are immutable events.
 

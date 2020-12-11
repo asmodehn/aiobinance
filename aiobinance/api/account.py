@@ -5,11 +5,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from cached_property import cached_property
 from hypothesis.strategies import SearchStrategy
 
 from aiobinance.api.model.account_info import AccountInfo
 from aiobinance.api.pure.accountbase import AccountBase
 from aiobinance.api.rawapi import Binance
+from aiobinance.api.tradesview import TradesView
 
 
 @dataclass(frozen=False)
@@ -25,6 +27,10 @@ class Account(AccountBase):
         raise RuntimeError(
             "Strategy should not be used with real implementation. Build an instance from actual data instead."
         )
+
+    @cached_property
+    def trades(self) -> TradesView:
+        return TradesView(api=self.api)
 
     # interactive behavior
 

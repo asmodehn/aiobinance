@@ -28,19 +28,25 @@ class MarketBase:  # TODO : rename to MakertBase for clarity...
 
     @cached_property
     def price(self) -> OHLCViewBase:
-        # TODO : actual API request
-        return OHLCViewBase()
+        if self.info is None:
+            return (
+                OHLCViewBase()
+            )  # there should be a special case also in child classes
+        else:
+            return OHLCViewBase()
 
     @cached_property
-    def trades(  # TODO : build a pure mock version we can use for simulations...
-        self,
-    ) -> TradesViewBase:
+    def trades(self) -> TradesViewBase:
         # Note : A "random local mock matching engine" should be implemented as same level as market
         # As randomness is a side effect... Call it 'FakeMarket' maybe, it could return a "balanced set of trades",
         # that is something plausible, useful for tests, yet without longterm side-effects (given our simple box-based algorithms)
         # BUT NOT HERE ! lets try to remain side-effect-free here...
-
-        return TradesViewBase()
+        if self.info is None:
+            return (
+                TradesViewBase()
+            )  # there should be a special case also in child classes
+        else:
+            return TradesViewBase()
 
     def __call__(self, *, info: Optional[MarketInfo] = None, **kwargs) -> MarketBase:
         # return same instance if no change
@@ -51,9 +57,11 @@ class MarketBase:  # TODO : rename to MakertBase for clarity...
         if self.info is None:
             # because we may have cached invalid values from initialization (self.info was None)
             popping.append("trades")
+            popping.append("price")
         else:  # otherwise we detect change with equality on frozen dataclass fields
             if self.info.symbol != info.symbol:
                 popping.append("trades")  # because trades depend on symbol
+                popping.append("price")
 
         # updating by updating data
         self.info = info

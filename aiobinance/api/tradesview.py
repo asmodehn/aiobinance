@@ -14,7 +14,6 @@ class TradesView(TradesViewBase):
     """ An updateable trades list """
 
     api: Binance = field(init=True, default=Binance())
-    symbol: Optional[str] = field(init=True, default=None)
 
     @staticmethod
     def strategy(max_size=5):
@@ -26,31 +25,46 @@ class TradesView(TradesViewBase):
         )
 
     async def __call__(
-        self, start_time: datetime = None, stop_time: datetime = None, **kwargs
+        self,
+        symbol: str = None,
+        start_time: datetime = None,
+        stop_time: datetime = None,
+        **kwargs
     ):
         """ this retrieves recent trades"""
+
+        reqparams = {}
+
         if start_time is not None:
             # to make sure the timezone is set at this stage (otherwise timestamps will be ambiguous)
             assert start_time.tzinfo is not None
             start_timestamp = int(start_time.timestamp() * 1000)
-        else:
-            start_timestamp = None
+            reqparams.update({"startTime": start_timestamp})
+
         if stop_time is not None:
             assert stop_time.tzinfo is not None
             stop_timestamp = int(stop_time.timestamp() * 1000)
-        else:
-            stop_timestamp = None
+            reqparams.update({"endTime": stop_timestamp})
 
-        res = self.api.call_api(
-            command="myTrades",
-            symbol=self.symbol,
-            startTime=start_timestamp,
-            endTime=stop_timestamp,
-            limit=1000,
-        )
+        if symbol is None:
+            symbol = self.market
+
+        if (
+            symbol is None
+        ):  # we want all symbols, but this is not implemented in binance API ?
+            raise NotImplementedError
+        else:
+            # It seems symbol is mandatory in the request params
+            reqparams.update({"symbol": symbol})
+
+        reqparams.update({"limit": 1000})
+
+        res = self.api.call_api(command="myTrades", **reqparams)
 
         if res.is_ok():
             res = res.value
+        else:
+            raise res.err()  # TODO : a better way ?
 
         # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
         # We do not want to change the semantics of the exchange exposed models here.
@@ -87,7 +101,7 @@ if __name__ == "__main__":
     from aiobinance.config import load_api_keyfile
 
     api = Binance(credentials=load_api_keyfile())
-    tv = TradesView(api=api, symbol="COTIBNB")
+    tv = TradesView(api=api)
 
     print(tv)
 
@@ -96,7 +110,7 @@ if __name__ == "__main__":
         start_time = datetime.fromtimestamp(1598524340551 / 1000, tz=timezone.utc)
         end_time = start_time + timedelta(days=1)
 
-        await tv(start_time=start_time, stop_time=end_time)
+        await tv(symbol="COTIBNB", start_time=start_time, stop_time=end_time)
 
     asyncio.run(update())
     print(tv)

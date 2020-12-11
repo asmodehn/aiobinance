@@ -34,121 +34,17 @@ class Market(MarketBase):
 
     @cached_property
     def price(self) -> OHLCView:
-        return (
-            OHLCView(api=self.api, symbol=self.info.symbol)
-            if self.info is not None
-            else OHLCView()
-        )
-
-    #
-    # def price(  # TODO : build a pure mock version we can use for simulations...
-    #     self, *, start_time: datetime, end_time: datetime, interval=None
-    # ) -> OHLCView:
-    #
-    #     # to make sure the timezone is set at this stage (otherwise timestamps will be ambiguous)
-    #     assert start_time.tzinfo is not None
-    #     assert end_time.tzinfo is not None
-    #
-    #     start_timestamp = int(start_time.timestamp() * 1000)
-    #     end_timestamp = int(end_time.timestamp() * 1000)
-    #     interval = (
-    #         interval
-    #         if interval is not None
-    #         else self.api.interval(start_timestamp, end_timestamp)
-    #     )
-    #
-    #     res = self.api.call_api(
-    #         command="klines",
-    #         symbol=self.info.symbol,
-    #         interval=interval,
-    #         startTime=start_timestamp,
-    #         endTime=end_timestamp,
-    #         limit=1000,
-    #     )
-    #
-    #     if res.is_ok():
-    #         res = res.value
-    #
-    #     # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
-    #     # We do not want to change the semantics of the exchange exposed models here.
-    #     candles = [
-    #         PriceCandle(
-    #             open_time=r[0],
-    #             open=r[1],
-    #             high=r[2],
-    #             low=r[3],
-    #             close=r[4],
-    #             volume=r[5],
-    #             close_time=r[6],
-    #             qav=r[7],
-    #             num_trades=r[8],
-    #             taker_base_vol=r[9],
-    #             taker_quote_vol=r[10],
-    #             is_best_match=r[11],
-    #         )
-    #         for r in res
-    #     ]
-    #
-    #     return OHLCView.from_candleslist(*candles)
+        if self.info is None:
+            return OHLCView(api=self.api)
+        else:
+            return OHLCView(api=self.api, symbol=self.info.symbol)
 
     @cached_property
     def trades(self) -> TradesView:
-        return (
-            TradesView(api=self.api, symbol=self.info.symbol)
-            if self.info is not None
-            else TradesView()
-        )
-
-    #
-    #
-    # def trades(  # TODO : build a pure mock version we can use for simulations...
-    #     self,
-    #     *,
-    #     start_time: datetime,
-    #     end_time: datetime,
-    # ) -> TradesView:
-    #
-    #     # to make sure the timezone is set at this stage (otherwise timestamps will be ambiguous)
-    #     assert start_time.tzinfo is not None
-    #     assert end_time.tzinfo is not None
-    #
-    #     start_timestamp = int(start_time.timestamp() * 1000)
-    #     end_timestamp = int(end_time.timestamp() * 1000)
-    #
-    #     res = self.api.call_api(
-    #         command="myTrades",
-    #         symbol=self.info.symbol,
-    #         startTime=start_timestamp,
-    #         endTime=end_timestamp,
-    #         limit=1000,
-    #     )
-    #
-    #     if res.is_ok():
-    #         res = res.value
-    #
-    #     # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
-    #     # We do not want to change the semantics of the exchange exposed models here.
-    #     trades = [
-    #         Trade(
-    #             time=r["time"],
-    #             symbol=r["symbol"],
-    #             id=r["id"],
-    #             order_id=r["orderId"],
-    #             order_list_id=r["orderListId"],
-    #             price=r["price"],
-    #             qty=r["qty"],
-    #             quote_qty=r["quoteQty"],
-    #             commission=r["commission"],
-    #             commission_asset=r["commissionAsset"],
-    #             is_buyer=r["isBuyer"],
-    #             is_maker=r["isMaker"],
-    #             is_best_match=r["isBestMatch"],
-    #         )
-    #         for r in res
-    #     ]
-    #
-    #     # We aggregate all formatted trades into a TradeFrame
-    #     return TradesView.from_tradeslist(*trades)
+        if self.info is None:
+            return TradesView(api=self.api)
+        else:
+            return TradesView(api=self.api, market=self.info.symbol)
 
     def ticker24(
         self,

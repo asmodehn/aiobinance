@@ -29,10 +29,10 @@ class TradeFrame:
     # @property
     # def time(self) -> List[datetime]:
     #     return self.df.time.to_list()
-    #
-    # @property
-    # def symbol(self) -> List[str]:  # TODO : improve
-    #     return self.df.symbol.to_list()
+
+    @cached_property
+    def symbol(self) -> List[str]:  # TODO : improve
+        return self.df.symbol.to_list()
 
     @cached_property
     def id(self) -> List[int]:

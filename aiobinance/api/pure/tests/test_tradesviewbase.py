@@ -40,6 +40,21 @@ class TestTradesViewBase(unittest.TestCase):
         assert isinstance(exc.exception, KeyError)
 
     @given(tradesview=TradesViewBase.strategy(), data=st.data())
+    def test_index_selecting(self, tradesview: TradesViewBase, data):
+        # test we can iterate on contained data, and that length matches.
+        # Ref : https://docs.python.org/3/library/collections.abc.html
+
+        slist = tradesview.symbol
+        for s in slist:
+            subview = tradesview[s]
+            assert isinstance(subview, TradesViewBase)
+            for t in subview:
+                assert t in tradesview
+            for t in tradesview:
+                if t.symbol == s:
+                    assert t in subview
+
+    @given(tradesview=TradesViewBase.strategy(), data=st.data())
     def test_slice_mapping(self, tradesview: TradesViewBase, data):
         # test we can iterate on contained data, and that length matches.
         # Ref : https://docs.python.org/3/library/collections.abc.html

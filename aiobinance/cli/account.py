@@ -67,10 +67,12 @@ def trades(
 
     api = Binance(credentials=creds)  # we need private requests here !
 
-    trades = TradesView(api=api, symbol=market_pair)
+    trades = TradesView(api=api)
 
     # while we are moving to an async interface
-    asyncio.run(trades(start_time=from_datetime, stop_time=to_datetime))
+    asyncio.run(
+        trades(symbol=market_pair, start_time=from_datetime, stop_time=to_datetime)
+    )
 
     if html:
         from bokeh.io import output_file
