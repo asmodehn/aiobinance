@@ -23,7 +23,7 @@ class MarketHandler(bokeh.application.handlers.Handler):
 
         # p= ohlc_1m.plot(doc)  # pass the document to update
 
-        price = price_plot(self.market.price)
+        price = price_plot(self.market.price, trades=self.market.trades)
         fig = bokeh.layouts.grid([price])
         # TODO : dynamic update ???
         doc.add_root(row(fig, sizing_mode="scale_width"))
@@ -44,6 +44,9 @@ class MarketHandler(bokeh.application.handlers.Handler):
         await self.market.price(
             start_time=yesterday, stop_time=now
         )  # to have data to show on request.
+        await self.market.trades(
+            start_time=yesterday, stop_time=now
+        )  # to have data to show on request.
 
 
 if __name__ == "__main__":
@@ -51,7 +54,11 @@ if __name__ == "__main__":
 
     from bokeh.util.browser import view
 
-    exchange = Exchange(api=Binance(), test=True)
+    from aiobinance.config import load_api_keyfile
+
+    creds = load_api_keyfile()  # we need to authenticate to access our trades
+
+    exchange = Exchange(api=Binance(credentials=creds), test=True)
 
     async def main():  # need async starting point for bokeh server ot hookup onto the existing eventloop
 

@@ -3,13 +3,13 @@ import pandas as pd
 from bokeh.models import ColumnDataSource
 from bokeh.plotting import Figure, figure
 
-from ..model import TradeFrame
+from ...api.tradesview import TradesView
 
 
-def pnl_plot(trades: TradeFrame, cumulative=True) -> Figure:
+def pnl_plot(trades: TradesView, cumulative=True) -> Figure:
     tools = "pan,wheel_zoom,xbox_select,reset"
 
-    trades_df = trades.optimized()
+    trades_df = trades.frame.optimized()
 
     # Note: amount is in BASE currency. but usually we are interested in PnL in QUOTE currency
     # SELL is positive (increase QUOTE wallet)
