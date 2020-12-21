@@ -85,13 +85,36 @@ class TestPriceCandle(unittest.TestCase):
 class TestMinutePriceCandle(unittest.TestCase):
     @given(candle=MinutePriceCandle.strategy())
     def test_strategy(self, candle: MinutePriceCandle):
-        # validating init
 
         # validating strategy
         assert candle.volume >= Decimal(0)
         assert candle.num_trades >= Decimal(0)
         assert candle.taker_base_vol >= Decimal(0)
         assert candle.taker_quote_vol >= Decimal(0)
+
+        # validating init
+        copycandle = MinutePriceCandle(open_time=candle.open_time, price_=candle.price_)
+        assert copycandle == candle
+
+        # another kind of init
+        copycandle2 = MinutePriceCandle(
+            open_time=candle.open_time,
+            close_time=candle.close_time,
+            # TODO : we should probably rely on somethng in PRiceCandle (vars ? dir ?)
+            open=candle.open,
+            high=candle.high,
+            low=candle.low,
+            close=candle.close,
+            volume=candle.volume,
+            qav=candle.qav,
+            num_trades=candle.num_trades,
+            taker_base_vol=candle.taker_base_vol,
+            taker_quote_vol=candle.taker_quote_vol,
+            # for this we go via price_ ... good idea or not ?
+            is_best_match=candle.price_.is_best_match,
+            # TODO : we should make this idea/behavior precise (cf. datacrystals)
+        )
+        assert copycandle2 == candle
 
     # TODO : test dtypes
 

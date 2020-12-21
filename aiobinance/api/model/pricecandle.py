@@ -325,8 +325,19 @@ class _TimedCandle:
         ]
 
 
-@dataclass(frozen=True, init=True)
+@dataclass(frozen=True, init=False)
 class MinutePriceCandle(_TimedCandle, interval=TimeInterval.minutely):
+    def __init__(
+        self,
+        open_time: datetime,
+        close_time: Optional[datetime] = None,
+        price_: Optional[PriceCandle] = None,
+        **kwargs,
+    ):
+        super(MinutePriceCandle, self).__init__(
+            open_time=open_time, close_time=close_time, price_=price_, **kwargs
+        )
+
     def __lt__(self, other: MinutePriceCandle):
         if self.open_time == other.open_time and self.close_time == other.close_time:
             return self.price_ < other.price_
@@ -340,45 +351,78 @@ class MinutePriceCandle(_TimedCandle, interval=TimeInterval.minutely):
             return None  # comparison of two candles when time bounds dont match doesnt mean anything.
 
 
-@dataclass(frozen=True, init=True)
+@dataclass(frozen=True, init=False)
 class HourlyPriceCandle(_TimedCandle, interval=TimeInterval.hourly):
-    def __lt__(self, other: MinutePriceCandle):
+    def __init__(
+        self,
+        open_time: datetime,
+        close_time: Optional[datetime] = None,
+        price_: Optional[PriceCandle] = None,
+        **kwargs,
+    ):
+        super(HourlyPriceCandle, self).__init__(
+            open_time=open_time, close_time=close_time, price_=price_, **kwargs
+        )
+
+    def __lt__(self, other: HourlyPriceCandle):
         if self.open_time == other.open_time and self.close_time == other.close_time:
             return self.price_ < other.price_
         else:
             return None  # comparison of two candles when time bounds dont match doesnt mean anything.
 
-    def __gt__(self, other: MinutePriceCandle):
+    def __gt__(self, other: HourlyPriceCandle):
         if self.open_time == other.open_time and self.close_time == other.close_time:
             return self.price_ > other.price_
         else:
             return None  # comparison of two candles when time bounds dont match doesnt mean anything.
 
 
-@dataclass(frozen=True, init=True)
+@dataclass(frozen=True, init=False)
 class DailyPriceCandle(_TimedCandle, interval=TimeInterval.daily):
-    def __lt__(self, other: MinutePriceCandle):
+    def __init__(
+        self,
+        open_time: datetime,
+        close_time: Optional[datetime] = None,
+        price_: Optional[PriceCandle] = None,
+        **kwargs,
+    ):
+        super(DailyPriceCandle, self).__init__(
+            open_time=open_time, close_time=close_time, price_=price_, **kwargs
+        )
+
+    def __lt__(self, other: DailyPriceCandle):
         if self.open_time == other.open_time and self.close_time == other.close_time:
             return self.price_ < other.price_
         else:
             return None  # comparison of two candles when time bounds dont match doesnt mean anything.
 
-    def __gt__(self, other: MinutePriceCandle):
+    def __gt__(self, other: DailyPriceCandle):
         if self.open_time == other.open_time and self.close_time == other.close_time:
             return self.price_ > other.price_
         else:
             return None  # comparison of two candles when time bounds dont match doesnt mean anything.
 
 
-@dataclass(frozen=True, init=True)
+@dataclass(frozen=True, init=False)
 class WeeklyPriceCandle(_TimedCandle, interval=TimeInterval.weekly):
-    def __lt__(self, other: MinutePriceCandle):
+    def __init__(
+        self,
+        open_time: datetime,
+        close_time: Optional[datetime] = None,
+        price_: Optional[PriceCandle] = None,
+        **kwargs,
+    ):
+        super(WeeklyPriceCandle, self).__init__(
+            open_time=open_time, close_time=close_time, price_=price_, **kwargs
+        )
+
+    def __lt__(self, other: WeeklyPriceCandle):
         if self.open_time == other.open_time and self.close_time == other.close_time:
             return self.price_ < other.price_
         else:
             return None  # comparison of two candles when time bounds dont match doesnt mean anything.
 
-    def __gt__(self, other: MinutePriceCandle):
+    def __gt__(self, other: WeeklyPriceCandle):
         if self.open_time == other.open_time and self.close_time == other.close_time:
             return self.price_ > other.price_
         else:
