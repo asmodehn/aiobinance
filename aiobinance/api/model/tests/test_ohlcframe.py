@@ -1,120 +1,302 @@
 import dataclasses
 import unittest
+from datetime import timedelta
 
 import hypothesis.strategies as st
-from hypothesis import given
+import pandas as pd
+from hypothesis import HealthCheck, assume, given, settings
 
 from aiobinance.api.model.ohlcframe import OHLCFrame
 from aiobinance.api.model.pricecandle import PriceCandle
 
+# TMP : to temporary help us verify frame structure
+# TODO : do it in hte type itself somehow...
+OHLCFrameColumns = [
+    "open_time",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "close_time",
+    "qav",
+    "num_trades",
+    "taker_base_vol",
+    "taker_quote_vol",
+    "is_best_match",
+]
 
-class TestOHLCV(unittest.TestCase):
+
+def assert_columns(ohlcframe):
+    # Order matters here...
+    assert (
+        [ohlcframe.df.index.name] if not ohlcframe.df.empty else []
+    ) + ohlcframe.df.columns.to_list() == OHLCFrameColumns
+
+
+class TestOHLCFrame(unittest.TestCase):
     @given(ohlcframe=OHLCFrame.strategy())
-    def test_eq_sequence(self, ohlcframe: OHLCFrame):
+    def test_strategy(self, ohlcframe: OHLCFrame):
+        # empty is a special se in pandas behavior...
+        if ohlcframe.df.empty:
+            assert_columns(ohlcframe)
+        else:
+            assert_columns(ohlcframe)
+            assert ohlcframe.df.index.name == "open_time"
+            assert isinstance(ohlcframe.df.index, pd.DatetimeIndex)
+
+        # assert reflexive equality in all cases
+        assert ohlcframe == ohlcframe
+
+    @given(ohlcframe=OHLCFrame.strategy())
+    def test_eq(self, ohlcframe: OHLCFrame):
         assert ohlcframe == ohlcframe
         # taking a copy via slice and comparing
         assert ohlcframe == ohlcframe[:]
 
     @given(ohlcframe=OHLCFrame.strategy(), data=st.data())
-    def test_index_sequence(self, ohlcframe: OHLCFrame, data):
+    def test_timeindex(self, ohlcframe: OHLCFrame, data):
         # test we can iterate on contained data, and that length matches.
         # Ref : https://docs.python.org/3/library/collections.abc.html
         tfl = len(ohlcframe)  # __len__
 
         counter = 0
-        decount = -tfl
-        for c in ohlcframe:  # __iter__
-            assert isinstance(c, PriceCandle)
-            assert c in ohlcframe  # __contains__
-            assert ohlcframe[counter] == c  # __getitem__ on index in sequence
-            assert ohlcframe[decount] == c  # __getitem on negative index in sequence
+        for t in ohlcframe:  # __iter__
+            assert isinstance(t, PriceCandle)
+            assert t in ohlcframe  # __contains__
+            # pick random time in the candle to retrieve the candle:
+            dt = data.draw(st.datetimes(min_value=t.open_time, max_value=t.close_time))
+
+            # __getitem__ on CONTINUOUS index in mapping
+            retrieve = ohlcframe[dt]
+            if isinstance(retrieve, PriceCandle):
+                assert t == retrieve
+            # CAREFUL we could retrieve two candles (if overlap - allowed by strategy)
+            elif isinstance(retrieve, OHLCFrame):
+                assert t in retrieve
+            else:
+                self.fail(f"__getitem__ returns not in [{PriceCandle},{OHLCFrame}]")
             counter += 1
-            decount += 1
 
         assert counter == tfl
 
+        # TODO: bounding index to what pandas optimization can handle
+        xdt = data.draw(st.datetimes())
+        assume(xdt not in ohlcframe)
         with self.assertRaises(KeyError) as exc:
-            rid = data.draw(
-                st.one_of(
-                    st.integers(max_value=-len(ohlcframe) - 1),
-                    st.integers(min_value=len(ohlcframe)),
-                )
-            )
-            ohlcframe[rid]
+            ohlcframe[xdt]
         assert isinstance(exc.exception, KeyError)
 
     @given(ohlcframe=OHLCFrame.strategy(), data=st.data())
-    def test_slice_sequence(self, ohlcframe: OHLCFrame, data):
+    def test_timeslice(self, ohlcframe: OHLCFrame, data):
         # test we can iterate on contained data, and that length matches.
         # Ref : https://docs.python.org/3/library/collections.abc.html
-        tfl = len(ohlcframe)  # __len__
 
-        sss = data.draw(st.integers(min_value=-tfl, max_value=tfl))
-        if sss < 0:  # negative indexing on slices
-            s = slice(data.draw(st.integers(min_value=-tfl, max_value=sss)), sss)
+        # taking slice bounds to possibly englobe all ids, and a bit more...
+        # but be careful with pandas timestamp bounds !
+        sb1 = data.draw(
+            st.datetimes(
+                min_value=max(
+                    ohlcframe.open_time - timedelta(days=1), pd.Timestamp.min
+                ),
+                max_value=min(
+                    ohlcframe.close_time + timedelta(days=1), pd.Timestamp.max
+                ),
+            )
+            if ohlcframe
+            else st.none()
+        )
+        sb2 = data.draw(
+            st.datetimes(
+                min_value=max(
+                    ohlcframe.open_time - timedelta(days=1), pd.Timestamp.min
+                ),
+                max_value=min(
+                    ohlcframe.close_time + timedelta(days=1), pd.Timestamp.max
+                ),
+            )
+            if ohlcframe
+            else st.none()
+        )
+        if (
+            sb1 is None or sb2 is None or sb1 > sb2
+        ):  # indexing on map domain with slice: integers are ordered !
+            # None can be in any position in slice
+            s = slice(sb2, sb1)
         else:
-            s = slice(sss, data.draw(st.integers(min_value=sss, max_value=tfl)))
+            s = slice(sb1, sb2)
 
-        tfs = ohlcframe[s]
+        try:
+            tfs = ohlcframe[s]
+        except KeyError as ke:
+            # This may trigger, until we bound the test datetime set from hypothesis...
+            # self.skipTest(ke)
+            raise ke
+
         assert isinstance(tfs, OHLCFrame)
-        assert (
-            len(tfs) == s.stop - s.start
-        ), f" len(tfs)!= s.stop - s.start : {len(tfs)} != {s.stop - s.start}"
+        # CAREFUL slicing seems to be inclusive both on start and stop in pandas.DataFrame
+        # not like with python, but this match what we want in slicing a mapping domain
+        if s.start is not None:
+            if s.stop is not None:
+                assert len(tfs) == len(
+                    [i for i in ohlcframe if s.start <= i.open_time <= s.stop]
+                ), f" len(tfs)!= len([i for i in ohlcframe if s.start <= i <= s.stop] : {len(tfs)} != len({[i for i in ohlcframe if s.start <= i.open_time <= s.stop]}"
+            else:
+                assert len(tfs) == len(
+                    [i for i in ohlcframe if s.start <= i.open_time]
+                ), f" len(tfs)!= len([i for i in ohlcframe if s.start <= i] : {len(tfs)} != len({[i for i in ohlcframe if s.start <= i.open_time]}"
+        elif s.stop is not None:
+            assert len(tfs) == len(
+                [i for i in ohlcframe if i.open_time <= s.stop]
+            ), f" len(tfs)!= len([i for i in ohlcframe if i <= s.stop] : {len(tfs)} != len({[i for i in ohlcframe if i.open_time <= s.stop]}"
+        else:
+            assert tfs == ohlcframe
+            # making sure we have the usual copy behavior when taking slices
+            assert tfs is not ohlcframe
 
-        counter = s.start
-        for c in tfs:  # __iter__
-            assert isinstance(c, PriceCandle)
-            assert c in ohlcframe  # value present in origin check
-            assert ohlcframe[counter] == c  # same value as origin via equality check
+        counter = 0
+        for t in tfs:  # __iter__
+            assert isinstance(t, PriceCandle)
+            assert t in ohlcframe  # value present in origin check
+            # pick random time in the candle to retrieve the candle:
+            dt = data.draw(st.datetimes(min_value=t.open_time, max_value=t.close_time))
+            assert ohlcframe[dt] == t  # same value as origin via equality check
             counter += 1
 
-        assert counter - s.start == len(
-            tfs
-        ), f"counter-s.start != len(tfs) : {counter-s.start} != {len(tfs)}"
-
-        # test larger slice
-        s = slice(
-            data.draw(st.integers(max_value=-tfl)),
-            data.draw(st.integers(min_value=tfl)),
-        )
-        assert ohlcframe[s] == ohlcframe
-        # making sure we have the usual copy behavior when taking slices
-        assert ohlcframe[s] is not ohlcframe
+        assert counter == len(tfs), f"counter != len(tfs) : {counter} != {len(tfs)}"
 
     @given(tf1=OHLCFrame.strategy(), tf2=OHLCFrame.strategy())
-    def test_add_sequence(self, tf1, tf2):
+    @settings(
+        suppress_health_check=[HealthCheck.too_slow]
+    )  # TODO : improve strategy... and maybe test as well ?
+    def test_intersection(self, tf1, tf2):
+        # intersect with self is self
+        assert tf1.intersection(tf1) == tf1
 
-        tfr = tf1 + tf2
+        itf1 = tf1.intersection(tf2)
 
-        # special case where one of them is empty
-        if len(tf2) == 0:
-            assert tfr == tf1
-            assert (
-                tfr is not tf1
-            )  # we get a copy, not the same frame ( in case it gets modified somehow...)
-        if len(tf1) == 0:
-            assert tfr == tf2
-            assert (
-                tfr is not tf2
-            )  # we get a copy, not the same frame ( in case it gets modified somehow...)
+        # verifying shape after operation
+        assert_columns(itf1)
 
-        assert len(tfr) == len(tf1) + len(tf2)
+        for c in itf1:
+            assert c in tf1
+            assert c in tf2
 
-        # all there, keeping original ordering
-        counter = 0
-        for t in tf1:
-            assert isinstance(t, PriceCandle)
-            assert t in tfr
-            assert tfr[counter] == t
-            counter += 1
+        itf2 = tf2.intersection(tf1)
+        # verifying shape after operation
+        assert_columns(itf2)
+        assert itf1 == itf2
 
-        # countinuing with second frame
-        counter = len(tf1)
-        for t in tf2:
-            assert isinstance(t, PriceCandle)
-            assert t in tfr
-            assert tfr[counter] == t
-            counter += 1
+    @given(tf1=OHLCFrame.strategy(), tf2=OHLCFrame.strategy())
+    @settings(
+        suppress_health_check=[HealthCheck.too_slow]
+    )  # TODO : improve strategy... and maybe test as well ?
+    def test_union(self, tf1, tf2):
+        # union with self is self
+        assert tf1.union(tf1) == tf1
+
+        utf1 = tf1.union(tf2)
+
+        # verifying shape after operation
+        assert_columns(utf1)
+
+        def better_candle(other_tf: OHLCFrame, c: PriceCandle):
+            # assert we had a "better" candle in the other
+            oc = other_tf[c.open_time]
+            if isinstance(oc, PriceCandle):
+                # TODO : this can be simplified if we separate various parts of the candle...
+                assert (
+                    oc.num_trades > c.num_trades
+                    or oc.volume > c.volume
+                    or (oc.high >= c.high and oc.low < c.low)
+                    or (oc.high > c.high and oc.low <= c.low)
+                )
+            elif isinstance(oc, OHLCFrame):
+                # if there was multiple candidates, there is at least one better.
+                theone = c
+                for oci in oc:
+                    # TODO Note we could rely here onhte fact that OHLC quacks a bit like a candle...
+                    if (
+                        oci.num_trades > theone.num_trades
+                        or oci.volume > theone.volume
+                        or (oci.high >= theone.high and oci.low < theone.low)
+                        or (oci.high > theone.high and oci.low <= theone.low)
+                    ):
+                        theone = oci
+                assert theone != c
+
+        # REMINDER: the union actually merges, so the relationship is not trivial:
+        for c in tf1:
+            if c not in utf1:  # if c not in union
+                better_candle(other_tf=tf2, c=c)
+
+        # symmetrically:
+        for c in tf2:
+            if c not in utf1:  # if c not in union
+                better_candle(other_tf=tf2, c=c)
+
+        utf2 = tf2.union(tf1)
+        # verifying shape after operation
+        assert_columns(utf2)
+
+        assert utf1 == utf2
+
+    @given(tf1=OHLCFrame.strategy(), tf2=OHLCFrame.strategy())
+    @settings(
+        suppress_health_check=[HealthCheck.too_slow]
+    )  # TODO : improve strategy... and maybe test as well ?
+    def test_difference(self, tf1, tf2):
+
+        # difference with self is empty
+        assert tf1.difference(tf1).empty
+
+        dtf1 = tf1.difference(tf2)
+
+        # verifying shape after operation
+        assert_columns(dtf1)
+
+        for c in dtf1:
+            assert c in tf1
+            assert c not in tf2
+
+        for c in tf1:
+            if c not in tf2:
+                assert c in dtf1
+
+    # @given(tf1=OHLCFrame.strategy(), tf2=OHLCFrame.strategy())
+    # def test_add(self, tf1, tf2):
+    #
+    #     tfr = tf1 + tf2
+    #
+    #     # special case where one of them is empty
+    #     if len(tf2) == 0:
+    #         assert tfr == tf1
+    #         assert (
+    #             tfr is not tf1
+    #         )  # we get a copy, not the same frame ( in case it gets modified somehow...)
+    #     if len(tf1) == 0:
+    #         assert tfr == tf2
+    #         assert (
+    #             tfr is not tf2
+    #         )  # we get a copy, not the same frame ( in case it gets modified somehow...)
+    #
+    #     assert len(tfr) == len(tf1) + len(tf2)
+    #
+    #     # all there, keeping original ordering
+    #     counter = 0
+    #     for t in tf1:
+    #         assert isinstance(t, PriceCandle)
+    #         assert t in tfr
+    #         assert tfr[counter] == t
+    #         counter += 1
+    #
+    #     # countinuing with second frame
+    #     counter = len(tf1)
+    #     for t in tf2:
+    #         assert isinstance(t, PriceCandle)
+    #         assert t in tfr
+    #         assert tfr[counter] == t
+    #         counter += 1
 
     @given(ohlcv=OHLCFrame.strategy())
     def test_str(self, ohlcv: OHLCFrame):

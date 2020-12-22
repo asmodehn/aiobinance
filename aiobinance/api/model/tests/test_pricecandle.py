@@ -1,13 +1,36 @@
 import dataclasses
 import unittest
+from decimal import Decimal
 
 import hypothesis.strategies as st
 from hypothesis import given
 
 from aiobinance.api.model.pricecandle import PriceCandle
 
+# bad strategy : Ref : https://hypothesis.readthedocs.io/en/latest/data.html?#hypothesis.strategies.from_type
+
 
 class TestPriceCandle(unittest.TestCase):
+    @given(candle=PriceCandle.strategy())
+    def test_strategy(self, candle: PriceCandle):
+        # validating init
+
+        # validating strategy
+        assert candle.open_time < candle.close_time
+
+        assert candle.high >= candle.open
+        assert candle.high >= candle.close
+
+        assert candle.low <= candle.open
+        assert candle.low <= candle.close
+
+        assert candle.volume >= Decimal(0)
+        assert candle.num_trades >= Decimal(0)
+        assert candle.taker_base_vol >= Decimal(0)
+        assert candle.taker_quote_vol >= Decimal(0)
+
+    # TODO : test dtypes
+
     @given(candle=PriceCandle.strategy())
     def test_str(self, candle: PriceCandle):
         # Check sensible information is displayed (order doesnt matter for output to human)
