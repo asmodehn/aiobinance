@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, fields
-from datetime import MAXYEAR, MINYEAR, datetime, timedelta
+from datetime import MAXYEAR, MINYEAR, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Iterable, List, Optional, Union
 
@@ -28,8 +28,8 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
 
     df: Optional[pd.DataFrame] = field(
         init=True,
-        default=pd.DataFrame.from_records(
-            [], columns=[f.name for f in fields(PriceCandle)]
+        default=pd.DataFrame(
+            data=np.array([], dtype=list(PriceCandle.as_dtype().items()))
         ),
     )
 
@@ -40,11 +40,11 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
     # properties to make it quack like a candle...
     @property
     def open_time(self) -> datetime:  # TODO: special case for empty df
-        return self.df.index[0].to_pydatetime()
+        return self.df.index[0].to_pydatetime().replace(tzinfo=timezone.utc)
 
     @property
     def close_time(self) -> datetime:  # TODO: special case for empty df
-        return self.df.close_time[-1].to_pydatetime()
+        return self.df.close_time[-1].to_pydatetime().replace(tzinfo=timezone.utc)
 
     @property
     def open(self) -> Decimal:
@@ -102,10 +102,20 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
 
     @classmethod
     def from_candleslist(cls, *candles: PriceCandle):
-        arraylike = [tuple(asdict(dc).values()) for dc in candles]
+        arraylike = [
+            tuple(
+                # explicitely drop timezone after converting to UTC
+                v.astimezone(tz=timezone.utc).replace(tzinfo=None)
+                if isinstance(v, datetime)
+                else v
+                for v in asdict(dc).values()
+            )
+            for dc in candles
+        ]
+
         npa = np.array(
             arraylike, dtype=list(PriceCandle.as_dtype().items())
-        )  # Drops timezone info...
+        )  # Drops timezone info (because numpy)
 
         df = pd.DataFrame(data=npa)
         return cls(df=df)
@@ -154,17 +164,21 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
             for t in self:  # iterates and cast to PriceCandle
                 if t == item:  # using Trade equality
                     return True
-            return False
         elif isinstance(item, datetime):  # continuous index
+            if (
+                item.tzinfo is None
+            ):  # because we will do a tz-aware comparison with item
+                item = item.replace(tzinfo=timezone.utc)
+            # converting datetime to utc in any case
+            item = item.astimezone(tz=timezone.utc)
+
             for t in self:
                 # Note : same semantics as getitem
                 if (
-                    t.open_time <= item <= t.close_time
+                    t.open_time <= item <= t.close_time  # CAREFUL: tz-aware comparison
                 ):  # checking one candle contains the datetime
                     return True
-            return False
-        else:
-            return False
+        return False
 
     def __eq__(self, other: OHLCFrame) -> bool:
         assert isinstance(
@@ -187,16 +201,52 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
         self, item: Union[datetime, slice]
     ) -> Union[OHLCFrame, PriceCandle]:
         if isinstance(item, slice):
+            """On a slice we also pick the border candles """
+            start = item.start
+            stop = item.stop
+            if start is not None and start.tzinfo is not None:
+                # converting datetime to unaware timezone, in utc. to allow comparison with unaware numpy values.
+                start = start.astimezone(tz=timezone.utc).replace(tzinfo=None)
+
+            if stop is not None and stop.tzinfo is not None:
+                stop = stop.astimezone(tz=timezone.utc).replace(tzinfo=None)
+
+            # sanitizing slice...
+            item = slice(start, stop)
+
             # dataframe slice handled by pandas boolean indexer
             try:
-                return OHLCFrame(
-                    df=self.df.loc[item]
-                )  # simple since dataframe is indexed on datetime
+                selector = pd.Series({i: True for i in self.df.index})
+
+                if item.start is not None and item.start >= self.open_time.replace(
+                    tzinfo=None
+                ):
+                    selector = selector & (
+                        item.start <= self.df.close_time.astype(dtype="datetime64[us]")
+                    )
+
+                if item.stop is not None and item.stop <= self.close_time.replace(
+                    tzinfo=None
+                ):
+                    selector = selector & (
+                        self.df.index.to_series().astype(dtype="datetime64[us]")
+                        <= item.stop
+                    )
+
+                df = self.df.loc[selector]
+
             except TypeError as te:
                 raise KeyError(
                     f"{item} is too high a value for PriceCandle.open_time "
                 ) from te
+
+            return OHLCFrame(df=df)
         elif isinstance(item, datetime):
+
+            if item.tzinfo is not None:
+                # converting datetime to unaware timezone, in utc. to allow comparison with unaware numpy values.
+                item = item.astimezone(tz=timezone.utc).replace(tzinfo=None)
+
             try:
                 rs = self.df.loc[  # self.df.index.to_series().astype(dtype='datetime64[us]') ]  # using index as such
                     # OLD : finding containing candle...
@@ -292,11 +342,13 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
                 chosen["num_trades"] < row["num_trades"]
                 or chosen["volume"] < row["volume"]
                 # careful with strictness when comparing high and low bounds...
-                or (chosen["high"] < row["high"] and chosen["low"] >= row["low"])
-                or (chosen["high"] <= row["high"] and chosen["low"] > row["low"])
+                or (
+                    (chosen["high"] < row["high"] and chosen["low"] >= row["low"])
+                    or (chosen["high"] <= row["high"] and chosen["low"] > row["low"])
+                )
             ):  # in that case pick the new row
                 chosen = row.copy()
-                assert (chosen == row).all()  # TMP : attempting to find a bug...
+
             # otherwise just keep the old one, discarding new information
             # because we are not sure we should integrate it or not.
             # It seems there is less information in the new candle than in the original one, better stay safe.

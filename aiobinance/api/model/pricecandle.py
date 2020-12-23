@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import asdict, fields
-from datetime import MAXYEAR, MINYEAR, datetime, timedelta
+from datetime import MAXYEAR, MINYEAR, datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 import hypothesis.strategies as st
 import numpy as np
@@ -47,9 +47,18 @@ class PriceCandle:
     # and then "transparently" joined (think categorical product) into a Binance PriceCandle...
 
     @validator("open_time", "close_time", pre=True)
-    def convert_pandas_timestamp(cls, v):
+    def convert_pandas_timestamp(cls, v: Union[pd.Timestamp, datetime]):
         if isinstance(v, pd.Timestamp):
-            return v.to_pydatetime()
+            v = v.to_pydatetime(warn=False)  # silently ignoring nanoseconds
+
+        if isinstance(v, datetime):
+            if (
+                v.tzinfo is None
+            ):  # None implies UTC (CAREFUL: for base python, local is implied in this case !)
+                return v.replace(tzinfo=timezone.utc)
+            else:
+                return v.astimezone(tz=timezone.utc)
+
         return v
 
     @classmethod  # actually property of the class itself -> metaclass (see datacrystals...)

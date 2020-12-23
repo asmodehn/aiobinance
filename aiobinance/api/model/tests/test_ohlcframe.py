@@ -1,6 +1,6 @@
 import dataclasses
 import unittest
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 import hypothesis.strategies as st
 import pandas as pd
@@ -44,6 +44,7 @@ class TestOHLCFrame(unittest.TestCase):
             assert_columns(ohlcframe)
             assert ohlcframe.df.index.name == "open_time"
             assert isinstance(ohlcframe.df.index, pd.DatetimeIndex)
+            assert ohlcframe.df.index.tz is None
 
         # assert reflexive equality in all cases
         assert ohlcframe == ohlcframe
@@ -65,7 +66,12 @@ class TestOHLCFrame(unittest.TestCase):
             assert isinstance(t, PriceCandle)
             assert t in ohlcframe  # __contains__
             # pick random time in the candle to retrieve the candle:
-            dt = data.draw(st.datetimes(min_value=t.open_time, max_value=t.close_time))
+            dt = data.draw(
+                st.datetimes(
+                    min_value=t.open_time.replace(tzinfo=None),
+                    max_value=t.close_time.replace(tzinfo=None),
+                )
+            )
 
             # __getitem__ on CONTINUOUS index in mapping
             retrieve = ohlcframe[dt]
@@ -97,11 +103,16 @@ class TestOHLCFrame(unittest.TestCase):
         sb1 = data.draw(
             st.datetimes(
                 min_value=max(
-                    ohlcframe.open_time - timedelta(days=1), pd.Timestamp.min
+                    ohlcframe.open_time.replace(tzinfo=None) - timedelta(days=1),
+                    pd.Timestamp.min.to_pydatetime(),
                 ),
                 max_value=min(
-                    ohlcframe.close_time + timedelta(days=1), pd.Timestamp.max
+                    ohlcframe.close_time.replace(tzinfo=None) + timedelta(days=1),
+                    pd.Timestamp.max.to_pydatetime(),
                 ),
+                timezones=st.just(
+                    timezone.utc
+                ),  # because we will do tz-aware comparison
             )
             if ohlcframe
             else st.none()
@@ -109,11 +120,16 @@ class TestOHLCFrame(unittest.TestCase):
         sb2 = data.draw(
             st.datetimes(
                 min_value=max(
-                    ohlcframe.open_time - timedelta(days=1), pd.Timestamp.min
+                    ohlcframe.open_time.replace(tzinfo=None) - timedelta(days=1),
+                    pd.Timestamp.min,
                 ),
                 max_value=min(
-                    ohlcframe.close_time + timedelta(days=1), pd.Timestamp.max
+                    ohlcframe.close_time.replace(tzinfo=None) + timedelta(days=1),
+                    pd.Timestamp.max,
                 ),
+                timezones=st.just(
+                    timezone.utc
+                ),  # because we will do tz-aware comparison
             )
             if ohlcframe
             else st.none()
@@ -126,44 +142,60 @@ class TestOHLCFrame(unittest.TestCase):
         else:
             s = slice(sb1, sb2)
 
-        try:
-            tfs = ohlcframe[s]
-        except KeyError as ke:
-            # This may trigger, until we bound the test datetime set from hypothesis...
-            # self.skipTest(ke)
-            raise ke
-
-        assert isinstance(tfs, OHLCFrame)
-        # CAREFUL slicing seems to be inclusive both on start and stop in pandas.DataFrame
-        # not like with python, but this match what we want in slicing a mapping domain
-        if s.start is not None:
-            if s.stop is not None:
-                assert len(tfs) == len(
-                    [i for i in ohlcframe if s.start <= i.open_time <= s.stop]
-                ), f" len(tfs)!= len([i for i in ohlcframe if s.start <= i <= s.stop] : {len(tfs)} != len({[i for i in ohlcframe if s.start <= i.open_time <= s.stop]}"
-            else:
-                assert len(tfs) == len(
-                    [i for i in ohlcframe if s.start <= i.open_time]
-                ), f" len(tfs)!= len([i for i in ohlcframe if s.start <= i] : {len(tfs)} != len({[i for i in ohlcframe if s.start <= i.open_time]}"
-        elif s.stop is not None:
-            assert len(tfs) == len(
-                [i for i in ohlcframe if i.open_time <= s.stop]
-            ), f" len(tfs)!= len([i for i in ohlcframe if i <= s.stop] : {len(tfs)} != len({[i for i in ohlcframe if i.open_time <= s.stop]}"
+        if ohlcframe.empty:  # empty case : result is also empty
+            assert ohlcframe[s] == ohlcframe
+        elif (s.start is None or s.start <= ohlcframe.open_time) and (
+            s.stop is None or s.stop >= ohlcframe.close_time
+        ):  # larger slice => all included
+            assert ohlcframe[s] == ohlcframe
         else:
-            assert tfs == ohlcframe
-            # making sure we have the usual copy behavior when taking slices
-            assert tfs is not ohlcframe
+            try:
+                tfs = ohlcframe[s]
+            except KeyError as ke:
+                # This may trigger, until we bound the test datetime set from hypothesis...
+                # self.skipTest(ke)
+                raise ke
 
-        counter = 0
-        for t in tfs:  # __iter__
-            assert isinstance(t, PriceCandle)
-            assert t in ohlcframe  # value present in origin check
-            # pick random time in the candle to retrieve the candle:
-            dt = data.draw(st.datetimes(min_value=t.open_time, max_value=t.close_time))
-            assert ohlcframe[dt] == t  # same value as origin via equality check
-            counter += 1
+            assert isinstance(tfs, OHLCFrame)
+            # CAREFUL slicing seems to be inclusive both on start and stop in pandas.DataFrame
+            # not like with python, but this match what we want in slicing a mapping domain
+            if s.start is not None:
+                if s.stop is not None:
+                    assert len(tfs) == len(
+                        [
+                            i
+                            for i in ohlcframe
+                            if s.start <= i.close_time and i.open_time <= s.stop
+                        ]
+                    ), f"{len(tfs)} != len({[i for i in ohlcframe if s.start <= i.close_time and i.open_time <= s.stop]}"
+                else:
+                    assert len(tfs) == len(
+                        [i for i in ohlcframe if s.start <= i.close_time]
+                    ), f"{len(tfs)} != len({[i for i in ohlcframe if s.start <= i.close_time]}"
+            elif s.stop is not None:
+                assert len(tfs) == len(
+                    [i for i in ohlcframe if i.open_time <= s.stop]
+                ), f"{len(tfs)} != len({[i for i in ohlcframe if i.open_time <= s.stop]}"
+            else:
+                assert tfs == ohlcframe
+                # making sure we have the usual copy behavior when taking slices
+                assert tfs is not ohlcframe
 
-        assert counter == len(tfs), f"counter != len(tfs) : {counter} != {len(tfs)}"
+            counter = 0
+            for t in tfs:  # __iter__
+                assert isinstance(t, PriceCandle)
+                assert t in ohlcframe  # value present in origin check
+                # pick random time in the candle to retrieve the candle:
+                dt = data.draw(
+                    st.datetimes(
+                        min_value=t.open_time.replace(tzinfo=None),
+                        max_value=t.close_time.replace(tzinfo=None),
+                    )
+                )
+                assert ohlcframe[dt] == t  # same value as origin via equality check
+                counter += 1
+
+            assert counter == len(tfs), f"counter != len(tfs) : {counter} != {len(tfs)}"
 
     @given(tf1=OHLCFrame.strategy(), tf2=OHLCFrame.strategy())
     @settings(
@@ -195,49 +227,68 @@ class TestOHLCFrame(unittest.TestCase):
         # union with self is self
         assert tf1.union(tf1) == tf1
 
+        def better_candle(other_tf: OHLCFrame, c: PriceCandle):
+            # assert we had a "better" candle in the other
+            try:
+                oc = other_tf[c.open_time]
+            except KeyError:
+                return False
+            else:
+                if isinstance(oc, PriceCandle):
+                    # TODO : this can be simplified if we separate the various parts of the candle...
+                    return (
+                        oc.num_trades > c.num_trades
+                        or oc.volume > c.volume
+                        or (
+                            (oc.high >= c.high and oc.low < c.low)
+                            or (oc.high > c.high and oc.low <= c.low)
+                        )
+                    )
+                elif isinstance(oc, OHLCFrame):
+                    # if there was multiple candidates, there is at least one better.
+                    for oci in oc:
+                        # TODO Note we could rely here onhte fact that OHLC quacks a bit like a candle...
+                        if (
+                            oci.num_trades > c.num_trades
+                            or oci.volume > c.volume
+                            or (
+                                (oci.high >= c.high and oci.low < c.low)
+                                or (oci.high > c.high and oci.low <= c.low)
+                            )
+                        ):
+                            return True
+                        # other my be better or worse, we only need one better
+
+                    return False  # No better candle has been found
+
         utf1 = tf1.union(tf2)
 
         # verifying shape after operation
         assert_columns(utf1)
 
-        def better_candle(other_tf: OHLCFrame, c: PriceCandle):
-            # assert we had a "better" candle in the other
-            oc = other_tf[c.open_time]
-            if isinstance(oc, PriceCandle):
-                # TODO : this can be simplified if we separate various parts of the candle...
-                assert (
-                    oc.num_trades > c.num_trades
-                    or oc.volume > c.volume
-                    or (oc.high >= c.high and oc.low < c.low)
-                    or (oc.high > c.high and oc.low <= c.low)
-                )
-            elif isinstance(oc, OHLCFrame):
-                # if there was multiple candidates, there is at least one better.
-                theone = c
-                for oci in oc:
-                    # TODO Note we could rely here onhte fact that OHLC quacks a bit like a candle...
-                    if (
-                        oci.num_trades > theone.num_trades
-                        or oci.volume > theone.volume
-                        or (oci.high >= theone.high and oci.low < theone.low)
-                        or (oci.high > theone.high and oci.low <= theone.low)
-                    ):
-                        theone = oci
-                assert theone != c
-
         # REMINDER: the union actually merges, so the relationship is not trivial:
         for c in tf1:
-            if c not in utf1:  # if c not in union
-                better_candle(other_tf=tf2, c=c)
+            if better_candle(
+                other_tf=tf2, c=c
+            ):  # if tf2 has a better candle, c is not in union
+                assert c not in utf1
+            else:
+                assert c in utf1
 
-        # symmetrically:
-        for c in tf2:
-            if c not in utf1:  # if c not in union
-                better_candle(other_tf=tf2, c=c)
+        # Not symmetric ! the left of the union is priviledge when candle not explicitely "better"
 
         utf2 = tf2.union(tf1)
         # verifying shape after operation
         assert_columns(utf2)
+
+        # REMINDER: the union actually merges, so the relationship is not trivial:
+        for c in tf2:
+            if better_candle(
+                other_tf=tf1, c=c
+            ):  # if tf1 has a better candle, c is not in union
+                assert c not in utf2  # if c not in union => tf1 has a better candle
+            else:
+                assert c in utf2
 
         assert utf1 == utf2
 
