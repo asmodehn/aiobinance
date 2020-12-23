@@ -11,12 +11,11 @@ from aiobinance.api.pure.ohlcviewbase import OHLCViewBase
 from aiobinance.api.rawapi import Binance
 
 
-@dataclass(frozen=False)
 class OHLCView(OHLCViewBase):
     """ An updateable candles list """
 
-    api: Binance = field(init=True, default=Binance())
-    symbol: Optional[str] = field(init=True, default=None)
+    api: Binance
+    symbol: Optional[str]
 
     @staticmethod
     def strategy(max_size=5):
@@ -26,6 +25,11 @@ class OHLCView(OHLCViewBase):
             symbol=st.text(max_size=5),
             frame=OHLCFrame.strategy(max_size=max_size),
         )
+
+    def __init__(self, api: Binance = Binance(), symbol: Optional[str] = None):
+        self.api = api
+        self.symbol = symbol
+        super(OHLCView, self).__init__()
 
     async def __call__(
         self,
@@ -87,8 +91,8 @@ class OHLCView(OHLCViewBase):
 
         frame = OHLCFrame.from_candleslist(*candles)
 
-        # We aggregate all formatted ohlcframes into this OHLCView
-        super(OHLCView, self).__call__(frame=self.frame + frame)
+        # We *merge* all formatted ohlcframes into this OHLCView
+        super(OHLCView, self).__call__(frame=self.frame.union(frame))
 
         # and return self
         return self

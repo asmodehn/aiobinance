@@ -35,30 +35,31 @@ async def test_price_from_binance():
     for c in ohlcv:
         assert isinstance(c, PriceCandle)
 
-    first = ohlcv.frame[0]
-    assert first.open_time == datetime(
-        year=2020, month=8, day=27, hour=10, minute=33, tzinfo=timezone.utc
-    )
-    assert first.open == Decimal("0.00320100")
-    assert first.high == Decimal("0.00322600")
-    assert first.low == Decimal("0.00320100")
-    assert first.close == Decimal("0.00322600")
-    assert first.volume == Decimal("7705.00000000")
-    assert first.close_time == datetime(
-        year=2020,
-        month=8,
-        day=27,
-        hour=10,
-        minute=35,
-        second=59,
-        microsecond=999000,
-        tzinfo=timezone.utc,
-    )
-    assert first.qav == Decimal("24.66804700")
-    assert first.num_trades == 5
-    assert first.taker_base_vol == Decimal("176.00000000")
-    assert first.taker_quote_vol == Decimal("0.56771800")
-    assert first.is_best_match == 0  # ??
+    for first in ohlcv.frame:  # TODO : do we need some first() / iloc[0] access ??
+        assert first.open_time == datetime(
+            year=2020, month=8, day=27, hour=10, minute=33, tzinfo=timezone.utc
+        )
+        assert first.open == Decimal("0.00320100")
+        assert first.high == Decimal("0.00322600")
+        assert first.low == Decimal("0.00320100")
+        assert first.close == Decimal("0.00322600")
+        assert first.volume == Decimal("7705.00000000")
+        assert first.close_time == datetime(
+            year=2020,
+            month=8,
+            day=27,
+            hour=10,
+            minute=35,
+            second=59,
+            microsecond=999000,
+            tzinfo=timezone.utc,
+        )
+        assert first.qav == Decimal("24.66804700")
+        assert first.num_trades == 5
+        assert first.taker_base_vol == Decimal("176.00000000")
+        assert first.taker_quote_vol == Decimal("0.56771800")
+        assert first.is_best_match == 0  # ??
+        break  # breaking out after first candle check
 
 
 if __name__ == "__main__":

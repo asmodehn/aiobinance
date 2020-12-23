@@ -22,37 +22,26 @@ from aiobinance.api.model.ohlcframe import OHLCFrame
 from aiobinance.api.model.pricecandle import PriceCandle
 
 
-# Note : these are python dataclasses as pydantic cannot really typecheck dataframe content...
-@dataclass(frozen=False)
 class OHLCViewBase:
 
-    frame: Optional[OHLCFrame] = field(init=True, default=OHLCFrame())
+    frame: Optional[OHLCFrame]
 
     # properties like those of a PriceCandle
     # for list of column value in the frame, access directly the frame attribute
-    @cached_property
+    @property
     def open_time(self) -> Optional[datetime]:
-        return self.frame.open_time[0] if self.frame else None
+        return self.frame.open_time if self.frame else None
 
-    @cached_property
+    @property
     def close_time(self) -> Optional[datetime]:
-        return self.frame.close_time[-1] if self.frame else None
+        return self.frame.close_time if self.frame else None
 
     @staticmethod
     def strategy(max_size=5):
         return st.builds(OHLCViewBase, frame=OHLCFrame.strategy(max_size=max_size))
 
-    @classmethod
-    def from_candles(cls, *candles: PriceCandle):
-        return cls(frame=OHLCFrame.from_candleslist(*candles))
-
-    def __post_init__(self):
-        # Here we follow binance format and enforce proper python types
-        # TODO : assert proper dataframe format of columns...
-        # setting open_time as index and ordering (required for slicing !)
-        self.frame = OHLCFrame(
-            df=self.frame.df.set_index("open_time", drop=False).sort_index()
-        )
+    def __init__(self, frame: OHLCFrame = OHLCFrame()):
+        self.frame = frame
 
     def as_datasource(self, compute_mid_time=True) -> ColumnDataSource:
         plotdf = self.frame.optimized()
@@ -71,17 +60,14 @@ class OHLCViewBase:
         popping = []
         if self.frame is None:
             # because we may have cached invalid values from initialization (self.frame was None)
-            popping.append("open_time")
-            popping.append("close_time")
+            # popping.append("open_time")
+            pass
         else:  # otherwise we detect change leveraging pandas
-            if self.frame.open_time != frame.open_time:
-                popping.append(
-                    "open_time"
-                )  # because open_time only depends on open_time
-            if self.frame.close_time != frame.close_time:
-                popping.append(
-                    "close_time"
-                )  # because close_time only depends on close_time
+            # if self.frame.open_time != frame.open_time:
+            #     popping.append(
+            #         "open_time"
+            #     )  # because open_time only depends on open_time
+            pass
 
         # updating by updating data
         self.frame = frame
@@ -93,14 +79,12 @@ class OHLCViewBase:
         # returning self to allow chaining
         return self
 
+    # Exposing mapping interface on continuous time index
+    # We are entirely relying on OHLCFrame here
+
     def __contains__(self, item: Union[PriceCandle, datetime]) -> bool:
         # https://docs.python.org/2/reference/datamodel.html#object.__contains__
-        if isinstance(item, PriceCandle):
-            return item in self.frame
-        elif isinstance(item, datetime) and self.frame:  # continuous index
-            return self.frame.open_time[0] <= item <= self.frame.close_time[-1]
-        else:
-            return False
+        return item in self.frame
 
     def __eq__(self, other: OHLCViewBase) -> bool:
         assert isinstance(
@@ -115,87 +99,11 @@ class OHLCViewBase:
     def __getitem__(
         self, item: Union[datetime, slice]
     ) -> Union[OHLCViewBase, PriceCandle]:
-        if isinstance(item, slice):
-            # dataframe slice handled by pandas boolean indexer
-            try:
-                tf = OHLCFrame(
-                    df=self.frame.df.loc[item]
-                )  # simple since dataframe is indexed on datetime
-                return OHLCViewBase(frame=tf)
-            except TypeError as te:
-                raise KeyError(
-                    f"{item} is too high a value for PriceCandle.open_time "
-                ) from te
-        elif isinstance(item, datetime):
-            try:
-                rs = self.frame.df.loc[
-                    (
-                        self.frame.df.open_time <= item
-                    )  # CAREFUL with time bounds semantics !
-                    & (item <= self.frame.df.close_time)
-                ]
-                # This implies index unicity and non-overlapping of time intervals...
-                if len(rs) == 1:
-                    return PriceCandle(
-                        **rs.iloc[0]
-                    )  # simple since dataframe is  indexed on id
-                elif len(rs) == 0:
-                    raise KeyError(f"Invalid index {item}")
-                else:
-                    raise KeyError(f"ERROR: Multiple PriceCandle matching {item} !!!")
-
-            except OutOfBoundsDatetime as oobd:
-                # TODO : handle/prevent overflow error when int is too large to be optimized by pandas/numpy
-                # E   OverflowError: Python int too large to convert to C long
-                # pandas/_libs/hashtable_class_helper.pxi:1032: OverflowError
-                raise KeyError(f"{item} out of bounds ") from oobd
-            except IndexError as ie:
-                raise KeyError(f"No PriceCandle.open_time matching {item}") from ie
+        res = self.frame[item]
+        if isinstance(res, OHLCFrame):
+            return OHLCViewBase(frame=res)
         else:
-            raise KeyError(f"Invalid index {item}")
-
-    # def __getitem__(self, item: int):
-    #
-    #     if isinstance(item, slice):
-    #         assert item.step is None
-    #         start = 0 if item.start is None else item.start
-    #         stop = len(self) if item.stop is None else item.stop
-    #
-    #         if stop <= 0 or start >= len(self) or start >= stop:
-    #             return EmptyOHLCV  # returns the empty immutable tradeframe.
-    #
-    #         if start <= 0 and stop >= len(self):
-    #             return self  # whole slice returns the exact same instance, avoiding duplication.
-    #
-    #         # step is always 1 here, we do not want to skip anything or aggregate trades
-    #         subtrades = []
-    #         for t in self.df.itertuples(index=True):
-    #             if start <= t.Index < stop:
-    #                 td = {f: v for f, v in t._asdict().items() if f != "Index"}
-    #                 subtrades.append(PriceCandle(**td))
-    #             if stop is not None and t.Index > stop:
-    #                 break  # early break after stop
-    #         return OHLCFrame(*subtrades)
-    #
-    #     elif isinstance(item, int):
-    #         if item < len(self.df):
-    #             return PriceCandle(**self.df.iloc[item])
-    #         elif self.df.open_time[0] < item < self.df.close_time[-1]:
-    #             return PriceCandle(**self.df[self.df.id == item])
-    #         else:
-    #             KeyError(f"No Candle with index {item} or containing time {item}")
-    #
-    #     else:
-    #         raise KeyError(f"Invalid index {item}")
-
-    # Is this a good idea ? or should we keep it immutable ??
-    # cf mid_time computation in plot...
-    # TODO : make it disappear...
-    def __setitem__(self, key, value):
-        self.frame.df[key] = value
-
-    # NO SETTING ON OHLCFrame if possible...
-    # but new columns could be added on the fly, if computed from existing data...
+            return res
 
     def __iter__(self):
         yield from self.frame
@@ -205,10 +113,14 @@ class OHLCViewBase:
     def __len__(self):
         return len(self.frame)
 
+    # These could be specialized for this interactive class...
+    def __repr__(self):
+        return repr(self.frame)
+
     def __str__(self):
         return str(self.frame)
 
 
 if __name__ == "__main__":
 
-    print(OHLCViewBase.strategy().example())
+    print(OHLCViewBase.strategy().filter(lambda v: len(v) > 0).example())

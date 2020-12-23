@@ -24,16 +24,16 @@ def test_price(keyfile):
 
     if result.exit_code == 0:
         assert (
-            "|     | open_time                 |     open |     high |      low |    close |   volume | close_time                       |        qav |   num_trades |   taker_base_vol |   taker_quote_vol |   is_best_match |"
+            "| open_time           |     open |     high |      low |    close |   volume | close_time                 |        qav |   num_trades |   taker_base_vol |   taker_quote_vol |   is_best_match |"
             in result.output
         )
         assert (
-            "|   0 | 2020-08-26 22:00:00+00:00 | 0.003472 | 0.003472 | 0.003468 | 0.003468 |     1962 | 2020-08-26 22:02:59.999000+00:00 |   6.8054   |            3 |                0 |          0        |               0 |"
+            "| 2020-08-26 22:00:00 | 0.003472 | 0.003472 | 0.003468 | 0.003468 |     1962 | 2020-08-26 22:02:59.999000 |   6.8054   |            3 |                0 |          0        |               0 |"
             in result.output
         )
         # testing first and last line only...
         assert (
-            "| 480 | 2020-08-27 22:00:00+00:00 | 0.003153 | 0.003153 | 0.003153 | 0.003153 |        0 | 2020-08-27 22:02:59.999000+00:00 |   0        |            0 |                0 |          0        |               0 |"
+            "| 2020-08-27 22:00:00 | 0.003153 | 0.003153 | 0.003153 | 0.003153 |        0 | 2020-08-27 22:02:59.999000 |   0        |            0 |                0 |          0        |               0 |"
             in result.output
         )
     else:
