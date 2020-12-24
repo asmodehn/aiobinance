@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict, fields
 from datetime import MAXYEAR, MINYEAR, datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Dict, Iterable, List, Optional, Union
+from enum import Enum
+from typing import ClassVar, Dict, Iterable, List, Optional, Union
 
 import hypothesis.strategies as st
 import numpy as np
@@ -17,6 +18,69 @@ from pydantic.dataclasses import dataclass
 
 # Leveraging pydantic to validate based on type hints
 from tabulate import tabulate
+
+
+class TimeInterval(Enum):
+    minutely = "1m"
+    minutely_3 = "3m"
+    minutely_5 = "5m"
+    minutely_15 = "15m"
+    minutely_30 = "30m"
+    hourly = "1h"
+    hourly_2 = "2h"
+    hourly_4 = "4h"
+    hourly_6 = "6h"
+    hourly_8 = "8h"
+    hourly_12 = "12h"
+    daily = "1d"
+    daily_3 = "3d"
+    weekly = "1w"
+
+    # monthly = "1M"  # DROPPED
+
+
+def timeinterval_to_timedelta(self):
+    # timedelta conversion
+    _convert: ClassVar = {
+        "1m": timedelta(minutes=1),
+        "3m": timedelta(minutes=3),
+        "5m": timedelta(minutes=5),
+        "15m": timedelta(minutes=15),
+        "30m": timedelta(minutes=30),
+        "1h": timedelta(hours=1),
+        "2h": timedelta(hours=2),
+        "4h": timedelta(hours=4),
+        "6h": timedelta(hours=6),
+        "8h": timedelta(hours=8),
+        "12h": timedelta(hours=12),
+        "1d": timedelta(days=1),
+        "3d": timedelta(days=3),
+        "1w": timedelta(weeks=1),
+        # '1M': timedelta(months)  # DROPPING MONTHLY Candle features (probably not useful for us)
+    }
+    return _convert[self.value]
+
+
+def timeinterval_from_timedelta(td: timedelta):
+    # timedelta conversion
+    _convert: ClassVar = {
+        "1m": timedelta(minutes=1),
+        "3m": timedelta(minutes=3),
+        "5m": timedelta(minutes=5),
+        "15m": timedelta(minutes=15),
+        "30m": timedelta(minutes=30),
+        "1h": timedelta(hours=1),
+        "2h": timedelta(hours=2),
+        "4h": timedelta(hours=4),
+        "6h": timedelta(hours=6),
+        "8h": timedelta(hours=8),
+        "12h": timedelta(hours=12),
+        "1d": timedelta(days=1),
+        "3d": timedelta(days=3),
+        "1w": timedelta(weeks=1),
+        # '1M': timedelta(months)  # DROPPING MONTHLY Candle features (probably not useful for us)
+    }
+    return {v: k for k, v in _convert.items()}[td]
 
 
 @dataclass

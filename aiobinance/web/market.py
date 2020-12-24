@@ -14,13 +14,14 @@ from bokeh.themes import Theme
 from aiobinance.api.exchange import Exchange
 from aiobinance.api.market import Market
 from aiobinance.api.rawapi import Binance
+from aiobinance.web.docs.price import PriceDocument
 from aiobinance.web.plots.price_plot import PricePlot
 
 
 class MarketHandler(bokeh.application.handlers.Handler):
 
     market: Market
-    plots: List[PricePlot]
+    plots: List[PriceDocument]
 
     def __init__(self, market: Market, *args, **kwargs):
         self.market = market
@@ -31,27 +32,34 @@ class MarketHandler(bokeh.application.handlers.Handler):
 
         # p= ohlc_1m.plot(doc)  # pass the document to update
 
-        price = PricePlot(doc, self.market.price)  # trades=self.market.trades)
-        fig = bokeh.layouts.grid([price._fig])
+        # price = PricePlot(doc, self.market.price)  # trades=self.market.trades)
+        # fig = bokeh.layouts.grid([price._fig])
+        #
+        # doc.add_root(row(fig, sizing_mode="scale_width"))
+        # doc.theme = Theme(
+        #     filename=os.path.join(os.path.dirname(__file__), "theme.yaml")
+        # )
 
-        doc.add_root(row(fig, sizing_mode="scale_width"))
         doc.theme = Theme(
             filename=os.path.join(os.path.dirname(__file__), "theme.yaml")
         )
+
+        price = PriceDocument(document=doc, ohlcview=self.market.price)
 
         self.plots.append(price)
 
         # TODO : dynamic update ???
 
     async def docs_update(self):
+        # TODO : this should be done somewhere else... (and the same as on_session_created !)
         if len(self.plots) > 0:  # only retrieve price ohlc if necessary
-            yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
+            before = datetime.now(tz=timezone.utc) - timedelta(hours=1)
             now = datetime.now(tz=timezone.utc)
-            await self.market.price(start_time=yesterday, stop_time=now)
+            await self.market.price(start_time=before, stop_time=now)
 
         for p in self.plots:
             # TODO: stop updating some plots after some "inactivity" time... ??
-            p()  # trigger update !
+            p()  # trigger update on next tick !
 
     def on_server_loaded(self, server_context: BokehServerContext):
         # driving data retrieval (TMP) and plot stream update
@@ -64,13 +72,13 @@ class MarketHandler(bokeh.application.handlers.Handler):
 
     async def on_session_created(self, session_context: BokehSessionContext):
         # retrieving new data at the beginning of the session
-        yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
+        before = datetime.now(tz=timezone.utc) - timedelta(hours=1)
         now = datetime.now(tz=timezone.utc)
         await self.market.price(
-            start_time=yesterday, stop_time=now
+            start_time=before, stop_time=now
         )  # to have data to show on request.
         await self.market.trades(
-            start_time=yesterday, stop_time=now
+            start_time=before, stop_time=now
         )  # to have data to show on request.
 
 

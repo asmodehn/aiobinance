@@ -26,6 +26,12 @@ from aiobinance.api.model.pricecandle import PriceCandle
 @dataclass(frozen=True)
 class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can help us enforce correct shape of dataframe...
 
+    # TODO : we should probably make the timeinterval (timeframe) part of the type here...
+    interval: timedelta = field(
+        init=False,  # we determine that from the dataframe in __post_init__
+        default=timedelta(minutes=1),
+    )
+
     df: Optional[pd.DataFrame] = field(
         init=True,
         default=pd.DataFrame(
@@ -120,20 +126,33 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
         df = pd.DataFrame(data=npa)
         return cls(df=df)
 
-    def as_datasource(self, compute_mid_time=True) -> ColumnDataSource:
+    def as_datasource(
+        self, compute_mid_time=True, compute_upwards=True
+    ) -> ColumnDataSource:
         plotdf = self.optimized()
+        if not plotdf.empty:
+            # we need to replicate index column (to match empty df behavior - pandas oddities)
+            plotdf["index"] = plotdf.index
         if compute_mid_time:
-            timeinterval = plotdf.open_time[1] - plotdf.open_time[0]
-            plotdf["mid_time"] = plotdf.open_time + timeinterval / 2
-
-        return ColumnDataSource(plotdf)
+            if not plotdf.empty:
+                plotdf["mid_time"] = plotdf.index + self.interval / 2
+            else:  # if no index to use for computation, duplicate close_time column
+                plotdf["mid_time"] = plotdf["close_time"].copy()
+        if compute_upwards:
+            plotdf["upwards"] = plotdf.open < plotdf.close
+        cds = ColumnDataSource(plotdf)
+        return cds
 
     def __post_init__(self):
         # Here we follow binance format and enforce proper types and structure
 
-        if not self.df.empty and (
-            self.df.index.name != "open_time"
-            or not isinstance(self.df.index, pd.DatetimeIndex)
+        if self.df.empty:
+            # Note: an empty df is a special case, as open_time is still a column...
+            return
+
+        # shaping dataframe if needed
+        if self.df.index.name != "open_time" or not isinstance(
+            self.df.index, pd.DatetimeIndex
         ):
             assert "open_time" in self.df.columns
             # Mutating df under the hood... CAREFUL : we heavily rely on (buggy?) pandas here...
@@ -156,7 +175,12 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
 
             # finally enforcing dtypes:
 
-        # Note: an empty df is a special case, as open_time is still a column...
+        # setting interval timedelta automatically
+        object.__setattr__(
+            self,
+            "interval",
+            (self.df.iloc[1].name - self.df.iloc[0].name).to_pytimedelta(),
+        )
 
     def __contains__(self, item: Union[PriceCandle, datetime]) -> bool:
         # https://docs.python.org/2/reference/datamodel.html#object.__contains__

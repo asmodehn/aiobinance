@@ -5,14 +5,18 @@ from typing import Optional
 import hypothesis.strategies as st
 
 from aiobinance.api.model.ohlcframe import OHLCFrame
-from aiobinance.api.model.pricecandle import PriceCandle
+from aiobinance.api.model.pricecandle import (
+    PriceCandle,
+    TimeInterval,
+    timeinterval_from_timedelta,
+)
 from aiobinance.api.model.trade import Trade
 from aiobinance.api.pure.ohlcviewbase import OHLCViewBase
 from aiobinance.api.rawapi import Binance
 
 
 class OHLCView(OHLCViewBase):
-    """ An updateable candles list """
+    """ An 'passively mutating' list of candles """
 
     api: Binance
     symbol: Optional[str]
@@ -39,6 +43,7 @@ class OHLCView(OHLCViewBase):
         **kwargs
     ):
         """ this retrieves recent trades"""
+
         if start_time is not None:
             # to make sure the timezone is set at this stage (otherwise timestamps will be ambiguous)
             assert start_time.tzinfo is not None
@@ -51,11 +56,12 @@ class OHLCView(OHLCViewBase):
         else:
             stop_timestamp = None
 
-        interval = (
-            interval
-            if interval is not None
-            else self.api.interval(start_timestamp, stop_timestamp)
-        )
+        if interval is None:
+            if self.frame.empty and start_time is not None and stop_time is not None:
+                # special case to implicitely override default...
+                interval = self.api.interval(start_timestamp, stop_timestamp)
+            else:  # TODO :cleanup and improve
+                interval = timeinterval_from_timedelta(self.frame.interval)
 
         res = self.api.call_api(
             command="klines",

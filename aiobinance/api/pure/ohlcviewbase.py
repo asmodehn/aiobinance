@@ -43,14 +43,6 @@ class OHLCViewBase:
     def __init__(self, frame: OHLCFrame = OHLCFrame()):
         self.frame = frame
 
-    def as_datasource(self, compute_mid_time=True) -> ColumnDataSource:
-        plotdf = self.frame.optimized()
-        if compute_mid_time:
-            timeinterval = plotdf.open_time[1] - plotdf.open_time[0]
-            plotdf["mid_time"] = plotdf.open_time + timeinterval / 2
-        # TODO : live bokeh updates ??
-        return ColumnDataSource(plotdf)
-
     def __call__(self, *, frame: Optional[OHLCFrame] = None, **kwargs) -> OHLCViewBase:
         """ self updating the instance with new dataframe..."""
         # return same instance if no change
