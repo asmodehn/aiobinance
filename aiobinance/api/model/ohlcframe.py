@@ -12,7 +12,7 @@ from bokeh.models import BooleanFilter, CDSView, ColumnDataSource, Legend
 from bokeh.plotting import Figure
 from hypothesis import assume, infer
 from hypothesis.strategies import SearchStrategy
-from pandas import merge_ordered
+from pandas import merge, merge_ordered
 from pandas._libs.tslibs.np_datetime import OutOfBoundsDatetime
 from pydantic import validator
 
@@ -314,63 +314,54 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
         if other.df.empty:
             return OHLCFrame(df=self.df.copy(deep=True))
 
-        # otherwise it is safe to merge
-        newdf_noidx = merge_ordered(
-            # dropping indexes to retrieve the open_time column when aggregating.
-            self.df.reset_index(drop=False),
-            other.df.reset_index(drop=False),
-            fill_method=None,
+        # otherwise we need to merge
+        newdf_noidx = self.df.reset_index(drop=False).merge(
+            other.df.reset_index(drop=False), how="outer"
         )
-        # newdf = merge_ordered(self.df, other.df, fill_method=None, on=self.df.index)
-        # newdf_noidx = self.df.merge(other.df, how='outer', left_index=True, sort=True)
 
-        # seems aggregate needs a state to compare multiple rows
-        chosen = pd.Series()
+        # Note : previous merging attempts with "aggregate" and fonction application failed
+        # on tricky bugs/pandas limitations...
+        # Attempting a different way based on resolving dupicates in groups and replacing.
+        dups = newdf_noidx.duplicated(subset="open_time", keep=False)
 
-        # This is necessary to handle conflicting data (same index, different values... which to pick ?)
-        def stitcher(row: pd.Series, **kwargs) -> pd.Series:
-            nonlocal chosen
+        dupgroups = newdf_noidx[dups].groupby(by="open_time")
 
-            # early return if we get passed an empty row (no field in series)
-            if len(row) == 0:
-                return row
+        # keeping all non-duplicates in boolean filter
+        grpfltr = ~newdf_noidx.open_time.isin(dupgroups.groups)
 
-            # otherwise we use external state, to be able to chose between multiple rows
-            if chosen.get("open_time", None) != row["open_time"] or (
-                # no chosen, or different index => take new row
-                # same index : we need to compare rows on num_trades, volume, high and low
-                chosen["num_trades"] < row["num_trades"]
-                or chosen["volume"] < row["volume"]
-                # careful with strictness when comparing high and low bounds...
-                or (
-                    (chosen["high"] < row["high"] and chosen["low"] >= row["low"])
-                    or (chosen["high"] <= row["high"] and chosen["low"] > row["low"])
-                )
-            ):  # in that case pick the new row
-                chosen = row.copy()
+        for grp, frm in dupgroups:
+            best_idx = frm.iloc[0].name  # picking first in frame
+            for el in frm.itertuples():
+                if (
+                    el.num_trades > frm.loc[best_idx].num_trades
+                    or el.volume > frm.loc[best_idx].volume
+                    or (
+                        (
+                            el.high >= frm.loc[best_idx].high
+                            and el.low < frm.loc[best_idx].low
+                        )
+                        or (
+                            el.high > frm.loc[best_idx].high
+                            and el.low <= frm.loc[best_idx].low
+                        )
+                    )
+                ):
+                    # keep only the best index
+                    best_idx = (
+                        el.Index
+                    )  # because ".name" becomes "Index" in Pandas tuples...
 
-            # otherwise just keep the old one, discarding new information
-            # because we are not sure we should integrate it or not.
-            # It seems there is less information in the new candle than in the original one, better stay safe.
+            # here we have hte best candle index
+            # merge in group filter (set it to true, all other in same group must remain false)
+            grpfltr = grpfltr | (grpfltr.index == best_idx)
 
-            # Note : we dont want a more complex algorithm,
-            # because we don't want to aggregate and merge candles themselves.
-            # We just need to pick the one with more information,
-            # hoping to eventually converge when there is multiple sources (different API server responding)
-
-            return chosen
-
-        # only check open_time to identify duplicates, other columns might be different
-        newdf = newdf_noidx.agg(stitcher, axis=1).drop_duplicates(
-            subset="open_time", keep="last"
-        )
-        # Tried group by or named aggregate, but they don't seems to work as we would need...
+        # replace groups into merged dataframe
+        newdf_noidx = newdf_noidx[grpfltr]
 
         # the OHLCFrame constructor will reindex properly.
-        return OHLCFrame(df=newdf)
+        return OHLCFrame(df=newdf_noidx)
 
-        # Ref : https://docs.python.org/3.8/library/stdtypes.html#set.difference
-
+    # Ref : https://docs.python.org/3.8/library/stdtypes.html#set.difference
     def difference(self, other: OHLCFrame):
         # finding identical indexes in both dataframe, and extracting subset
 

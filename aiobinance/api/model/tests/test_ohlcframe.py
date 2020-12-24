@@ -4,7 +4,7 @@ from datetime import timedelta, timezone
 
 import hypothesis.strategies as st
 import pandas as pd
-from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import HealthCheck, assume, given, reproduce_failure, settings
 
 from aiobinance.api.model.ohlcframe import OHLCFrame
 from aiobinance.api.model.pricecandle import PriceCandle
@@ -121,11 +121,11 @@ class TestOHLCFrame(unittest.TestCase):
             st.datetimes(
                 min_value=max(
                     ohlcframe.open_time.replace(tzinfo=None) - timedelta(days=1),
-                    pd.Timestamp.min,
+                    pd.Timestamp.min.to_pydatetime(),
                 ),
                 max_value=min(
                     ohlcframe.close_time.replace(tzinfo=None) + timedelta(days=1),
-                    pd.Timestamp.max,
+                    pd.Timestamp.max.to_pydatetime(),
                 ),
                 timezones=st.just(
                     timezone.utc
@@ -234,7 +234,8 @@ class TestOHLCFrame(unittest.TestCase):
             except KeyError:
                 return False
             else:
-                if isinstance(oc, PriceCandle):
+                # Here, for merging, we need a precise indexing on opentime, not the continuous one...
+                if isinstance(oc, PriceCandle) and oc.open_time == c.open_time:
                     # TODO : this can be simplified if we separate the various parts of the candle...
                     return (
                         oc.num_trades > c.num_trades
@@ -247,8 +248,9 @@ class TestOHLCFrame(unittest.TestCase):
                 elif isinstance(oc, OHLCFrame):
                     # if there was multiple candidates, there is at least one better.
                     for oci in oc:
-                        # TODO Note we could rely here onhte fact that OHLC quacks a bit like a candle...
-                        if (
+                        # Precise open_time matching for merging...
+                        if (oci.open_time == c.open_time) and (
+                            # TODO Note we could rely here on the fact that OHLC quacks a bit like a candle...
                             oci.num_trades > c.num_trades
                             or oci.volume > c.volume
                             or (
@@ -268,14 +270,14 @@ class TestOHLCFrame(unittest.TestCase):
 
         # REMINDER: the union actually merges, so the relationship is not trivial:
         for c in tf1:
-            if better_candle(
+            if better_candle(  # Note : None result is also interpreted as False
                 other_tf=tf2, c=c
             ):  # if tf2 has a better candle, c is not in union
                 assert c not in utf1
             else:
                 assert c in utf1
 
-        # Not symmetric ! the left of the union is priviledge when candle not explicitely "better"
+        # Not symmetric ! the left of the union is privileged when candle not explicitly "better"
 
         utf2 = tf2.union(tf1)
         # verifying shape after operation
@@ -283,14 +285,16 @@ class TestOHLCFrame(unittest.TestCase):
 
         # REMINDER: the union actually merges, so the relationship is not trivial:
         for c in tf2:
-            if better_candle(
+            if better_candle(  # Note : None result is also interpreted as False
                 other_tf=tf1, c=c
             ):  # if tf1 has a better candle, c is not in union
-                assert c not in utf2  # if c not in union => tf1 has a better candle
+                assert c not in utf2
             else:
                 assert c in utf2
 
-        assert utf1 == utf2
+        # Note : this might not be true ! (candle can have "unchecked values" different in utf1 and in utf2)
+        # But if there is ambiguity, existing data (left, self) prevails.
+        # assert utf1 == utf2
 
     @given(tf1=OHLCFrame.strategy(), tf2=OHLCFrame.strategy())
     @settings(
@@ -313,41 +317,6 @@ class TestOHLCFrame(unittest.TestCase):
         for c in tf1:
             if c not in tf2:
                 assert c in dtf1
-
-    # @given(tf1=OHLCFrame.strategy(), tf2=OHLCFrame.strategy())
-    # def test_add(self, tf1, tf2):
-    #
-    #     tfr = tf1 + tf2
-    #
-    #     # special case where one of them is empty
-    #     if len(tf2) == 0:
-    #         assert tfr == tf1
-    #         assert (
-    #             tfr is not tf1
-    #         )  # we get a copy, not the same frame ( in case it gets modified somehow...)
-    #     if len(tf1) == 0:
-    #         assert tfr == tf2
-    #         assert (
-    #             tfr is not tf2
-    #         )  # we get a copy, not the same frame ( in case it gets modified somehow...)
-    #
-    #     assert len(tfr) == len(tf1) + len(tf2)
-    #
-    #     # all there, keeping original ordering
-    #     counter = 0
-    #     for t in tf1:
-    #         assert isinstance(t, PriceCandle)
-    #         assert t in tfr
-    #         assert tfr[counter] == t
-    #         counter += 1
-    #
-    #     # countinuing with second frame
-    #     counter = len(tf1)
-    #     for t in tf2:
-    #         assert isinstance(t, PriceCandle)
-    #         assert t in tfr
-    #         assert tfr[counter] == t
-    #         counter += 1
 
     @given(ohlcv=OHLCFrame.strategy())
     def test_str(self, ohlcv: OHLCFrame):
