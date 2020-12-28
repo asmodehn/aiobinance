@@ -80,7 +80,9 @@ def timeinterval_from_timedelta(td: timedelta):
         "1w": timedelta(weeks=1),
         # '1M': timedelta(months)  # DROPPING MONTHLY Candle features (probably not useful for us)
     }
-    return {v: k for k, v in _convert.items()}[td]
+    for k, v in _convert.items():
+        if v >= td:
+            return k
 
 
 @dataclass

@@ -27,9 +27,9 @@ from aiobinance.api.model.pricecandle import PriceCandle
 class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can help us enforce correct shape of dataframe...
 
     # TODO : we should probably make the timeinterval (timeframe) part of the type here...
-    interval: timedelta = field(
+    interval: Optional[timedelta] = field(
         init=False,  # we determine that from the dataframe in __post_init__
-        default=timedelta(minutes=1),
+        default=None,
     )
 
     df: Optional[pd.DataFrame] = field(
@@ -45,12 +45,18 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
 
     # properties to make it quack like a candle...
     @property
-    def open_time(self) -> datetime:  # TODO: special case for empty df
-        return self.df.index[0].to_pydatetime().replace(tzinfo=timezone.utc)
+    def open_time(self) -> Optional[datetime]:
+        if self.df.empty:
+            return None
+        else:
+            return self.df.index[0].to_pydatetime().replace(tzinfo=timezone.utc)
 
     @property
-    def close_time(self) -> datetime:  # TODO: special case for empty df
-        return self.df.close_time[-1].to_pydatetime().replace(tzinfo=timezone.utc)
+    def close_time(self) -> Optional[datetime]:
+        if self.df.empty:
+            return None
+        else:
+            return self.df.close_time[-1].to_pydatetime().replace(tzinfo=timezone.utc)
 
     @property
     def open(self) -> Decimal:
@@ -132,14 +138,15 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
         plotdf = self.optimized()
         if not plotdf.empty:
             # we need to replicate index column (to match empty df behavior - pandas oddities)
-            plotdf["index"] = plotdf.index
+            plotdf["index"] = plotdf.index  # TODO : index should remain simply numeric
+            # TODO: It could then be used to track positions in differences and patches (cf. plot updates)
         if compute_mid_time:
             if not plotdf.empty:
                 plotdf["mid_time"] = plotdf.index + self.interval / 2
             else:  # if no index to use for computation, duplicate close_time column
                 plotdf["mid_time"] = plotdf["close_time"].copy()
         if compute_upwards:
-            plotdf["upwards"] = plotdf.open < plotdf.close
+            plotdf["upwards"] = np.where(plotdf.open < plotdf.close, "UP", "DOWN")
         cds = ColumnDataSource(plotdf)
         return cds
 
@@ -178,8 +185,8 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
         # setting interval timedelta automatically
         object.__setattr__(
             self,
-            "interval",
-            (self.df.iloc[1].name - self.df.iloc[0].name).to_pytimedelta(),
+            "interval",  # We need to restrict ourselves to ONE candle here
+            (self.df.iloc[0].close_time - self.df.iloc[0].name).to_pytimedelta(),
         )
 
     def __contains__(self, item: Union[PriceCandle, datetime]) -> bool:
