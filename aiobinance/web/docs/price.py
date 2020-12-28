@@ -2,6 +2,7 @@ from typing import Optional
 
 import numpy as np
 from bokeh.document import Document
+from bokeh.io import save, show
 from bokeh.layouts import grid, row
 from bokeh.models import (
     BooleanFilter,
@@ -24,13 +25,19 @@ class PriceDocument:
     datasource: ColumnDataSource
 
     highlow: GlyphRenderer
+    upbar: GlyphRenderer
+    downbar: GlyphRenderer
 
     def __init__(self, document: Document, ohlcv: OHLCFrame):
         self.document = document
         self.ohlcv = ohlcv
 
+        if ohlcv.empty:
+            raise RuntimeWarning(
+                f"{ohlcv} is Empty! Plot might be broken...\n => Pass a non-empty Frame to make sure OHLC plot works as expected."
+            )
+
         self.datasource = self.ohlcv.as_datasource(compute_mid_time=True)
-        # TODO : view could be a self-updating datasource ??
 
         fig = Figure(
             plot_height=320,
@@ -56,17 +63,16 @@ class PriceDocument:
         # This would simplify python code regarding update of this simple filter
         # by transferring hte load to javascript on the client side...
 
-        # we need this, likely until we get the jsfilter to work:
-        self.upview = CDSView(
+        upview = CDSView(
             source=self.datasource,
             filters=[GroupFilter(column_name="upwards", group="UP")],
         )
 
-        fig.vbar(
+        self.upbar = fig.vbar(
             legend_label="OHLC Up",
             source=self.datasource,
-            view=self.upview,
-            width=ohlcv.interval,  # Note: doesnt change with update
+            view=upview,
+            width=ohlcv.interval,  # Note: may change with first update !!
             x="mid_time",
             bottom="open",
             top="close",
@@ -74,16 +80,16 @@ class PriceDocument:
             line_color="black",
         )
 
-        self.downview = CDSView(
+        downview = CDSView(
             source=self.datasource,
             filters=[GroupFilter(column_name="upwards", group="DOWN")],
         )
 
-        fig.vbar(
+        self.downbar = fig.vbar(
             legend_label="OHLC Down",
             source=self.datasource,
-            view=self.downview,
-            width=ohlcv.interval,  # Note: doesnt change with update
+            view=downview,
+            width=ohlcv.interval,  # Note: may change with first update !!
             x="mid_time",
             top="open",
             bottom="close",
@@ -110,11 +116,14 @@ class PriceDocument:
         self, ohlcv: OHLCFrame
     ):  # Note : parameters here are for web-initiated information/actions
 
-        assert ohlcv.interval == self.ohlcv.interval  # TODO: otherwise ??
+        assert (
+            self.ohlcv.interval is None  # we had no data defining interval
+            or ohlcv.interval == self.ohlcv.interval
+        )  # or the interval is the same
+        # TODO: otherwise ??
 
-        if len(ohlcv) > len(
-            self.ohlcv
-        ):  # new elements : we stream new data (patch method cannot add data)
+        if len(ohlcv) > len(self.ohlcv):  # new elements : we stream new data
+            # patch method cannot add data + it cleans up potential graphical artifacts from previous patches
 
             newsource = ohlcv.as_datasource(compute_mid_time=True, compute_upwards=True)
 
@@ -135,7 +144,7 @@ class PriceDocument:
 
         if len(ohlcvpatch) > 0:
 
-            prev_close_time = np.datetime64(self.ohlcv.close_time)
+            prev_close_time = np.datetime64(self.ohlcv.close_time.replace(tzinfo=None))
 
             # compute indexes depending on open_time
             idxs = []
@@ -202,33 +211,78 @@ class PriceDocument:
 if __name__ == "__main__":
     import asyncio
     from datetime import datetime, timedelta, timezone
+    from typing import Dict
 
-    from bokeh.io import curdoc, output_file, save, show
+    from bokeh.server.server import Server
 
-    # export the document as html
-    output_file("price.html")
+    timeframe: timedelta = timedelta(minutes=1)  # candle width, ie. timeframe precision
+    num_candles: int = 120  # number of candle of data we want to retrieve
 
-    # setup data proxy for BTCEUR symbol
-    ohlc = OHLCView(symbol="BTCEUR")
+    # storing all data here
+    views: Dict[str, OHLCView] = {}
 
-    # TODO : let a simple bokeh server manage the update (cli option)
-    # data update
-    async def update():
-        # now actually retrieving data
-        before = datetime.now(tz=timezone.utc) - timedelta(hours=1)
+    async def dataupdate(v: OHLCView, trampoline_period: Optional[timedelta] = None):
+        global num_candles, timeframe
+
+        if trampoline_period:
+            # periodic
+            await asyncio.sleep(trampoline_period.total_seconds())
+
+        # retieving data for num_candles
+        before = datetime.now(tz=timezone.utc) - num_candles * timeframe
         now = datetime.now(tz=timezone.utc)
 
-        # doing an update with a full set of data to test it as much as possible.
-        await ohlc(start_time=before, stop_time=now)
+        # now actually retrieving up-to-date data
+        await v(start_time=before, stop_time=now)
 
-    # get data BEFORE building doc.
-    asyncio.run(update())
+        if trampoline_period:
+            # trampoline
+            asyncio.get_event_loop().create_task(
+                dataupdate(v=v, trampoline_period=trampoline_period)
+            )
 
-    # Building Price Document
-    price = PriceDocument(curdoc(), ohlc.frame)
+    async def symbolapp(symbol: str = "BTCEUR"):
+        global views
 
-    # Outputting
-    price.show()
+        if symbol not in views:
+            # setup empty data proxy for symbol
+            views[symbol] = OHLCView(symbol=symbol)
+            print(f"Retrieving data for {symbol}...", end="")
+            await dataupdate(views[symbol])  # retrieving data on startup
+            # Note: for simplicity here we retrieve and update all data, even if there is no request to it
+            print(" OK.")
+            asyncio.get_event_loop().create_task(
+                dataupdate(views[symbol], trampoline_period=timeframe / 2)
+            )
+            print(f"Periodic update for {symbol} has been scheduled.")
 
-    # Note : dynamic update is not testable in this simple doc output mode.
-    # Use modules in aiobinance.web for dynamic plots.
+        def appfun(doc: Document):
+            global views
+
+            # Building PriceDocument
+            price = PriceDocument(doc, views[symbol].frame)
+
+            def update():
+                # updating plot (sync method -> has to be disjoint from the actual OHLC data update)
+                price(views[symbol].frame)
+
+            # doc will drive periodic plot update loop
+            doc.add_periodic_callback(
+                update, period_milliseconds=int((timeframe / 2).total_seconds() * 1000)
+            )
+
+        return appfun
+
+    async def server():
+        """ starting a bokeh server from async """
+        server = Server({"/BTCEUR": await symbolapp(symbol="BTCEUR")})
+        server.start()
+
+        print("Opening Bokeh application on http://localhost:5006/")
+
+        server.io_loop.add_callback(server.show, "/")
+
+        # waiting 5 minutes before shutdown...
+        await asyncio.sleep(3600)
+
+    asyncio.run(server())
