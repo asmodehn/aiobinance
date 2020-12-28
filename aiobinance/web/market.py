@@ -1,6 +1,7 @@
+import functools
 import os
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import Dict, List, Optional
 
 import bokeh
 import tornado.web
@@ -25,10 +26,11 @@ class MarketHandler(bokeh.application.handlers.Handler):
 
     def __init__(self, market: Market, *args, **kwargs):
         self.market = market
-        self.plots = []
+        self.plots = []  # TODO : can we keep only one and share it between client ?
         super(MarketHandler, self).__init__(*args, **kwargs)
 
     def modify_document(self, doc: Document):
+        # new web request -> new doc
 
         # p= ohlc_1m.plot(doc)  # pass the document to update
 
@@ -44,11 +46,8 @@ class MarketHandler(bokeh.application.handlers.Handler):
             filename=os.path.join(os.path.dirname(__file__), "theme.yaml")
         )
 
-        price = PriceDocument(document=doc, ohlcview=self.market.price)
-
+        price = PriceDocument(document=doc, ohlcv=self.market.price.frame)
         self.plots.append(price)
-
-        # TODO : dynamic update ???
 
     async def docs_update(self):
         # TODO : this should be done somewhere else... (and the same as on_session_created !)
@@ -59,7 +58,9 @@ class MarketHandler(bokeh.application.handlers.Handler):
 
         for p in self.plots:
             # TODO: stop updating some plots after some "inactivity" time... ??
-            p()  # trigger update on next tick !
+            p.document.add_next_tick_callback(
+                functools.partial(p, ohlcv=self.market.price.frame)
+            )  # trigger update on next tick !
 
     def on_server_loaded(self, server_context: BokehServerContext):
         # driving data retrieval (TMP) and plot stream update

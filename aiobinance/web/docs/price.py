@@ -1,5 +1,6 @@
 from typing import Optional
 
+import numpy as np
 from bokeh.document import Document
 from bokeh.layouts import grid, row
 from bokeh.models import (
@@ -8,25 +9,27 @@ from bokeh.models import (
     ColumnDataSource,
     CustomJSFilter,
     GlyphRenderer,
+    GroupFilter,
 )
 from bokeh.plotting import Figure
 
+from aiobinance.api.model.ohlcframe import OHLCFrame
 from aiobinance.api.ohlcview import OHLCView
 
 
 class PriceDocument:
 
     document: Document
-    ohlcv: OHLCView
+    ohlcv: OHLCFrame
     datasource: ColumnDataSource
 
     highlow: GlyphRenderer
 
-    def __init__(self, document: Document, ohlcview: OHLCView):
+    def __init__(self, document: Document, ohlcv: OHLCFrame):
         self.document = document
-        self.ohlcv = ohlcview
+        self.ohlcv = ohlcv
 
-        self.datasource = self.ohlcv.frame.as_datasource(compute_mid_time=True)
+        self.datasource = self.ohlcv.as_datasource(compute_mid_time=True)
         # TODO : view could be a self-updating datasource ??
 
         fig = Figure(
@@ -53,24 +56,17 @@ class PriceDocument:
         # This would simplify python code regarding update of this simple filter
         # by transferring hte load to javascript on the client side...
 
-        # up_filter = CustomJSFilter(code='''
-        # var indices = [];
-        # for (var i = 0; i <= source.data['upwards'].length; i++){
-        #     if (source.data['upwards'][i]) {
-        #         indices.push(i)
-        #     }
-        # }
-        # return indices;
-        # ''')
+        # we need this, likely until we get the jsfilter to work:
+        self.upview = CDSView(
+            source=self.datasource,
+            filters=[GroupFilter(column_name="upwards", group="UP")],
+        )
 
         fig.vbar(
             legend_label="OHLC Up",
             source=self.datasource,
-            view=CDSView(
-                source=self.datasource,
-                filters=[BooleanFilter(self.datasource.data["upwards"])],
-            ),
-            width=ohlcview.frame.interval,  # Note: doesnt change with update
+            view=self.upview,
+            width=ohlcv.interval,  # Note: doesnt change with update
             x="mid_time",
             bottom="open",
             top="close",
@@ -78,24 +74,16 @@ class PriceDocument:
             line_color="black",
         )
 
-        # down_filter = CustomJSFilter(code='''
-        # const indices = [];
-        # for (let i = 0; i <= source.data.upwards.length; i++) {
-        #     if (! source.data.upwards[i]) {
-        #         indices.push(i);
-        #     }
-        # }
-        # return indices;
-        # ''')
+        self.downview = CDSView(
+            source=self.datasource,
+            filters=[GroupFilter(column_name="upwards", group="DOWN")],
+        )
 
         fig.vbar(
             legend_label="OHLC Down",
             source=self.datasource,
-            view=CDSView(
-                source=self.datasource,
-                filters=[BooleanFilter(~self.datasource.data["upwards"])],
-            ),
-            width=ohlcview.frame.interval,  # Note: doesnt change with update
+            view=self.downview,
+            width=ohlcv.interval,  # Note: doesnt change with update
             x="mid_time",
             top="open",
             bottom="close",
@@ -119,60 +107,70 @@ class PriceDocument:
         return show(self.document.roots[0])  # only one root in doc
 
     def __call__(
-        self,
+        self, ohlcv: OHLCFrame
     ):  # Note : parameters here are for web-initiated information/actions
-        # TODO : check if we hold document lock
-        try:
-            # current ohlcview has already everything we need to update the plot
-            newsource = self.ohlcv.frame.as_datasource(compute_mid_time=True)
 
-            # For now: let bokeh refresh entirely from new datasource...
-            self.datasource.stream(newsource.data)
-            # self.highlow.data_source.stream(newsource.data)
+        assert ohlcv.interval == self.ohlcv.interval  # TODO: otherwise ??
 
-            # update/patch is an optimization... later.
-        except RuntimeError:
-            # if we dont have document lock
-            self.document.add_next_tick_callback(self)
-        #
-        # updown = [
-        #     o < c for o, c in zip(delta.open, delta.close)
-        # ]
-        #
-        # # here we assume the time interval is regular and uniform
-        # timeinterval = delta.index[1] - delta.index[0]
-        #
-        # # TODO : https://docs.bokeh.org/en/latest/docs/user_guide/data.html#customjsfilter
-        # # This would simplify python code regarding update of this simple filter
-        # # by transferring hte load to javascript on the client side...
-        # self._fig.vbar(
-        #     legend_label="OHLC Up",
-        #     source=delta.as_datasource(),
-        #     view=CDSView(source=delta.as_datasource(), filters=[BooleanFilter(updown)]),
-        #     width=timeinterval,
-        #     x="mid_time",
-        #     bottom="open",
-        #     top="close",
-        #     fill_color="#D5E1DD",
-        #     line_color="black",
-        # )
-        #
-        # self._fig.vbar(
-        #     legend_label="OHLC Down",
-        #     source=delta.as_datasource(),
-        #     view=CDSView(
-        #         source=delta.as_datasource(), filters=[BooleanFilter([not b for b in updown])]
-        #     ),
-        #     width=timeinterval,
-        #     x="mid_time",
-        #     top="open",
-        #     bottom="close",
-        #     fill_color="#F2583E",
-        #     line_color="black",
-        # )
-        #
-        # self._fig.legend.location = "top_left"
-        # self._fig.legend.click_policy = "hide"
+        if len(ohlcv) > len(
+            self.ohlcv
+        ):  # new elements : we stream new data (patch method cannot add data)
+
+            newsource = ohlcv.as_datasource(compute_mid_time=True, compute_upwards=True)
+
+            try:
+                # let bokeh refresh entirely from new datasource...
+                self.datasource.stream(newsource.data)
+            except RuntimeError:
+                # if we dont have document lock
+                self.document.add_next_tick_callback(self)
+                return self  # early return : no point to attempt patching here
+
+        # In all cases:
+        # manual patch (somehow bokeh stream fails to patch properly)
+
+        # computing difference to only get meaningful patches to apply
+        ohlcvpatch = ohlcv.difference(self.ohlcv)
+        print(ohlcvpatch)
+
+        if len(ohlcvpatch) > 0:
+
+            prev_close_time = np.datetime64(self.ohlcv.close_time)
+
+            # compute indexes depending on open_time
+            idxs = []
+            for (
+                ot
+            ) in (
+                ohlcvpatch.df.index
+            ):  # since we are playing with numpy here, lets access the dataframe directly
+                npot = ot.to_datetime64()
+                if npot < prev_close_time:  # if opentime is in previous data
+                    # exactly matching open_time on previous datasource and recover numeric index
+                    idx = np.where(self.datasource.data["open_time"] == npot)[
+                        0
+                    ]  # one dimension
+                    idxs += idx.tolist()
+                # else we skip those (stream should have handled them, no need to patch)
+
+            if idxs:  # only attempting update if there is any difference in past data
+                dspatch = ohlcvpatch.as_datasource(
+                    compute_mid_time=True, compute_upwards=True
+                )
+                print(dspatch.data)
+
+                # applying indexes to al columns
+                patches = {
+                    col: [(idx, v) for idx, v in zip(idxs, valarray)]
+                    for col, valarray in dspatch.data.items()
+                }
+                self.datasource.patch(patches)
+
+            # updating base value in all case when difference detected
+            # Note: we want to attempt recomputing the same patch on next tick if something fails for some reason
+            self.ohlcv = ohlcv
+
+        # otherwise nothing changes
 
         # TODO : reactivat LATER...
         # # we can pass trades to plot together...
@@ -200,8 +198,6 @@ class PriceDocument:
 
         return self
 
-        # TODO compute historical midprices
-
 
 if __name__ == "__main__":
     import asyncio
@@ -215,6 +211,7 @@ if __name__ == "__main__":
     # setup data proxy for BTCEUR symbol
     ohlc = OHLCView(symbol="BTCEUR")
 
+    # TODO : let a simple bokeh server manage the update (cli option)
     # data update
     async def update():
         # now actually retrieving data
@@ -228,7 +225,7 @@ if __name__ == "__main__":
     asyncio.run(update())
 
     # Building Price Document
-    price = PriceDocument(curdoc(), ohlc)
+    price = PriceDocument(curdoc(), ohlc.frame)
 
     # Outputting
     price.show()
