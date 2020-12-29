@@ -37,7 +37,7 @@ async def test_trades_from_binance(keyfile):
         assert isinstance(t, Trade)
 
     # We need to access the frame to use order indexing
-    first = trades.frame[0]
+    first = trades[trades.id[0]]  # taking the frame with first id in the list
     # CAREFUL : the frame has been reordered by ascending Trade.id field.
     # it just happen to be the same order, since Trade.id should follow time (= response order)...
     assert start_time < first.time_utc < end_time

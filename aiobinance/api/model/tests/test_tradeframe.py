@@ -4,10 +4,35 @@ from datetime import timedelta, timezone
 
 import hypothesis.strategies as st
 import pandas as pd
-from hypothesis import assume, given
+from hypothesis import HealthCheck, assume, given, settings
 
 from aiobinance.api.model.trade import Trade
 from aiobinance.api.model.tradeframe import TradeFrame
+
+# TMP : to temporary help us verify frame structure
+# TODO : do it in hte type itself somehow...
+TradeFrameColumns = [
+    "id",
+    "time_utc",
+    "symbol",
+    "price",
+    "qty",
+    "quote_qty",
+    "commission",
+    "commission_asset",
+    "is_buyer",
+    "is_maker",
+    "order_id",
+    "order_list_id",
+    "is_best_match",
+]
+
+
+def assert_columns(tradeframe):
+    # Order matters here...
+    assert (
+        [tradeframe.df.index.name] if not tradeframe.df.empty else []
+    ) + tradeframe.df.columns.to_list() == TradeFrameColumns
 
 
 # test TradeFrame (should have columns even empty)
@@ -225,6 +250,77 @@ class TestTradeFrame(unittest.TestCase):
                 counter += 1
 
             assert counter == len(tfs), f"counter != len(tfs) : {counter} != {len(tfs)}"
+
+    @given(tf1=TradeFrame.strategy(), tf2=TradeFrame.strategy())
+    @settings(
+        suppress_health_check=[HealthCheck.too_slow]
+    )  # TODO : improve strategy... and maybe test as well ?
+    def test_intersection(self, tf1, tf2):
+        # intersect with self is self
+        assert tf1.intersection(tf1) == tf1
+
+        itf1 = tf1.intersection(tf2)
+
+        # verifying shape after operation
+        assert_columns(itf1)
+
+        for c in itf1:
+            assert c in tf1
+            assert c in tf2
+
+        itf2 = tf2.intersection(tf1)
+        # verifying shape after operation
+        assert_columns(itf2)
+        assert itf1 == itf2
+
+    @given(tf1=TradeFrame.strategy(), tf2=TradeFrame.strategy())
+    @settings(
+        suppress_health_check=[HealthCheck.too_slow]
+    )  # TODO : improve strategy... and maybe test as well ?
+    def test_union(self, tf1, tf2):
+        # union with self is self
+        assert tf1.union(tf1) == tf1
+
+        utf1 = tf1.union(tf2)
+
+        # verifying shape after operation
+        assert_columns(utf1)
+
+        # REMINDER: the union on trade doesnt do any merge (like for OHLCFrame), so here the relationship is trivial:
+        for c in tf1:
+            assert c in utf1
+
+        for t in tf2:
+            assert t in utf1
+
+        # Symmetric !
+        utf2 = tf2.union(tf1)
+        # verifying shape after operation
+        assert_columns(utf2)
+
+        assert utf1 == utf2
+
+    @given(tf1=TradeFrame.strategy(), tf2=TradeFrame.strategy())
+    @settings(
+        suppress_health_check=[HealthCheck.too_slow]
+    )  # TODO : improve strategy... and maybe test as well ?
+    def test_difference(self, tf1, tf2):
+
+        # difference with self is empty
+        assert tf1.difference(tf1).empty
+
+        dtf1 = tf1.difference(tf2)
+
+        # verifying shape after operation
+        assert_columns(dtf1)
+
+        for c in dtf1:
+            assert c in tf1
+            assert c not in tf2
+
+        for c in tf1:
+            if c not in tf2:
+                assert c in dtf1
 
     @given(tradeframe=TradeFrame.strategy())
     def test_str(self, tradeframe: TradeFrame):

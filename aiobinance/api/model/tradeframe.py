@@ -319,13 +319,71 @@ class TradeFrame:
     def __len__(self):
         return len(self.df)
 
-    # def __add__(self, other: TradeFrame):
-    #     # At the frame level we ignore the index (unintended record ordering)
-    #     return TradeFrame(
-    #         df=self.df.append(other.df, ignore_index=True, verify_integrity=True)
-    #     )
+    # Ref : https://docs.python.org/3.8/library/stdtypes.html#set.intersection
+    def intersection(self, other: TradeFrame):
+        # extracting candles when there is *exact* equality
+        trades = []
+        # very naive implementation. TODO : optimize
+        for t in self:
+            if t in other:
+                trades.append(t)
 
-    # TODO : set operations on TradeFrame (intersection, union, difference)
+        return TradeFrame.from_tradeslist(*trades)
+
+    # Ref : https://docs.python.org/3.8/library/stdtypes.html#set.union
+    def union(self, other: TradeFrame):
+
+        # special empty case => return the other one.
+        # This avoid different columns issue when dataframe is empty (open_time is not the index - pandas 1.1.5)
+        if self.df.empty:
+            return TradeFrame(df=other.df.copy(deep=True))
+        if other.df.empty:
+            return TradeFrame(df=self.df.copy(deep=True))
+
+        # otherwise we need to merge
+        newdf_noidx = self.df.reset_index(drop=False).merge(
+            other.df.reset_index(drop=False), how="outer"
+        )
+
+        # Note : previous merging attempts with "aggregate" and fonction application failed
+        # on tricky bugs/pandas limitations...
+        # Attempting a different way based on resolving duplicates in groups and replacing.
+        dups = newdf_noidx.duplicated(subset="id", keep=False)
+
+        dupgroups = newdf_noidx[dups].groupby(by="id")
+
+        # keeping all non-duplicates in boolean filter
+        grpfltr = ~newdf_noidx.id.isin(dupgroups.groups)
+
+        for grp, frm in dupgroups:
+            best_idx = frm.iloc[0].name  # picking first in frame
+            # We could here implement some kind of clever merging if it becomes necessary (like for OHLCFrame)...
+
+            # merge in group filter (set it to true, all other in same group must remain false)
+            grpfltr = grpfltr | (grpfltr.index == best_idx)
+
+        # replace groups into merged dataframe
+        newdf_noidx = newdf_noidx[grpfltr]
+
+        # the OHLCFrame constructor will reindex properly.
+        return TradeFrame(df=newdf_noidx)
+
+    # Ref : https://docs.python.org/3.8/library/stdtypes.html#set.difference
+    def difference(self, other: TradeFrame):
+        # finding identical indexes in both dataframe, and extracting subset
+
+        ix = self.intersection(other)
+
+        trades = []
+        # very naive implementation. TODO : optimize
+        # Reminder : this is just a set of candles, no candle merging.
+        for t in self:
+            # Note : in case of conflict (same index, different values), this has the effect of
+            #        ignoring other and prioritizing having candles from self in result.
+            if t not in ix:
+                trades.append(t)
+
+        return TradeFrame.from_tradeslist(*trades)
 
     def __str__(self):
         # optimize before display (high decimal precision is not manageable by humans)
