@@ -85,7 +85,7 @@ def timeinterval_from_timedelta(td: timedelta):
             return k
 
 
-@dataclass
+@dataclass(eq=False)
 class PriceCandle:
     # REMINDER : as 'precise' and 'pythonic' semantic as possible
     open_time: datetime
@@ -116,6 +116,14 @@ class PriceCandle:
     def convert_pandas_timestamp(cls, v: Union[pd.Timestamp, datetime]):
         if isinstance(v, pd.Timestamp):
             v = v.to_pydatetime(warn=False)  # silently ignoring nanoseconds
+
+        if isinstance(v, np.datetime64):  # Ref: https://stackoverflow.com/a/13704307
+            td = (
+                v.astype("datetime64[us]")
+                - np.datetime64("1970-01-01T00:00:00.000000", "us")
+            ).astype(timedelta)
+            v = datetime.utcfromtimestamp(td.total_seconds())
+            # Note: there are precision issues on CPython 3.8.5 => we need custom __eq__
 
         if isinstance(v, datetime):
             if (
@@ -156,15 +164,24 @@ class PriceCandle:
         draw,
         time_deltas: SearchStrategy = st.timedeltas(
             min_value=timedelta(microseconds=1),
-            max_value=timedelta(days=365 * (MAXYEAR - MINYEAR)),
+            max_value=timedelta(
+                days=100
+            ),  # no point being too optimistic, there are various limitations in timing implementations...
         ),
         timebounds: Optional[SearchStrategy] = None,
     ):  # TODO : maybe we should split the time and the candle dimensions here...
         if timebounds is None:
             timebounds = time_deltas.flatmap(
-                lambda td: st.datetimes(  # no need to be extra precise on max bound here
-                    min_value=datetime(year=MINYEAR, month=1, day=1),
-                    max_value=datetime(year=MAXYEAR, month=12, day=31) - td,
+                lambda td: st.datetimes(  # no need to be extra precise on max bound here, but we need to deal with pandas&python limitations...
+                    min_value=max(
+                        datetime(year=MINYEAR, month=1, day=1),
+                        pd.to_datetime(pd.Timestamp.min),
+                    ),
+                    max_value=min(
+                        datetime(year=MAXYEAR, month=12, day=31),
+                        pd.to_datetime(pd.Timestamp.max),
+                    )
+                    - td,
                 ).flatmap(
                     lambda otd: st.tuples(st.just(otd), st.just(otd + td))
                 )
@@ -223,6 +240,23 @@ class PriceCandle:
             # uint64.max : 18446744073709551615
             is_best_match=draw(st.integers(min_value=npii.min, max_value=npii.max)),
         )
+
+    def __eq__(self, other):
+        for f in fields(self):
+            if (
+                f.type == "datetime"
+            ):  # special comparison for datetime (resolution is important here...)
+                s = getattr(self, f.name)
+                o = getattr(other, f.name)
+                delta = s - o if s >= o else o - s  # absolute delta
+                # we need to take in account resolution to avoid python precision issues
+                if delta > max(
+                    getattr(self, f.name).resolution, getattr(other, f.name).resolution
+                ):
+                    return False
+            elif getattr(self, f.name) != getattr(other, f.name):
+                return False
+        return True
 
     def __str__(self) -> str:
         return f"""

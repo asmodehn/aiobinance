@@ -161,9 +161,12 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
         if self.df.index.name != "open_time" or not isinstance(
             self.df.index, pd.DatetimeIndex
         ):
+            # CAREFUL with datetime64 and index/hash : https://github.com/numpy/numpy/issues/3836
             assert "open_time" in self.df.columns
             # Mutating df under the hood... CAREFUL : we heavily rely on (buggy?) pandas here...
             self.df.reset_index(drop=True, inplace=True)
+            # enforcing open_time unicity
+            self.df.drop_duplicates(subset=["open_time"], keep="last", inplace=True)
             # use the open_time column as an index
             self.df.set_index(
                 pd.to_datetime(self.df["open_time"]),
@@ -181,6 +184,7 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
             assert self.df.index.name == "open_time"
 
             # finally enforcing dtypes:
+            # TODO
 
         # setting interval timedelta automatically
         object.__setattr__(
@@ -193,7 +197,7 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
         # https://docs.python.org/2/reference/datamodel.html#object.__contains__
         if isinstance(item, PriceCandle):
             for t in self:  # iterates and cast to PriceCandle
-                if t == item:  # using Trade equality
+                if t == item:  # using PriceCandle equality
                     return True
         elif isinstance(item, datetime):  # continuous index
             if (
@@ -221,7 +225,7 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
         elif len(self) == len(other):
             # BEWARE : https://github.com/pandas-dev/pandas/issues/20442
             for s, o in zip(self, other):  # this iterates and cast to Trade
-                if s != o:  # here we use Trade.__eq__ !
+                if s != o:  # here we use PriceCandle.__eq__ !
                     break
             else:
                 return True
@@ -289,9 +293,7 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
                 ]
 
                 if len(rs) == 1:
-                    return PriceCandle(
-                        **rs.reset_index(drop=False).iloc[0]
-                    )  # simple since dataframe is  indexed on id
+                    return PriceCandle(**rs.reset_index(drop=False).iloc[0])
                 elif len(rs) == 0:
                     raise KeyError(f"Invalid index {item}")
                 else:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, field, fields
 from datetime import datetime, timezone
 from decimal import Decimal, getcontext
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import hypothesis.strategies as st
 import numpy as np
@@ -20,11 +20,10 @@ from tabulate import tabulate
 class Trade:
     # TODO : directly use numpy dtypes here in hints instead of specific as_dtype() method ?
     # REMINDER : as 'precise' and 'pythonic' semantic as possible
+    id: int  # id first field, as it will be used as index in the frame
+
     time_utc: datetime  # Making it obvious that time here is meant to be utc, even if datetime is naive like with numpy
     symbol: str  # TODO : improve
-    id: int
-    # cf: TypeError: cannot do slice indexing on Index with these indexers [18446744073709551615] of type int
-    # cf:  E   OverflowError: Python int too large to convert to C long # pandas/_libs/hashtable_class_helper.pxi:1032: OverflowError
     price: Decimal
     qty: Decimal
     quote_qty: Decimal
@@ -98,27 +97,25 @@ class Trade:
         return v
 
     @classmethod  # actually property of the class itself -> metaclass (see datacrytals...)
-    def as_dtype(cls) -> List[Tuple[str, np.dtype]]:
+    def as_dtype(cls) -> Dict[str, np.dtype]:
         """ Interpretation of this dataclass as dtype for optimizations with numpy """
         # Ref : https://numpy.org/devdocs/reference/arrays.dtypes.html#arrays-dtypes-constructing
         specified = {
+            "id": np.dtype("uint64"),
             "time_utc": np.dtype(
                 "datetime64[ns]"
             ),  # CAREFUL : timezone naive since numpy 1.11.0
             # Note: datetime64[ms] is usual server timestamp, but not enough precise for python [us]
             # Note: datetime64[ns] is the enforced format for pandas datetime/timestamp, but more precise than python [us]
-            "id": np.dtype("uint64"),
         }
         # TODO : min/max properties on the type itself...
         # TODO : more strict column dtypes !
 
         # CAREFUL order needs to match fields order here...
-        return [
-            (f.name, specified[f.name])
-            if f.name in specified
-            else (f.name, np.dtype("O"))
+        return {
+            f.name: specified[f.name] if f.name in specified else np.dtype("O")
             for f in fields(cls)
-        ]
+        }
 
     @classmethod
     def strategy(cls):
@@ -140,21 +137,10 @@ class Trade:
         )
 
     def __str__(self) -> str:
-        s = f"""
-time_utc: {self.time_utc}
-symbol: {self.symbol}
-id: {self.id}
-price: {self.price}
-qty: {self.qty}
-quote_qty: {self.quote_qty}
-commission: {self.commission} {self.commission_asset}
-is_buyer: {self.is_buyer}
-is_maker: {self.is_maker}
-order_id: {self.order_id}
-order_list_id: {self.order_list_id}
-is_best_match: {self.is_best_match}
-"""
-        return s
+        # simple string display to avoid special cases
+        return "\n".join(
+            f"{f.name}: {str(getattr(self, f.name))}" for f in fields(self)
+        )
 
     def __dir__(self) -> Iterable[str]:
         # hiding private methods and data validators
