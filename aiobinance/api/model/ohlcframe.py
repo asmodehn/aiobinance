@@ -20,14 +20,19 @@ from pydantic import validator
 from tabulate import tabulate
 
 from aiobinance.api.model.pricecandle import PriceCandle
+from aiobinance.api.model.timeinterval import (
+    TimeStep,
+    timeinterval_from_timedelta,
+    timeinterval_to_timedelta,
+)
 
 
 # Note : these are python dataclasses as pydantic cannot really typecheck dataframe content...
 @dataclass(frozen=True)
 class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can help us enforce correct shape of dataframe...
 
-    # TODO : we should probably make the timeinterval (timeframe) part of the type here...
-    interval: Optional[timedelta] = field(
+    # TODO : we should probably make the timeinterval (TimeStep) part of the type here...
+    interval: Optional[TimeStep] = field(
         init=False,  # we determine that from the dataframe in __post_init__
         default=None,
     )
@@ -142,7 +147,7 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
             # TODO: It could then be used to track positions in differences and patches (cf. plot updates)
         if compute_mid_time:
             if not plotdf.empty:
-                plotdf["mid_time"] = plotdf.index + self.interval / 2
+                plotdf["mid_time"] = plotdf.index + self.interval.delta.value / 2
             else:  # if no index to use for computation, duplicate close_time column
                 plotdf["mid_time"] = plotdf["close_time"].copy()
         if compute_upwards:
@@ -169,7 +174,9 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
             self.df.drop_duplicates(subset=["open_time"], keep="last", inplace=True)
             # use the open_time column as an index
             self.df.set_index(
-                pd.to_datetime(self.df["open_time"]),
+                pd.to_datetime(
+                    self.df["open_time"]
+                ),  # Ref : https://binance-docs.github.io/apidocs/#kline-candlestick-data
                 verify_integrity=True,
                 inplace=True,
             )
@@ -187,10 +194,13 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
             # TODO
 
         # setting interval timedelta automatically
+        td = (self.df.iloc[0].close_time - self.df.iloc[0].name).to_pytimedelta()
+        # normalize to TimeStep !!!
+        tdn = TimeStep(td)
         object.__setattr__(
             self,
             "interval",  # We need to restrict ourselves to ONE candle here
-            (self.df.iloc[0].close_time - self.df.iloc[0].name).to_pytimedelta(),
+            tdn,
         )
 
     def __contains__(self, item: Union[PriceCandle, datetime]) -> bool:

@@ -49,7 +49,7 @@ class Trade:
 
         if isinstance(v, int):  # timestamp [ns]
             v = datetime.fromtimestamp(
-                v * 0.001, tz=timezone.utc
+                v // 1000, tz=timezone.utc
             )  # assume original timestamp is in [ns] on UTC
             # TODO : probably storing raw data in dataframe before conversion would be a good idea...
             #  Pb : how to check validity...

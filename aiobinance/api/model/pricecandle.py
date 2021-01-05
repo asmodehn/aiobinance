@@ -1,88 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import asdict, fields
+from dataclasses import fields
 from datetime import MAXYEAR, MINYEAR, datetime, timedelta, timezone
 from decimal import Decimal
-from enum import Enum
-from typing import ClassVar, Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, Optional, Union
 
 import hypothesis.strategies as st
 import numpy as np
 import pandas as pd
-from bokeh.models import BooleanFilter, CDSView, ColumnDataSource, Legend
-from bokeh.plotting import Figure
-from hypothesis import assume, infer
 from hypothesis.strategies import SearchStrategy
 from pydantic import validator
 from pydantic.dataclasses import dataclass
 
 # Leveraging pydantic to validate based on type hints
-from tabulate import tabulate
-
-
-class TimeInterval(Enum):
-    minutely = "1m"
-    minutely_3 = "3m"
-    minutely_5 = "5m"
-    minutely_15 = "15m"
-    minutely_30 = "30m"
-    hourly = "1h"
-    hourly_2 = "2h"
-    hourly_4 = "4h"
-    hourly_6 = "6h"
-    hourly_8 = "8h"
-    hourly_12 = "12h"
-    daily = "1d"
-    daily_3 = "3d"
-    weekly = "1w"
-
-    # monthly = "1M"  # DROPPED
-
-
-def timeinterval_to_timedelta(self):
-    # timedelta conversion
-    _convert: ClassVar = {
-        "1m": timedelta(minutes=1),
-        "3m": timedelta(minutes=3),
-        "5m": timedelta(minutes=5),
-        "15m": timedelta(minutes=15),
-        "30m": timedelta(minutes=30),
-        "1h": timedelta(hours=1),
-        "2h": timedelta(hours=2),
-        "4h": timedelta(hours=4),
-        "6h": timedelta(hours=6),
-        "8h": timedelta(hours=8),
-        "12h": timedelta(hours=12),
-        "1d": timedelta(days=1),
-        "3d": timedelta(days=3),
-        "1w": timedelta(weeks=1),
-        # '1M': timedelta(months)  # DROPPING MONTHLY Candle features (probably not useful for us)
-    }
-    return _convert[self.value]
-
-
-def timeinterval_from_timedelta(td: timedelta):
-    # timedelta conversion
-    _convert: ClassVar = {
-        "1m": timedelta(minutes=1),
-        "3m": timedelta(minutes=3),
-        "5m": timedelta(minutes=5),
-        "15m": timedelta(minutes=15),
-        "30m": timedelta(minutes=30),
-        "1h": timedelta(hours=1),
-        "2h": timedelta(hours=2),
-        "4h": timedelta(hours=4),
-        "6h": timedelta(hours=6),
-        "8h": timedelta(hours=8),
-        "12h": timedelta(hours=12),
-        "1d": timedelta(days=1),
-        "3d": timedelta(days=3),
-        "1w": timedelta(weeks=1),
-        # '1M': timedelta(months)  # DROPPING MONTHLY Candle features (probably not useful for us)
-    }
-    for k, v in _convert.items():
-        if v >= td:
-            return k
 
 
 @dataclass(eq=False)
@@ -123,7 +53,8 @@ class PriceCandle:
                 - np.datetime64("1970-01-01T00:00:00.000000", "us")
             ).astype(timedelta)
             v = datetime.utcfromtimestamp(td.total_seconds())
-            # Note: there are precision issues on CPython 3.8.5 => we need custom __eq__
+            # TODO : this implies float computation (innacurate after 2117).
+            #  To detect, remove __eq__ to retrieve exact eq from dataclass => convert to int computation only
 
         if isinstance(v, datetime):
             if (

@@ -29,10 +29,23 @@ class TestOHLCViewBase(unittest.TestCase):
         # old_df = tradeframe.df.copy(deep=True)
         # old_id = tradeframe.id
 
+        old_frame = ohlcview.frame
         ohlcview(frame=ohlcframe_new)
 
-        # after update, frames are equal
-        assert ohlcview.frame == ohlcframe_new
+        # dataframe merging happened (details handled by OHLCframe)
+        # CAREFUL with intervals
+        if old_frame.empty or ohlcframe_new.interval != old_frame.interval:
+            assert (
+                ohlcview.frame == ohlcframe_new
+            )  # priority on new frame when interval is different
+            # Note hte frame is replaced even if the new ohlcframe is empty (interval might be different...)
+        elif not ohlcframe_new.empty:
+            assert ohlcview.open_time == min(
+                old_frame.open_time, ohlcframe_new.open_time
+            )
+            assert ohlcview.close_time == max(
+                old_frame.close_time, ohlcframe_new.close_time
+            )
 
     @given(ohlcview=OHLCViewBase.strategy())
     def test_str(self, ohlcview: OHLCViewBase):

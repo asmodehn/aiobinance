@@ -88,11 +88,8 @@ class TradesView(TradesViewBase):
         ]
         # TODO: probably better idea to store data in frame, before converting (but still verifying data type somehow...)
         frame = TradeFrame.from_tradeslist(*trades)
-        # We aggregate all formatted trades into this TradesView
-        super(TradesView, self).__call__(frame=self.frame.union(frame))
-
-        # and return self
-        return self
+        # We let baseclasse aggregate tradeframes
+        return super(TradesView, self).__call__(frame=frame)
 
 
 if __name__ == "__main__":

@@ -28,14 +28,14 @@ class TradesViewBase:
     # ie : just a default value when calling...
     market: Optional[str] = field(init=True, default=None)
 
-    @cached_property
+    @property
     def symbol(self) -> List[str]:
         if self.frame:
             return self.frame.symbol
         else:
             return []
 
-    @cached_property
+    @property
     def id(self) -> List[int]:
         if self.frame:
             return self.frame.id
@@ -57,23 +57,8 @@ class TradesViewBase:
         if frame is None:
             return self
 
-        popping = []
-        if self.frame is None:
-            # because we may have cached invalid values from initialization (self.info was None)
-            popping.append("id")
-            popping.append("symbol")
-        else:  # otherwise we detect change leveraging pandas
-            if self.frame.id != frame.id:
-                popping.append("id")  # because id only depends on id
-            if self.frame.symbol != frame.symbol:
-                popping.append("symbol")
-
         # updating by updating data
-        self.frame = frame
-
-        # and invalidating related caches
-        for p in popping:
-            self.__dict__.pop(p, None)
+        self.frame = self.frame.union(frame)
 
         # returning self to allow chaining
         return self

@@ -28,18 +28,17 @@ class TestTradesViewBase(unittest.TestCase):
         # old_df = tradeframe.df.copy(deep=True)
         # old_id = tradeframe.id
 
+        old_frame = tradesview.frame
         tradesview(frame=tradeframe_new)
 
-        # after update they are essentially "the same" (altho not '==') in this precise sense:
-
-        # contains the same set of ids
-        assert set(tradesview.id) == set(tradeframe_new.id)
-
-        # have access to the same trades (might not be in the same order however)
-        for t in tradeframe_new:
-            assert t in tradesview
-        for t in tradesview:
-            assert t in tradesview
+        # dataframe merging happened (details handled by Tradeframe)
+        if old_frame.empty:
+            assert tradesview.frame == tradeframe_new
+        elif tradeframe_new.empty:
+            assert tradesview.frame == old_frame
+        else:
+            assert min(tradesview.id) == min(old_frame.id + tradeframe_new.id)
+            assert max(tradesview.id) == max(old_frame.id + tradeframe_new.id)
 
     @given(tradesview=TradesViewBase.strategy())
     def test_str(self, tradesview: TradesViewBase):

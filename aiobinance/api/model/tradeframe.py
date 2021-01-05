@@ -125,22 +125,15 @@ class TradeFrame:
 
         return cls(df=df)
 
-    def as_datasource(self, side: OrderSide) -> ColumnDataSource:
+    def as_datasource(self) -> ColumnDataSource:
         plotdf = self.optimized()
         # TODO : live bokeh updates ??
 
-        # select a subset of trades via boolean careful indexing with pandas
-        if side == OrderSide.BUY:
-            sided_plotdf = plotdf.loc[plotdf["is_buyer"] == True]  # noqa: E712
-        elif side == OrderSide.SELL:
-            # Note : for some reason "pd.Series ... is False" fails on pandas.
-            # __eq__ is overloaded and has the expected behavior
-            sided_plotdf = plotdf.loc[plotdf["is_buyer"] == False]  # noqa: E712
-        else:
-            raise NotImplementedError("More than 2 OrderSides ??")
+        # build plot datasource depending on whos asking for it
+        plotdf["price_boughtsold"] = np.where(plotdf["is_buyer"], "BOUGHT", "SOLD")
 
         # dropping id column to avoid conflict. (it is still the index and should be accessible as such)
-        return ColumnDataSource(sided_plotdf.drop(["id"], axis=1))
+        return ColumnDataSource(plotdf.drop(["id"], axis=1))
 
     def __post_init__(self):
         # Here we follow binance format and enforce proper types and structure
