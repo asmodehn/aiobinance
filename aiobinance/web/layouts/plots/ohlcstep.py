@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 from asyncio import QueueEmpty
 from datetime import datetime, timedelta, timezone
-from typing import Callable, List, Optional
+from typing import Any, Callable, List, Optional
 
 import numpy as np
 from bokeh.document import Document
@@ -16,6 +16,7 @@ from bokeh.models import (
     Column,
     ColumnDataSource,
     CustomJSFilter,
+    DataRange1d,
     GlyphRenderer,
     GroupFilter,
     Select,
@@ -89,6 +90,9 @@ class OHLCStepPlots:
         )
         self.tradesource = self.trades.frame.as_datasource() if self.trades else None
 
+        # register update hook
+        self.ohlcv.update_hook(ts=self.selected_tf, callback=self._update_hook)
+
         # send a request for this timeframe (as we would do on change)
         self.ohlcv.expectations.put_nowait(TimeInterval(step=self.selected_tf))
 
@@ -97,8 +101,20 @@ class OHLCStepPlots:
             tools="pan, wheel_zoom",
             toolbar_location="left",
             x_axis_type="datetime",
+            x_range=DataRange1d(  # TODO : improve x_range here...
+                follow="end",
+                # computation  is somehow wrong here ??
+                # min_interval= 10*self.selected_tf.delta.value,
+                # max_interval = 100 * self.selected_tf.delta.value,
+                # range_padding= 3* self.selected_tf.delta.value
+            ),
             y_axis_location="right",
             sizing_mode="scale_width",
+        )
+        # NOT WORKING :-/
+        fig.on_change(
+            "x_range",
+            lambda attr, old, new: print(f"{attr}: {old} -> {new} : x_range_changed !"),
         )
 
         self.highlow = fig.segment(
@@ -191,6 +207,7 @@ class OHLCStepPlots:
         self.document.add_periodic_callback(
             functools.partial(self, num_candles=self.num_candles),
             period_milliseconds=150,  # quick plot update to refresh display asap
+            # attempting to request data from view...
         )
         # Note: for simplicity here we retrieve and update all data, even if there is no request to it
         print(" OK.")
@@ -206,10 +223,11 @@ class OHLCStepPlots:
         # TODO: PATCH existing candles in plot...
         # new elements : we stream new data
         # patch method cannot add data BUT it cleans up potential graphical artifacts from previous stream/patches
-
-        # let bokeh refresh entirely from new datasource...
-        self.datasource.stream(newsource.data)
-
+        try:
+            # let bokeh refresh entirely from new datasource...
+            self.datasource.stream(newsource.data)
+        except Exception as e:
+            raise e
         # In all cases:
         # manual patch (somehow bokeh stream fails to patch properly)
 
@@ -273,12 +291,22 @@ class OHLCStepPlots:
 
         return self
 
+    def _update_hook(self, frameupdate: OHLCFrame) -> Any:
+        # let the plot get the updates when it is tick time
+        self.document.add_next_tick_callback(
+            functools.partial(self._bokeh_update, frameupdate=frameupdate)
+        )
+        # Note : datasource will be updated on doc tick, to keep track of that is displayed by document
+
+        return True  # TODO : something useful to do with hte return here ?
+
     def __call__(
         self,
         num_candles: int = 120,
     ):
         # determining if we need update... between before and now
         # TODO :this should be adjusted to reflect user interactions with plot
+        #  if possible should be done reactively, instead of having quick polling like here...
         now = datetime.now(tz=timezone.utc)
         before = now - num_candles * self.selected_tf.delta.value
 
@@ -289,31 +317,11 @@ class OHLCStepPlots:
             and now > plot_close + self.selected_tf.delta.value
             and self.ohlcv.expectations.empty()
         ):
+            # Here we request more data from ohlcview
             self.ohlcv.expectations.put_nowait(
                 TimeInterval(start=before, stop=now, step=self.selected_tf)
             )
         # TODO : shall we move this to the plot itself ?
-
-        try:
-            tint = self.ohlcv.updates.get_nowait()
-
-            if tint.step == self.selected_tf:
-                # computing differences on ohlcFrame as we cannot trust datasource delta computation :/
-                frameupdate = self.ohlcv[self.selected_tf].difference(self.framesource)
-                # TODO : OPTIMIZE THIS ! Difference Computation is too slow...
-                # let the plot get the updates when it is tick time
-                self.document.add_next_tick_callback(
-                    functools.partial(self._bokeh_update, frameupdate=frameupdate)
-                )
-                # storing new framesource for later diff computation
-                self.framesource = self.ohlcv[self.selected_tf]
-                # Note : datasource will be updated on doc tick, to keep track of that is displayed by document
-
-                # consuming updates
-                self.ohlcv.updates.task_done()
-            # TODO : what about skipped updates (maybe if two plots on same ohlcview...)
-        except QueueEmpty:
-            pass
 
         # TODO : soft shutdown...
 
