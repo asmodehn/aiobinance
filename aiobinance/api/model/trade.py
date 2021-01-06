@@ -47,13 +47,19 @@ class Trade:
         cls, v: Union[float, int, datetime, np.datetime64, pd.Timestamp]
     ) -> datetime:  # TODO : rename
 
-        if isinstance(v, int):  # timestamp [ns]
+        if isinstance(
+            v, int
+        ):  # timestamp [ns] # TODO : CLEANUP : which unit ? maybe [ms] -binance- or [us] -python- instead ? maybe keep [ns] for numpy.int64 type only ?
             v = datetime.fromtimestamp(
-                v // 1000, tz=timezone.utc
+                v // 1000,
+                tz=timezone.utc,  # looks like it is used for [ms] precision...
             )  # assume original timestamp is in [ns] on UTC
             # TODO : probably storing raw data in dataframe before conversion would be a good idea...
             #  Pb : how to check validity...
-        if isinstance(v, float):  # timestamp [us] (from python)
+        if isinstance(
+            v, float
+        ):  # timestamp [s] with [us] precision (from python/POSIX standard) BUT might be imprecise !
+            # imprecision should not annoy us, as timestamp on binance are with [ms] precision
             v = datetime.fromtimestamp(v, tz=timezone.utc)
 
         # making datetime tz-offset aware on UTC if needed

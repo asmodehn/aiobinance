@@ -286,12 +286,18 @@ class TestTradeFrame(unittest.TestCase):
         # verifying shape after operation
         assert_columns(utf1)
 
-        # REMINDER: the union on trade doesnt do any merge (like for OHLCFrame), so here the relationship is trivial:
+        # REMINDER: the union on trade does do merge on id, and priority is given to self
+        # but nothing else (like for OHLCFrame), so here the relationship is trivial
         for c in tf1:
             assert c in utf1
 
         for t in tf2:
-            assert t in utf1
+            if t.id not in tf1:
+                assert t in utf1
+            else:  # if t.id in tf1, the original should be there, the new one is lost
+                # It is not a problem in our usecase since binance id are specified to be unique
+                assert tf1[t.id] in utf1
+                # TODO : maybe we should raise on this ??
 
         # Symmetric !
         utf2 = tf2.union(tf1)

@@ -38,12 +38,16 @@ class TradesView(TradesViewBase):
         if start_time is not None:
             # to make sure the timezone is set at this stage (otherwise timestamps will be ambiguous)
             assert start_time.tzinfo is not None
-            start_timestamp = int(start_time.timestamp() * 1000)
+            start_timestamp = int(
+                start_time.timestamp() * 1000
+            )  # reminder :this should be [ms] precision for binance
             reqparams.update({"startTime": start_timestamp})
 
         if stop_time is not None:
             assert stop_time.tzinfo is not None
-            stop_timestamp = int(stop_time.timestamp() * 1000)
+            stop_timestamp = int(
+                stop_time.timestamp() * 1000
+            )  # reminder :this should be [ms] precision for binance
             reqparams.update({"endTime": stop_timestamp})
 
         if symbol is None:
@@ -70,7 +74,7 @@ class TradesView(TradesViewBase):
         # We do not want to change the semantics of the exchange exposed models here.
         trades = [
             Trade(
-                time_utc=r["time"],
+                time_utc=r["time"] * 1e-3,  # converting [ms] to [s] as float
                 symbol=r["symbol"],
                 id=r["id"],
                 order_id=r["orderId"],

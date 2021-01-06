@@ -30,7 +30,7 @@ def hummingbot_instance(ctx, filename, html=False):
     last_trade = trades[trades.id[-1]]
 
     asyncio.run(
-        ohlcv(
+        ohlcv.request(
             start_time=first_trade.time_utc,
             stop_time=last_trade.time_utc,
         )

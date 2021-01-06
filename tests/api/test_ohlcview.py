@@ -5,6 +5,7 @@ import pytest
 
 from aiobinance.api.exchange import Exchange
 from aiobinance.api.model.ohlcframe import PriceCandle
+from aiobinance.api.model.timeinterval import TimeIntervalDelta, TimeStep
 from aiobinance.api.ohlcview import OHLCView
 from aiobinance.api.rawapi import Binance
 
@@ -28,14 +29,15 @@ async def test_price_from_binance():
 
     assert isinstance(ohlcv, OHLCView)
 
+    ts = TimeStep(TimeIntervalDelta.minutely_3)
     # actually get data
-    await ohlcv(start_time=start_time, stop_time=end_time, interval="3m")
+    await ohlcv.request(start_time=start_time, stop_time=end_time, interval=ts)
 
-    assert len(ohlcv) == 480
-    for c in ohlcv:
+    assert len(ohlcv[ts]) == 480
+    for c in ohlcv[ts]:
         assert isinstance(c, PriceCandle)
 
-    for first in ohlcv.frame:  # TODO : do we need some first() / iloc[0] access ??
+    for first in ohlcv[ts]:  # TODO : do we need some first() / iloc[0] access ??
         assert first.open_time == datetime(
             year=2020, month=8, day=27, hour=10, minute=33, tzinfo=timezone.utc
         )

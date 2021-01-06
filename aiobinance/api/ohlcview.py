@@ -28,8 +28,8 @@ class OHLCView(OHLCViewBase):
 
     # TODO : aiostream instead of queue here ?
     #  we need to think about combining expectatinos in a way that make sense (Time Interval arithmetic)
-    expectations: Queue  # containing TimeInterval as the requested dataset
-    updates: Queue  # containing TimeInterval as the updated part of data
+    expectations: Optional[Queue]  # containing TimeInterval as the requested dataset
+    updates: Optional[Queue]  # containing TimeInterval as the updated part of data
 
     @st.composite
     @staticmethod
@@ -41,10 +41,8 @@ class OHLCView(OHLCViewBase):
         self.api = api
         self.symbol = symbol
 
-        self.expectations = Queue()
-        self.updates = (
-            Queue()
-        )  # TODO : maybe one per interested party ? created dynamically ?
+        self.expectations = None  # maybe no async event loop just yet
+        self.updates = None
 
         super(OHLCView, self).__init__(*frames)
 
@@ -148,6 +146,12 @@ class OHLCView(OHLCViewBase):
         return super(OHLCView, self).__call__(frame=frame)
 
     async def loop(self, mini_sleep: timedelta = timedelta(seconds=3)):
+
+        if self.expectations is None:
+            self.expectations = Queue()
+        if self.updates is None:
+            self.updates = Queue()
+
         # TODO : avoid multiple calls here !!
         if not self.expectations.empty():  # to avoid blocking when not useful
             tint = await self.expectations.get()

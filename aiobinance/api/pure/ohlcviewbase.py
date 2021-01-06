@@ -50,7 +50,7 @@ class OHLCViewBase:
         self.frames = {}
         for f in frames:
             # default to minutely when unknown
-            tstep = TimeStep(timedelta(minutes=1) if f.interval is None else f.interval)
+            tstep = TimeStep(timedelta(minutes=1)) if f.interval is None else f.interval
             if tstep in self.frames:
                 self.frames[tstep] = self.frames[tstep].union(f)  # merging frame
             else:
@@ -59,7 +59,9 @@ class OHLCViewBase:
     def __call__(self, *, frame: Optional[OHLCFrame] = None, **kwargs) -> OHLCViewBase:
         """ self updating the instance with new dataframe, one frame at a time..."""
         # return same instance if no change
-        if frame is None:
+        if (
+            frame is None or frame.empty
+        ):  # Note : we cannot extract interval from an empty frame !
             return self
 
         # TODO: this should probably be encoded in frame types somehow, to avoid any mistakes when operating on them...

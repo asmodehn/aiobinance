@@ -121,7 +121,9 @@ class TimeStep:
 
         if isinstance(step, TimeIntervalDelta):
             self.delta = step
-        elif step is not None:
+        elif step is None:
+            self.delta = TimeIntervalDelta.minutely
+        elif isinstance(step, timedelta):
             # find closest TimeIntervalDelta
             closest = TimeIntervalDelta.minutely
             for tid in TimeIntervalDelta:
@@ -135,6 +137,8 @@ class TimeStep:
                 closest = tid
 
             self.delta = closest
+        else:
+            RuntimeError(f"Cannot convert {step} to a TimeStep")
 
     def __hash__(self):
         """only the delta attribute is useful. This class is merely a conversion convenience.
@@ -146,11 +150,25 @@ class TimeStep:
         """equality follows hashing"""
         return hash(self) == hash(other)
 
-    def __lt__(self, other: TimeStep):
-        return self.delta < other.delta
+    def __lt__(self, other: Union[TimeStep, TimeIntervalDelta, timedelta]):
+        if isinstance(other, TimeStep):
+            return self.delta < other.delta
+        elif isinstance(other, TimeIntervalDelta):
+            return self.delta < other
+        elif isinstance(other, timedelta):
+            return self.delta.value < other
+        else:
+            return None  # anything else is probably not comparable
 
-    def __gt__(self, other: TimeStep):
-        return self.delta > other.delta
+    def __gt__(self, other: Union[TimeStep, TimeIntervalDelta, timedelta]):
+        if isinstance(other, TimeStep):
+            return self.delta > other.delta
+        elif isinstance(other, TimeIntervalDelta):
+            return self.delta > other
+        elif isinstance(other, timedelta):
+            return self.delta.value > other
+        else:
+            return None  # anything else is probably not comparable
 
     def __repr__(self):  # TODO : parsing both ways (useful for bokeh)
         return str(self.delta.value)
