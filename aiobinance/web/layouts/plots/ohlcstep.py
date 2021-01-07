@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import functools
-from asyncio import QueueEmpty
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, List, Optional
 
@@ -19,6 +20,7 @@ from bokeh.models import (
     DataRange1d,
     GlyphRenderer,
     GroupFilter,
+    Legend,
     Select,
 )
 from bokeh.plotting import Figure
@@ -35,68 +37,36 @@ from aiobinance.api.ohlcview import OHLCView
 from aiobinance.api.tradesview import TradesView
 
 
+@dataclass
 class OHLCStepPlots:
-
-    fig: Figure
 
     document: Document
     ohlcv: OHLCView
-    trades: TradesView
-    selected_tf: TimeStep
-    num_candles: int
+    trades: Optional[TradesView] = field(default=None)
 
-    framesource: OHLCFrame
-    datasource: ColumnDataSource
-    tradesource: Optional[ColumnDataSource]
+    selected_tf: TimeStep = field(default=TimeIntervalDelta.minutely)
+    num_candles: int = field(default=120)
 
-    update_needed: asyncio.Event
+    update_needed: asyncio.Event = field(default_factory=asyncio.Event)
 
-    highlow: GlyphRenderer
-    upbar: GlyphRenderer
-    downbar: GlyphRenderer
+    @functools.cached_property  # cached here for consistency in plot
+    def framesource(self) -> OHLCFrame:
+        return self.ohlcv[self.selected_tf]  # for dynamic data, access it directly.
 
-    def __init__(
-        self,
-        document: Document,
-        ohlcv: OHLCView,
-        selected_tf: Optional[TimeStep] = TimeStep(timedelta(minutes=1)),
-        num_candles: int = 120,
-        trades: Optional[TradesView] = None,
-    ):
-        """
-        An OHLC Plot, mostly self driven...
-        :param document: needed to be able to schedule view updates
-        :param ohlcv: data storage used for driving data updates
-        :param selected_tf: to know which Frame in the (dynamic) OHLCView we should consider
-        :param trades: optional
-        """
-        self.document = document
-        self.ohlcv = ohlcv
-        self.trades = trades
-        self.selected_tf = selected_tf
-        self.num_candles = num_candles
-
-        # TODO : this needs to work with empty columsn, as we need it for dynamically adding plots...
-        # if ohlcv.empty:
-        #     raise RuntimeWarning(
-        #         f"{ohlcv} is Empty! Plot might be broken...\n => Pass a non-empty Frame to make sure OHLC plot works as expected."
-        #     )
-
-        self.framesource = self.ohlcv[self.selected_tf]
-        # because we need to keep a copy of what is diplayed for update compuation later on
-
-        self.datasource = self.framesource.as_datasource(
+    @functools.cached_property
+    def datasource(self) -> ColumnDataSource:
+        return self.framesource.as_datasource(
             compute_mid_time=True, compute_upwards=True
         )
-        self.tradesource = self.trades.frame.as_datasource() if self.trades else None
 
-        # register update hook
-        self.ohlcv.update_hook(ts=self.selected_tf, callback=self._update_hook)
+    @functools.cached_property
+    def tradesource(self) -> Optional[ColumnDataSource]:
+        if self.trades:
+            return self.trades.frame.as_datasource()
 
-        # send a request for this timeframe (as we would do on change)
-        self.ohlcv.expectations.put_nowait(TimeInterval(step=self.selected_tf))
-
-        fig = Figure(
+    @functools.cached_property
+    def fig(self) -> Figure:
+        return Figure(
             plot_height=320,
             tools="pan, wheel_zoom",
             toolbar_location="left",
@@ -111,13 +81,10 @@ class OHLCStepPlots:
             y_axis_location="right",
             sizing_mode="scale_width",
         )
-        # NOT WORKING :-/
-        fig.on_change(
-            "x_range",
-            lambda attr, old, new: print(f"{attr}: {old} -> {new} : x_range_changed !"),
-        )
 
-        self.highlow = fig.segment(
+    @functools.cached_property
+    def highlow(self) -> GlyphRenderer:
+        return self.fig.segment(
             source=self.datasource,
             legend_label="OHLC H/L",
             x0="mid_time",
@@ -128,19 +95,19 @@ class OHLCStepPlots:
             color="black",
         )
 
-        # TODO : https://docs.bokeh.org/en/latest/docs/user_guide/data.html#customjsfilter
-        # This would simplify python code regarding update of this simple filter
-        # by transferring hte load to javascript on the client side...
-
-        upview = CDSView(
-            source=self.datasource,
-            filters=[GroupFilter(column_name="upwards", group="UP")],
-        )
-
-        self.upbar = fig.vbar(
+    @functools.cached_property
+    def upbar(self) -> GlyphRenderer:
+        source = self.datasource
+        return self.fig.vbar(
             legend_label="OHLC Up",
-            source=self.datasource,
-            view=upview,
+            source=source,  # has to be same as in CDSView
+            view=CDSView(
+                source=source,
+                filters=[GroupFilter(column_name="upwards", group="UP")],
+                # TODO : https://docs.bokeh.org/en/latest/docs/user_guide/data.html#customjsfilter
+                # This would simplify python code regarding update of this simple filter
+                # by transferring hte load to javascript on the client side...
+            ),
             width=self.selected_tf.delta.value,  # Note: may change with first update !!
             x="mid_time",
             bottom="open",
@@ -149,15 +116,19 @@ class OHLCStepPlots:
             line_color="black",
         )
 
-        downview = CDSView(
-            source=self.datasource,
-            filters=[GroupFilter(column_name="upwards", group="DOWN")],
-        )
-
-        self.downbar = fig.vbar(
+    @functools.cached_property
+    def downbar(self) -> GlyphRenderer:
+        source = self.datasource
+        return self.fig.vbar(
             legend_label="OHLC Down",
-            source=self.datasource,
-            view=downview,
+            source=source,  # has to be same as in CDSView
+            view=CDSView(
+                source=source,
+                filters=[GroupFilter(column_name="upwards", group="DOWN")],
+                # TODO : https://docs.bokeh.org/en/latest/docs/user_guide/data.html#customjsfilter
+                # This would simplify python code regarding update of this simple filter
+                # by transferring hte load to javascript on the client side...
+            ),
             width=self.selected_tf.delta.value,
             x="mid_time",
             top="open",
@@ -165,9 +136,11 @@ class OHLCStepPlots:
             fill_color="#F2583E",
             line_color="black",
         )
-        # we can pass trades to plot together...
+
+    @functools.cached_property
+    def bought(self) -> Optional[GlyphRenderer]:
         if self.tradesource is not None:
-            fig.triangle(
+            return self.fig.triangle(
                 legend_label="BOUGHT",
                 source=self.tradesource,
                 view=CDSView(
@@ -182,7 +155,10 @@ class OHLCStepPlots:
                 color="green",
             )
 
-            fig.inverted_triangle(
+    @functools.cached_property
+    def sold(self) -> Optional[GlyphRenderer]:
+        if self.tradesource is not None:
+            return self.fig.inverted_triangle(
                 legend_label="SOLD",
                 source=self.tradesource,
                 view=CDSView(
@@ -194,10 +170,64 @@ class OHLCStepPlots:
                 size=10,
                 color="red",
             )
-        fig.legend.location = "top_left"
-        fig.legend.click_policy = "hide"
 
-        self.fig = fig
+    # def __init__(
+    #     self,
+    #     document: Document,
+    #     ohlcv: OHLCView,
+    #     selected_tf: Optional[TimeStep] = TimeStep(timedelta(minutes=1)),
+    #     num_candles: int = 120,
+    #     trades: Optional[TradesView] = None,
+    #     **figure_kwargs  # to pass extra arguments to the figure,
+    #     # but maybe the whold class should inherit from it and describe components with properties
+    #     # similar to what bokeh does ?
+    # ):
+    #     """
+    #     An OHLC Plot, mostly self driven...
+    #     :param document: needed to be able to schedule view updates
+    #     :param ohlcv: data storage used for driving data updates
+    #     :param selected_tf: to know which Frame in the (dynamic) OHLCView we should consider
+    #     :param trades: optional
+    #     """
+    #     self.document = document
+    #     self.ohlcv = ohlcv
+    #     self.trades = trades
+    #     self.selected_tf = selected_tf
+    #     self.num_candles = num_candles
+    #
+    #     # TODO : this needs to work with empty columsn, as we need it for dynamically adding plots...
+    #     # if ohlcv.empty:
+    #     #     raise RuntimeWarning(
+    #     #         f"{ohlcv} is Empty! Plot might be broken...\n => Pass a non-empty Frame to make sure OHLC plot works as expected."
+    #     #     )
+    #
+    #
+    #     # because we need to keep a copy of what is displayed for update computation later on
+
+    def __post_init__(self):
+
+        # register update hook
+        self.ohlcv.update_hook(ts=self.selected_tf, callback=self._update_hook)
+
+        # send a request for this timeframe (as we would do on change)
+        self.ohlcv.expectations.put_nowait(TimeInterval(step=self.selected_tf))
+
+        # # NOT WORKING :-/
+        # fig.on_change(
+        #     "x_range",
+        #     lambda attr, old, new: print(f"{attr}: {old} -> {new} : x_range_changed !"),
+        # )
+
+        # calling plots to draw them and create legend
+        self.highlow
+        self.upbar
+        self.downbar
+        self.bought
+        self.sold
+
+        # modifying fig (in cache, after legend creation)
+        self.fig.legend.location = "top_left"
+        self.fig.legend.click_policy = "hide"
 
         # TODO : adjust zoom, to make only num_candles visible...
 
@@ -206,7 +236,7 @@ class OHLCStepPlots:
         # updating plot in background if necessary
         self.document.add_periodic_callback(
             functools.partial(self, num_candles=self.num_candles),
-            period_milliseconds=150,  # quick plot update to refresh display asap
+            period_milliseconds=5_000,  # quick plot update to refresh display asap
             # attempting to request data from view...
         )
         # Note: for simplicity here we retrieve and update all data, even if there is no request to it
@@ -310,6 +340,7 @@ class OHLCStepPlots:
         now = datetime.now(tz=timezone.utc)
         before = now - num_candles * self.selected_tf.delta.value
 
+        # CAREFUL : we dont want the framesource cached version, but the original dynamic one...
         plot_close = self.ohlcv[self.selected_tf].close_time
         # request more data if needed, and the queue is empty
         if (
