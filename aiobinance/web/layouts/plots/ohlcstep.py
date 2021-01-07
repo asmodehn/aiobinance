@@ -232,7 +232,10 @@ class OHLCStepPlots:
         # TODO : adjust zoom, to make only num_candles visible...
 
         # Scheduling periodic refresh check :
-        print(f"Starting plot update loop for {self.document}...", end="")
+        print(
+            f"Starting plot update loop for {self.ohlcv.symbol} {self.selected_tf}...",
+            end="",
+        )
         # updating plot in background if necessary
         self.document.add_periodic_callback(
             functools.partial(self, num_candles=self.num_candles),
