@@ -66,18 +66,22 @@ class OHLCStepPlots:
 
     @functools.cached_property
     def fig(self) -> Figure:
+
+        date_xrange = DataRange1d(  # TODO : improve x_range here...
+            follow="end",
+            follow_interval=self.num_candles * self.selected_tf.delta.value,
+            # computation  is somehow wrong here ??
+            min_interval=(self.num_candles // 2) * self.selected_tf.delta.value,
+            max_interval=self.num_candles * 2 * self.selected_tf.delta.value,
+            # range_padding= 3* self.selected_tf.delta.value
+        )
+        date_xrange.on_change("start", self.on_xrange_start_changed)
         return Figure(
             plot_height=320,
             tools="pan, wheel_zoom",
             toolbar_location="left",
             x_axis_type="datetime",
-            x_range=DataRange1d(  # TODO : improve x_range here...
-                follow="end",
-                # computation  is somehow wrong here ??
-                # min_interval= 10*self.selected_tf.delta.value,
-                # max_interval = 100 * self.selected_tf.delta.value,
-                # range_padding= 3* self.selected_tf.delta.value
-            ),
+            x_range=date_xrange,
             y_axis_location="right",
             sizing_mode="scale_width",
         )
@@ -204,6 +208,27 @@ class OHLCStepPlots:
     #
     #     # because we need to keep a copy of what is displayed for update computation later on
 
+    def on_xrange_start_changed(self, attr, old, new):
+        if (
+            old is not None
+        ):  # might be none when the data was not there at the start (first draw)
+            old = datetime.fromtimestamp(old * 0.001, tz=timezone.utc)
+
+        if new is not None:  # old is needed only for print debug...
+            new = datetime.fromtimestamp(new * 0.001, tz=timezone.utc)
+            print(f"{attr}: {old} -> {new}")
+
+            # CAREFUL : we dont want the framesource cached version, but the original dynamic one...
+            open_time = self.ohlcv[self.selected_tf].open_time
+            # only realistic if expectation Q is empty:  (duplicate test, but better not to pileup calls when it is knosn to be useless)
+            if open_time > new and self.ohlcv.expectations.empty():
+                # new data needed
+                earliest = min(
+                    open_time - self.num_candles * self.selected_tf.delta.value, new
+                )
+                # maybe requesting new data
+                self(from_date=earliest, til_date=open_time)
+
     def __post_init__(self):
 
         # register update hook
@@ -238,7 +263,7 @@ class OHLCStepPlots:
         )
         # updating plot in background if necessary
         self.document.add_periodic_callback(
-            functools.partial(self, num_candles=self.num_candles),
+            functools.partial(self),
             period_milliseconds=5_000,  # quick plot update to refresh display asap
             # attempting to request data from view...
         )
@@ -325,36 +350,55 @@ class OHLCStepPlots:
         return self
 
     def _update_hook(self, frameupdate: OHLCFrame) -> Any:
+
+        # forcing framesource refresh
+        del self.framesource
+        # datasource will be patched by bokeh datasource.patch and .stream
+
         # let the plot get the updates when it is tick time
         self.document.add_next_tick_callback(
             functools.partial(self._bokeh_update, frameupdate=frameupdate)
         )
         # Note : datasource will be updated on doc tick, to keep track of that is displayed by document
 
-        return True  # TODO : something useful to do with hte return here ?
+        return True  # TODO : something useful to do with the return here ?
 
-    def __call__(
-        self,
-        num_candles: int = 120,
-    ):
+    def __call__(self, from_date: datetime = None, til_date: datetime = None):
         # determining if we need update... between before and now
         # TODO :this should be adjusted to reflect user interactions with plot
         #  if possible should be done reactively, instead of having quick polling like here...
-        now = datetime.now(tz=timezone.utc)
-        before = now - num_candles * self.selected_tf.delta.value
+        til_date = datetime.now(tz=timezone.utc) if til_date is None else til_date
+        from_date = (
+            til_date - self.num_candles * self.selected_tf.delta.value
+            if from_date is None
+            else from_date
+        )
 
         # CAREFUL : we dont want the framesource cached version, but the original dynamic one...
         plot_close = self.ohlcv[self.selected_tf].close_time
-        # request more data if needed, and the queue is empty
-        if (
-            plot_close is not None
-            and now > plot_close + self.selected_tf.delta.value
-            and self.ohlcv.expectations.empty()
-        ):
-            # Here we request more data from ohlcview
-            self.ohlcv.expectations.put_nowait(
-                TimeInterval(start=before, stop=now, step=self.selected_tf)
-            )
+        plot_open = self.ohlcv[self.selected_tf].open_time
+
+        # request more data if the queue is empty
+        if self.ohlcv.expectations.empty():
+            if (  # after known data
+                plot_close is not None
+                and plot_close + self.selected_tf.delta.value < til_date
+                and plot_close + self.selected_tf.delta.value
+                < datetime.fromtimestamp(self.fig.x_range.end * 0.001, tz=timezone.utc)
+                # only interesting if we dont have hte data yet and we are looking at it right now
+            ) or (  # before known data
+                plot_open is not None
+                and plot_open - self.selected_tf.delta.value > from_date
+                and plot_open - self.selected_tf.delta.value
+                > datetime.fromtimestamp(
+                    self.fig.x_range.start * 0.001, tz=timezone.utc
+                )
+                # only interesting if we dont have hte data yet and we are looking at it right now
+            ):
+                # Here we request more data from ohlcview
+                self.ohlcv.expectations.put_nowait(
+                    TimeInterval(start=from_date, stop=til_date, step=self.selected_tf)
+                )
         # TODO : shall we move this to the plot itself ?
 
         # TODO : soft shutdown...

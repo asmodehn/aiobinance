@@ -47,7 +47,7 @@ class MarketHandler(bokeh.application.handlers.Handler):
         await self.market.price.run()
         print(" OK.")
 
-        # TODO
+        # TODO: retrieve user trades from Account (Not Market !)
         # # to have data to show on request.
         # await self.market.trades(
         #     start_time=before, stop_time=now # TODO : only the current symbol !
