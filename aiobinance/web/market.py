@@ -22,7 +22,6 @@ from aiobinance.web.plots.price_plot import PricePlot
 class MarketHandler(bokeh.application.handlers.Handler):
 
     market: Market
-    docs: List[TripleScreen]  # one per client connecting !
 
     def __init__(self, market: Market, *args, **kwargs):
         self.market = market
@@ -39,30 +38,6 @@ class MarketHandler(bokeh.application.handlers.Handler):
             document=doc, ohlcv=self.market.price, trades=self.market.trades
         )
         doc.add_root(model=price.model)
-        self.docs.append(doc)
-
-    # async def docs_update(self):
-    #     # TODO : this should be done somewhere else... (and the same as on_session_created !)
-    #     if len(self.docs) > 0:  # only retrieve price ohlc if needed
-    #
-    #         # same for all timeframes and documents
-    #         # TODO : drive start and stop based on visibility...
-    #         before = datetime.now(tz=timezone.utc) - timedelta(days=1)
-    #         now = datetime.now(tz=timezone.utc)
-    #         await self.market.trades(start_time=before, stop_time=now)
-    #
-    #         for p in self.docs:
-    #             # update it (let it do the requests it needs)
-    #             await p()
-
-    def on_server_loaded(self, server_context: BokehServerContext):
-        # driving data retrieval (TMP) and plot stream update
-        # TODO : let this drive ONLY the plot update (not the data retrieval)
-        # server_context.add_periodic_callback(
-        #     self.docs_update, period_milliseconds=30000
-        # )
-        pass
-        # TODO : callback scheduling can be done in on_session_created to avoid scheduling on unused markets
 
     async def on_session_created(self, session_context: BokehSessionContext):
         # retrieving data
@@ -75,7 +50,7 @@ class MarketHandler(bokeh.application.handlers.Handler):
         # TODO
         # # to have data to show on request.
         # await self.market.trades(
-        #     start_time=before, stop_time=now
+        #     start_time=before, stop_time=now # TODO : only the current symbol !
         # )  # to have data to show on request.
 
 

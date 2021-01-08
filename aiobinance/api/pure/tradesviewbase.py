@@ -20,20 +20,9 @@ from aiobinance.api.model.trade import Trade
 from aiobinance.api.model.tradeframe import TradeFrame
 
 
-@dataclass(frozen=False)
 class TradesViewBase:
 
-    frame: Optional[TradeFrame] = field(init=True, default=TradeFrame())
-    # market is the implicit symbol requested when updating
-    # ie : just a default value when calling...
-    market: Optional[str] = field(init=True, default=None)
-
-    @property
-    def symbol(self) -> List[str]:
-        if self.frame:
-            return self.frame.symbol
-        else:
-            return []
+    frame: Optional[TradeFrame]
 
     @property
     def id(self) -> List[int]:

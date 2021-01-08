@@ -34,7 +34,8 @@ def trades_from_csv(csv_filepath: str) -> TradeFrame:
     # DDD : Translation layer...
     trades = [
         Trade(
-            time_utc=r.Timestamp,
+            time_utc=r.Timestamp
+            * 1e-3,  # change to float to have this identify as [s] with [ms] precision for python datetime
             symbol=r.Market,
             id=r.ExchangeTradeID,
             # order_id=r.OrderID,  # Order IDs are not compatible for some reason...

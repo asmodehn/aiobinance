@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from asyncio import Queue
+from asyncio import AbstractEventLoop, Queue, Task
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import hypothesis.strategies as st
 
@@ -19,6 +19,13 @@ from aiobinance.api.model.trade import Trade
 from aiobinance.api.pure.ohlcviewbase import OHLCViewBase
 from aiobinance.api.rawapi import Binance
 
+# TODO: this should probably done in types instead (metaclass, etc.)
+_ohlcview_instances: Dict[str, OHLCView] = {}
+
+# TODO : request sent to this module (or each possible instance)
+# should be done here (globally in module -> unique in sys.modules)
+# pbm : it is symbol dependent...
+
 
 class OHLCView(OHLCViewBase):
     """ A 'passively mutating' list of candles """
@@ -29,7 +36,9 @@ class OHLCView(OHLCViewBase):
     # TODO : aiostream instead of queue here ?
     #  we need to think about combining expectatinos in a way that make sense (Time Interval arithmetic)
     expectations: Optional[Queue]  # containing TimeInterval as the requested dataset
-    updates: Optional[Queue]  # containing TimeInterval as the updated part of data
+
+    update_hooks: Dict[TimeStep, List[Callable[[OHLCFrame], bool]]]
+    update_loop: Optional[Task]
 
     @st.composite
     @staticmethod
@@ -37,14 +46,31 @@ class OHLCView(OHLCViewBase):
         frames = draw(st.lists(OHLCFrame.strategy(), max_size=max_size))
         return OHLCView(api=Binance(), symbol=draw(st.text(max_size=5)), *frames)
 
+    def __new__(cls, api: Binance = Binance(), symbol: Optional[str] = None, *frames):
+
+        if symbol in _ohlcview_instances.keys():
+            return _ohlcview_instances[
+                symbol
+            ]  # to have only one instance for all data.
+
+        self = super(OHLCView, cls).__new__(cls)
+        # One running loop per symbol, and only one instance !
+        _ohlcview_instances[symbol] = self
+        return self  # init will do the rest
+
     def __init__(self, api: Binance = Binance(), symbol: Optional[str] = None, *frames):
         self.api = api
         self.symbol = symbol
 
         self.expectations = None  # maybe no async event loop just yet
-        self.updates = None
+        self.update_hooks = {}  # because multiple things can wait for one update
+        self.update_loop = None
 
         super(OHLCView, self).__init__(*frames)
+
+    def update_hook(self, ts: TimeStep, callback: Callable[[OHLCFrame], Any]):
+        self.update_hooks.setdefault(ts, [])
+        self.update_hooks[ts].append(callback)
 
     async def request(  # Note : keep this async, for when we ll move to an async API
         self,
@@ -149,8 +175,6 @@ class OHLCView(OHLCViewBase):
 
         if self.expectations is None:
             self.expectations = Queue()
-        if self.updates is None:
-            self.updates = Queue()
 
         # TODO : avoid multiple calls here !!
         if not self.expectations.empty():  # to avoid blocking when not useful
@@ -162,7 +186,6 @@ class OHLCView(OHLCViewBase):
                 timestep=tint.step, start_time=tint.start, stop_time=tint.stop
             )
 
-            await self.updates.put(tint)
             self.expectations.task_done()
 
         await asyncio.sleep(
@@ -176,6 +199,11 @@ class OHLCView(OHLCViewBase):
 
         # we return after first process, while leaving a task running when possible...
         # TODO:investigate if trio might be better here for structured async concurrency...
+
+    async def run(self, mini_sleep: timedelta = timedelta(seconds=3)):
+        if self.update_loop is None:
+            await self.loop(mini_sleep=mini_sleep)
+        # else we silently skip it because we ever want only ONE loop !
 
     async def at(
         self,
@@ -195,10 +223,23 @@ class OHLCView(OHLCViewBase):
             or (start_time is not None and self.frames[timestep].open_time > start_time)
             or (stop_time is not None and self.frames[timestep].close_time < stop_time)
         ):
+            # keep old version
+            # Note : for this to work, this must be the only point where it is possible to update the encapsulated data
+            old_frame = self.frames[timestep]
+
             # do the first request to get recent data, and await
             await self.request(
                 start_time=start_time, stop_time=stop_time, interval=timestep
             )
+
+            # broadcast update
+            # TODO : OPTIMIZE THIS ! Difference Computation is too slow...
+            frameupdate = self.frames[timestep].difference(old_frame)
+            # NEW WAY
+            if not frameupdate.empty:
+                for hook in self.update_hooks[timestep]:
+                    hook(frameupdate)
+                    # TODO : somethg useful with return value ? popping the hook ?
 
         # return the frame
         return self.frames[timestep]

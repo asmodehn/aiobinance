@@ -19,7 +19,7 @@ from aiobinance.api.pure.tradesviewbase import TradesViewBase
 
 
 @dataclass(frozen=False)
-class MarketBase:  # TODO : rename to MakertBase for clarity...
+class MarketBase:
     info: Optional[MarketInfo] = field(init=True, default=None)
 
     @classmethod

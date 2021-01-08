@@ -44,7 +44,7 @@ class Market(MarketBase):
         if self.info is None:
             return TradesView(api=self.api)
         else:
-            return TradesView(api=self.api, market=self.info.symbol)
+            return TradesView(api=self.api, symbol=self.info.symbol)
 
     def ticker24(
         self,
