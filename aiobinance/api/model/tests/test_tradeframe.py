@@ -68,7 +68,7 @@ class TestTradeFrame(unittest.TestCase):
         assert tradeframe == tradeframe[:]
 
     @given(tradeframe=TradeFrame.strategy(), data=st.data())
-    def test_index_mapping(self, tradeframe: TradeFrame, data):
+    def test_index_id_mapping(self, tradeframe: TradeFrame, data):
         # test we can iterate on contained data, and that length matches.
         # Ref : https://docs.python.org/3/library/collections.abc.html
         tfl = len(tradeframe)  # __len__
@@ -78,7 +78,6 @@ class TestTradeFrame(unittest.TestCase):
             assert isinstance(t, Trade)
             assert t in tradeframe  # __contains__
             assert tradeframe[t.id] == t  # __getitem__ on index in mapping
-            assert tradeframe[t.time_utc] == t  # __getitem__ on time_utc in mapping
             counter += 1
 
         assert counter == tfl
@@ -91,7 +90,41 @@ class TestTradeFrame(unittest.TestCase):
         assert isinstance(exc.exception, KeyError)
 
     @given(tradeframe=TradeFrame.strategy(), data=st.data())
-    def test_index_selecting(self, tradeframe: TradeFrame, data):
+    def test_index_time_mapping(self, tradeframe: TradeFrame, data):
+        # test we can iterate on contained data, and that length matches.
+        # Ref : https://docs.python.org/3/library/collections.abc.html
+        tfl = len(tradeframe)  # __len__
+
+        counter = 0
+        for t in tradeframe:  # __iter__
+            assert isinstance(t, Trade)
+            assert t in tradeframe  # __contains__
+            if isinstance(tradeframe[t.time_utc], TradeFrame):
+                assert (
+                    t in tradeframe[t.time_utc]
+                )  # we may have multiple trades with the dame time_utc
+            else:  # is a Trade
+                assert (
+                    tradeframe[t.time_utc] == t
+                )  # same value as origin via equality check
+            counter += 1
+
+        assert counter == tfl
+
+        # TODO: bounding index to what C long (pandas optimization) can handle
+        rtime_utc = data.draw(
+            st.datetimes(
+                min_value=pd.Timestamp.min.to_pydatetime(),
+                max_value=pd.Timestamp.max.to_pydatetime(),
+            )
+        )
+        assume(rtime_utc not in tradeframe.time_utc)
+        with self.assertRaises(KeyError) as exc:
+            tradeframe[rtime_utc]
+        assert isinstance(exc.exception, KeyError)
+
+    @given(tradeframe=TradeFrame.strategy(), data=st.data())
+    def test_index_symbol_mapping(self, tradeframe: TradeFrame, data):
         # test we can iterate on contained data, and that length matches.
         # Ref : https://docs.python.org/3/library/collections.abc.html
 
@@ -173,6 +206,7 @@ class TestTradeFrame(unittest.TestCase):
         assert counter == len(tfs), f"counter != len(tfs) : {counter} != {len(tfs)}"
 
     @given(tradeframe=TradeFrame.strategy(), data=st.data())
+    # @reproduce_failure('5.49.0', b'AXicY2QgBzASLUgUAAABkwAE')
     def test_slice_time_mapping(self, tradeframe: TradeFrame, data):
         # test we can iterate on contained data, and that length matches.
         # Ref : https://docs.python.org/3/library/collections.abc.html
@@ -244,9 +278,14 @@ class TestTradeFrame(unittest.TestCase):
             for t in tfs:  # __iter__
                 assert isinstance(t, Trade)
                 assert t in tradeframe  # value present in origin check
-                assert (
-                    tradeframe[t.time_utc] == t
-                )  # same value as origin via equality check
+                if isinstance(tradeframe[t.time_utc], TradeFrame):
+                    assert (
+                        t in tradeframe[t.time_utc]
+                    )  # we may have multiple trades with the dame time_utc
+                else:  # is a Trade
+                    assert (
+                        tradeframe[t.time_utc] == t
+                    )  # same value as origin via equality check
                 counter += 1
 
             assert counter == len(tfs), f"counter != len(tfs) : {counter} != {len(tfs)}"
@@ -276,7 +315,7 @@ class TestTradeFrame(unittest.TestCase):
     @given(tf1=TradeFrame.strategy(), tf2=TradeFrame.strategy())
     @settings(
         suppress_health_check=[HealthCheck.too_slow]
-    )  # TODO : improve strategy... and maybe test as well ?
+    )  # TODO : improve strategy (optimize + unique ids)... and maybe test as well ?
     def test_union(self, tf1, tf2):
         # union with self is self
         assert tf1.union(tf1) == tf1
@@ -299,12 +338,23 @@ class TestTradeFrame(unittest.TestCase):
                 assert tf1[t.id] in utf1
                 # TODO : maybe we should raise on this ??
 
-        # Symmetric !
         utf2 = tf2.union(tf1)
+
         # verifying shape after operation
         assert_columns(utf2)
 
-        assert utf1 == utf2
+        # REMINDER: the union on trade does do merge on id, and priority is given to self
+        # but nothing else (like for OHLCFrame), so here the relationship is trivial
+        for c in tf2:
+            assert c in utf2
+
+        for t in tf1:
+            if t.id not in tf2:
+                assert t in utf2
+            else:  # if t.id in tf1, the original should be there, the new one is lost
+                # It is not a problem in our usecase since binance id are specified to be unique
+                assert tf2[t.id] in utf2
+                # TODO : maybe we should raise on this ??
 
     @given(tf1=TradeFrame.strategy(), tf2=TradeFrame.strategy())
     @settings(
