@@ -29,8 +29,8 @@ async def test_trades_from_binance(keyfile):
 
     assert isinstance(trades, TradesView)
 
-    # updating known trades list
-    await trades(start_time=start_time, stop_time=end_time)
+    # updating known trades list (if necessary)
+    await trades.at(start_time=start_time, stop_time=end_time)
 
     assert len(trades) == 17
     for t in trades:

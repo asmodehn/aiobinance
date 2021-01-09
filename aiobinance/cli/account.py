@@ -36,7 +36,7 @@ def balance(creds: Credentials):
     )  # need to print the account data structure, until we have a better idea of what to do here...
 
 
-@cli.command()  # TODO : this should return ALL trades. trades for a specific market should be in a market
+@cli.command()  # TODO : this should return ALL trades. trades for a specific market should be in a market (but we could filter by symbol)
 @click.argument("market_pair", required=True, default=None)
 @click.option(
     "--from", "from_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
@@ -67,12 +67,13 @@ def trades(
 
     api = Binance(credentials=creds)  # we need private requests here !
 
-    trades = TradesView(api=api)
+    trades = TradesView(api=api, symbol=market_pair)
 
     # while we are moving to an async interface
-    asyncio.run(
-        trades(symbol=market_pair, start_time=from_datetime, stop_time=to_datetime)
-    )
+    asyncio.run(trades.at(start_time=from_datetime, stop_time=to_datetime))
+
+    # TODO : option to aggregate trades, in order to visualize how much/what an amount A of an asset cost us previously.
+    #  This can inform the next user trade...
 
     if html:
         from bokeh.io import output_file
