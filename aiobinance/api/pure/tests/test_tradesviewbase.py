@@ -22,8 +22,12 @@ class TestTradesViewBase(unittest.TestCase):
         # taking a copy via slice and comparing
         assert tradesview == tradesview[:]
 
-    @given(tradesview=TradesViewBase.strategy(), tradeframe_new=TradeFrame.strategy())
-    def test_call(self, tradesview: TradesViewBase, tradeframe_new: TradeFrame):
+    @given(tradesview=TradesViewBase.strategy(), data=st.data())
+    def test_call(self, tradesview: TradesViewBase, data):
+
+        tradeframe_new = data.draw(
+            TradeFrame.strategy(symbols=st.just(tradesview.symbol))
+        )
 
         # old_df = tradeframe.df.copy(deep=True)
         # old_id = tradeframe.id

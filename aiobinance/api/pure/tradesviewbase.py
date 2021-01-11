@@ -9,7 +9,6 @@ import hypothesis.strategies as st
 import numpy as np
 import pandas as pd
 from bokeh.models import ColumnDataSource
-from cached_property import cached_property
 from hypothesis.strategies import composite
 from tabulate import tabulate
 
@@ -22,6 +21,7 @@ from aiobinance.api.model.tradeframe import TradeFrame
 
 class TradesViewBase:
 
+    symbol: str
     frame: Optional[TradeFrame]
 
     @property
@@ -31,12 +31,26 @@ class TradesViewBase:
         else:
             return []
 
+    @st.composite
     @staticmethod
-    def strategy(max_size=5):
-        return st.builds(TradesViewBase, frame=TradeFrame.strategy(max_size=max_size))
+    def strategy(draw, max_size=5):
+        symbol = draw(st.text(min_size=1, max_size=8))
+        return (
+            TradesViewBase(  # TODO : link symbol functionally (map, filter, flatmap.)
+                symbol=symbol,
+                frame=draw(
+                    TradeFrame.strategy(symbols=st.just(symbol), max_size=max_size)
+                ),
+            )
+        )
 
-    def __init__(self, frame: TradeFrame = TradeFrame()):
-        self.frame = frame
+    def __init__(self, symbol: str, frame: Optional[TradeFrame] = None):
+        self.symbol = symbol
+        if frame is not None:
+            assert frame.symbol == self.symbol
+            self.frame = frame
+        else:
+            self.frame = TradeFrame(symbol=symbol)
 
     def __call__(
         self, *, frame: Optional[TradeFrame] = None, **kwargs
@@ -45,6 +59,8 @@ class TradesViewBase:
         # return same instance if no change
         if frame is None:
             return self
+
+        assert frame.symbol == self.symbol
 
         # updating by updating data
         self.frame = self.frame.union(frame)
@@ -63,6 +79,8 @@ class TradesViewBase:
         assert isinstance(
             other, TradesViewBase
         )  # in our design the type infers the columns.
+        assert self.symbol == other.symbol
+
         if self is other:
             # here we follow python on equality https://docs.python.org/3.6/reference/expressions.html#id12
             return True
@@ -74,7 +92,7 @@ class TradesViewBase:
     ) -> Union[TradesViewBase, Trade]:
         res = self.frame[item]
         if isinstance(res, TradeFrame):
-            return TradesViewBase(frame=res)
+            return TradesViewBase(symbol=self.symbol, frame=res)
         else:
             return res
 

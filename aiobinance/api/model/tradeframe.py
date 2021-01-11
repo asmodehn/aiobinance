@@ -9,7 +9,6 @@ import hypothesis.strategies as st
 import numpy as np
 import pandas as pd
 from bokeh.models import ColumnDataSource
-from cached_property import cached_property
 from hypothesis.strategies import composite
 from pydantic import validator
 
@@ -23,6 +22,9 @@ from aiobinance.api.model.trade import Trade
 # Note : these are python dataclasses as pydantic cannot really typecheck dataframe content...
 @dataclass(frozen=True)
 class TradeFrame:
+
+    symbol: Optional[str]
+
     df: Optional[pd.DataFrame] = field(
         init=True,
         default=pd.DataFrame.from_records([], columns=[f.name for f in fields(Trade)]),
@@ -37,7 +39,7 @@ class TradeFrame:
         return self.df.time_utc.to_list()
 
     @property
-    def symbol(self) -> List[str]:  # TODO : improve
+    def symbols(self) -> List[str]:  # TODO : improve
         return self.df.symbol.to_list()
 
     @property
@@ -89,20 +91,29 @@ class TradeFrame:
 
     @st.composite
     @staticmethod
-    def strategy(draw, max_size=5):
+    def strategy(draw, symbols: Optional[st.SearchStrategy] = None, max_size=5):
+        symbols = st.text(min_size=2, max_size=6) if symbols is None else symbols
+        # pick one :
+        symbol = draw(symbols)
         tl = st.lists(
-            elements=Trade.strategy(),
+            # draw here to fix the symbol for all trades in the list
+            elements=Trade.strategy(symbols=st.just(symbol)),
             max_size=max_size,
             unique_by=lambda t: t.id,  # unique by id only
         )
         tls = draw(tl)
-        return TradeFrame.from_tradeslist(*tls)
+        if len(tls) == 0:
+            return TradeFrame(symbol=symbol)
+        else:  # one or more => build from tradeslist
+            return TradeFrame.from_tradeslist(*tls)
 
     @classmethod
-    def from_tradeslist(cls, *trades: Trade):
+    def from_tradeslist(cls, trade: Trade, *other_trades: Trade):
         # related : https://github.com/pandas-dev/pandas/issues/9216
         # building structured numpy array to specify optimal dtypes
         # Ref : https://numpy.org/doc/stable/user/basics.rec.html
+
+        symbol = trade.symbol  # take symbol from first trade.
 
         arraylike = [
             tuple(
@@ -112,7 +123,7 @@ class TradeFrame:
                 else v
                 for v in asdict(t).values()
             )
-            for t in trades
+            for t in (trade,) + other_trades
         ]
 
         npa = np.array(
@@ -123,7 +134,7 @@ class TradeFrame:
             data=npa
         )  # TODO : use nparray directly ??? CAREFUL : numpy doesnt do timezones...
 
-        return cls(df=df)
+        return cls(symbol=symbol, df=df)
 
     def as_datasource(self) -> ColumnDataSource:
         plotdf = self.optimized()
@@ -213,7 +224,7 @@ class TradeFrame:
             return False
 
     def __getitem__(  # noqa: C901
-        self, item: Union[int, datetime, slice, str]
+        self, item: Union[int, datetime, slice]
     ) -> Union[TradeFrame, Trade]:
         if isinstance(item, int):
             try:
@@ -244,15 +255,17 @@ class TradeFrame:
             elif len(rs) == 0:
                 raise KeyError(f"Invalid index {item}")
             else:
-                return TradeFrame(df=rs)
+                return TradeFrame(symbol=self.symbol, df=rs)
 
         elif isinstance(item, slice):
             if item.start is None and item.stop is None:
-                return TradeFrame(df=self.df.copy())  # just duplicate data
+                return TradeFrame(
+                    symbol=self.symbol, df=self.df.copy()
+                )  # just duplicate data
 
             # relying on pandas indexing if slice of ids:
             if isinstance(item.start, int) or isinstance(item.stop, int):
-                return TradeFrame(df=self.df.loc[item])
+                return TradeFrame(symbol=self.symbol, df=self.df.loc[item])
 
             # Otherwise: dataframe slice handled by pandas boolean indexer
             try:
@@ -289,13 +302,14 @@ class TradeFrame:
                     f"{item} is too high a value for Trade.time_utc or Trade.id "
                 ) from te
 
-            return TradeFrame(df=df)
+            return TradeFrame(symbol=self.symbol, df=df)
 
-        if isinstance(item, str):
-            df = self.df.loc[self.df["symbol"] == item]
-            return TradeFrame(df=df)  # set the default symbol for update call
-        else:
-            raise KeyError(f"Invalid index {item}")
+        # REFACTOR : this becomes useless the Tradeframe itself 'has' a symbol.
+        # if isinstance(item, str):
+        #     df = self.df.loc[self.df["symbol"] == item]
+        #     return TradeFrame(df=df)  # set the default symbol for update call
+        # else:
+        #     raise KeyError(f"Invalid index {item}")
 
     # NO SETTING ON TRADES :they are immutable events.
 
@@ -321,17 +335,21 @@ class TradeFrame:
             if t in other:
                 trades.append(t)
 
-        return TradeFrame.from_tradeslist(*trades)
+        if len(trades) == 0:
+            return TradeFrame(symbol=self.symbol)
+        else:
+            return TradeFrame.from_tradeslist(*trades)
 
     # Ref : https://docs.python.org/3.8/library/stdtypes.html#set.union
     def union(self, other: TradeFrame):
-
         # special empty case => return the other one.
         # This avoid different columns issue when dataframe is empty (open_time is not the index - pandas 1.1.5)
         if self.df.empty:
-            return TradeFrame(df=other.df.copy(deep=True))
+            return TradeFrame(symbol=self.symbol, df=other.df.copy(deep=True))
         if other.df.empty:
-            return TradeFrame(df=self.df.copy(deep=True))
+            return TradeFrame(symbol=self.symbol, df=self.df.copy(deep=True))
+
+        assert self.symbol == other.symbol
 
         # otherwise we need to merge
         newdf_noidx = self.df.reset_index(drop=False).merge(
@@ -359,7 +377,7 @@ class TradeFrame:
         newdf_noidx = newdf_noidx[grpfltr]
 
         # the OHLCFrame constructor will reindex properly.
-        return TradeFrame(df=newdf_noidx)
+        return TradeFrame(symbol=self.symbol, df=newdf_noidx)
 
     # Ref : https://docs.python.org/3.8/library/stdtypes.html#set.difference
     def difference(self, other: TradeFrame):
@@ -376,7 +394,10 @@ class TradeFrame:
             if t not in ix:
                 trades.append(t)
 
-        return TradeFrame.from_tradeslist(*trades)
+        if len(trades) == 0:
+            return TradeFrame(symbol=self.symbol)
+        else:
+            return TradeFrame.from_tradeslist(*trades)
 
     def __str__(self):
         # optimize before display (high decimal precision is not manageable by humans)

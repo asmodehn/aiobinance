@@ -38,19 +38,21 @@ def assert_columns(tradeframe):
 # test TradeFrame (should have columns even empty)
 class TestTradeFrame(unittest.TestCase):
     @given(
-        trade1=st.one_of(st.none(), Trade.strategy()),
-        trade2=st.one_of(st.none(), Trade.strategy()),
+        trade1=Trade.strategy(),
+        data=st.data(),
     )
-    def test_from_tradeslist(self, trade1, trade2):
+    def test_from_tradeslist(self, trade1, data):
 
-        if trade1 is not None and trade2 is not None:
+        trade2 = data.draw(
+            st.one_of(st.none(), Trade.strategy(symbols=st.just(trade1.symbol)))
+        )
+
+        if trade2 is not None:
             tf = TradeFrame.from_tradeslist(trade1, trade2)
-        elif trade2 is not None:
-            tf = TradeFrame.from_tradeslist(trade2)
-        elif trade1 is not None:
-            tf = TradeFrame.from_tradeslist(trade1)
         else:
-            tf = TradeFrame.from_tradeslist()
+            tf = TradeFrame.from_tradeslist(trade1)
+        # else:
+        #     tf = TradeFrame.from_tradeslist()  # TODO: is it useful to even allow this ?
 
         # making sure the dataframe dtypes are the ones specified by the record type
         # careful with empty dataframe special case...
@@ -123,20 +125,21 @@ class TestTradeFrame(unittest.TestCase):
             tradeframe[rtime_utc]
         assert isinstance(exc.exception, KeyError)
 
-    @given(tradeframe=TradeFrame.strategy(), data=st.data())
-    def test_index_symbol_mapping(self, tradeframe: TradeFrame, data):
-        # test we can iterate on contained data, and that length matches.
-        # Ref : https://docs.python.org/3/library/collections.abc.html
-
-        slist = tradeframe.symbol
-        for s in slist:
-            subframe = tradeframe[s]
-            assert isinstance(subframe, TradeFrame)
-            for t in subframe:
-                assert t in tradeframe
-            for t in tradeframe:
-                if t.symbol == s:
-                    assert t in subframe
+    # DROPPING THIS
+    # @given(tradeframe=TradeFrame.strategy(), data=st.data())
+    # def test_index_symbol_mapping(self, tradeframe: TradeFrame, data):
+    #     # test we can iterate on contained data, and that length matches.
+    #     # Ref : https://docs.python.org/3/library/collections.abc.html
+    #
+    #     slist = tradeframe.symbol
+    #     for s in slist:
+    #         subframe = tradeframe[s]
+    #         assert isinstance(subframe, TradeFrame)
+    #         for t in subframe:
+    #             assert t in tradeframe
+    #         for t in tradeframe:
+    #             if t.symbol == s:
+    #                 assert t in subframe
 
     @given(tradeframe=TradeFrame.strategy(), data=st.data())
     def test_slice_id_mapping(self, tradeframe: TradeFrame, data):
@@ -290,93 +293,102 @@ class TestTradeFrame(unittest.TestCase):
 
             assert counter == len(tfs), f"counter != len(tfs) : {counter} != {len(tfs)}"
 
-    @given(tf1=TradeFrame.strategy(), tf2=TradeFrame.strategy())
+    @given(tf1=TradeFrame.strategy(), data=st.data())
     @settings(
         suppress_health_check=[HealthCheck.too_slow]
     )  # TODO : improve strategy... and maybe test as well ?
-    def test_intersection(self, tf1, tf2):
+    def test_intersection(self, tf1, data):
         # intersect with self is self
         assert tf1.intersection(tf1) == tf1
 
-        itf1 = tf1.intersection(tf2)
+        if tf1.symbol is not None:
+            tf2 = data.draw(TradeFrame.strategy(symbols=st.just(tf1.symbol)))
 
-        # verifying shape after operation
-        assert_columns(itf1)
+            itf1 = tf1.intersection(tf2)
 
-        for c in itf1:
-            assert c in tf1
-            assert c in tf2
+            # verifying shape after operation
+            assert_columns(itf1)
 
-        itf2 = tf2.intersection(tf1)
-        # verifying shape after operation
-        assert_columns(itf2)
-        assert itf1 == itf2
+            for c in itf1:
+                assert c in tf1
+                assert c in tf2
 
-    @given(tf1=TradeFrame.strategy(), tf2=TradeFrame.strategy())
+            itf2 = tf2.intersection(tf1)
+            # verifying shape after operation
+            assert_columns(itf2)
+            assert itf1 == itf2
+
+    @given(tf1=TradeFrame.strategy(), data=st.data())
     @settings(
         suppress_health_check=[HealthCheck.too_slow]
     )  # TODO : improve strategy (optimize + unique ids)... and maybe test as well ?
-    def test_union(self, tf1, tf2):
+    def test_union(self, tf1, data):
         # union with self is self
         assert tf1.union(tf1) == tf1
 
-        utf1 = tf1.union(tf2)
+        if tf1.symbol is not None:
+            tf2 = data.draw(TradeFrame.strategy(symbols=st.just(tf1.symbol)))
 
-        # verifying shape after operation
-        assert_columns(utf1)
+            utf1 = tf1.union(tf2)
 
-        # REMINDER: the union on trade does do merge on id, and priority is given to self
-        # but nothing else (like for OHLCFrame), so here the relationship is trivial
-        for c in tf1:
-            assert c in utf1
+            # verifying shape after operation
+            assert_columns(utf1)
 
-        for t in tf2:
-            if t.id not in tf1:
-                assert t in utf1
-            else:  # if t.id in tf1, the original should be there, the new one is lost
-                # It is not a problem in our usecase since binance id are specified to be unique
-                assert tf1[t.id] in utf1
-                # TODO : maybe we should raise on this ??
+            # REMINDER: the union on trade does do merge on id, and priority is given to self
+            # but nothing else (like for OHLCFrame), so here the relationship is trivial
+            for c in tf1:
+                assert c in utf1
 
-        utf2 = tf2.union(tf1)
+            for t in tf2:
+                if t.id not in tf1:
+                    assert t in utf1
+                else:  # if t.id in tf1, the original should be there, the new one is lost
+                    # It is not a problem in our usecase since binance id are specified to be unique
+                    assert tf1[t.id] in utf1
+                    # TODO : maybe we should raise on this ??
 
-        # verifying shape after operation
-        assert_columns(utf2)
+            utf2 = tf2.union(tf1)
 
-        # REMINDER: the union on trade does do merge on id, and priority is given to self
-        # but nothing else (like for OHLCFrame), so here the relationship is trivial
-        for c in tf2:
-            assert c in utf2
+            # verifying shape after operation
+            assert_columns(utf2)
 
-        for t in tf1:
-            if t.id not in tf2:
-                assert t in utf2
-            else:  # if t.id in tf1, the original should be there, the new one is lost
-                # It is not a problem in our usecase since binance id are specified to be unique
-                assert tf2[t.id] in utf2
-                # TODO : maybe we should raise on this ??
+            # REMINDER: the union on trade does do merge on id, and priority is given to self
+            # but nothing else (like for OHLCFrame), so here the relationship is trivial
+            for c in tf2:
+                assert c in utf2
 
-    @given(tf1=TradeFrame.strategy(), tf2=TradeFrame.strategy())
+            for t in tf1:
+                if t.id not in tf2:
+                    assert t in utf2
+                else:  # if t.id in tf1, the original should be there, the new one is lost
+                    # It is not a problem in our usecase since binance id are specified to be unique
+                    assert tf2[t.id] in utf2
+                    # TODO : maybe we should raise on this ??
+
+    @given(tf1=TradeFrame.strategy(), data=st.data())
     @settings(
         suppress_health_check=[HealthCheck.too_slow]
     )  # TODO : improve strategy... and maybe test as well ?
-    def test_difference(self, tf1, tf2):
+    def test_difference(self, tf1, data):
 
         # difference with self is empty
         assert tf1.difference(tf1).empty
 
-        dtf1 = tf1.difference(tf2)
+        if tf1.symbol is not None:
+            tf2 = data.draw(TradeFrame.strategy(symbols=st.just(tf1.symbol)))
 
-        # verifying shape after operation
-        assert_columns(dtf1)
+            dtf1 = tf1.difference(tf2)
 
-        for c in dtf1:
-            assert c in tf1
-            assert c not in tf2
+            # verifying shape after operation
+            assert_columns(dtf1)
 
-        for c in tf1:
-            if c not in tf2:
-                assert c in dtf1
+            for c in dtf1:
+                assert c in tf1
+                assert c not in tf2
+
+            for c in tf1:
+                if c not in tf2:
+                    assert c in dtf1
 
     @given(tradeframe=TradeFrame.strategy())
     def test_str(self, tradeframe: TradeFrame):

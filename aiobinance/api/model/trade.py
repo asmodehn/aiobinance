@@ -8,7 +8,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import hypothesis.strategies as st
 import numpy as np
 import pandas as pd
-from hypothesis.strategies import composite
+from hypothesis.strategies import SearchStrategy, composite
 from pydantic import validator
 from pydantic.dataclasses import dataclass
 
@@ -124,7 +124,10 @@ class Trade:
         }
 
     @classmethod
-    def strategy(cls):
+    def strategy(cls, symbols: st.SearchStrategy = None):
+        # TODO : symbol could probably change to a type or a unit (cf. pint)
+        symbols = st.text(max_size=8) if symbols is None else symbols
+
         return st.builds(
             cls,
             time_utc=st.datetimes(
@@ -136,6 +139,7 @@ class Trade:
                 min_value=np.iinfo(np.dtype("uint64")).min,
                 max_value=np.iinfo(np.dtype("uint64")).max,
             ),  # to avoid overlap of index and ids integers... TODO : validate in real usecase...
+            symbol=symbols,
             price=st.decimals(allow_nan=False, allow_infinity=False),
             qty=st.decimals(allow_nan=False, allow_infinity=False),
             quote_qty=st.decimals(allow_nan=False, allow_infinity=False),
