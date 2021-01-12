@@ -9,7 +9,6 @@ import hypothesis.strategies as st
 import pandas as pd
 from bokeh.models import BooleanFilter, CDSView, ColumnDataSource, Legend
 from bokeh.plotting import Figure
-from cached_property import cached_property
 from hypothesis import infer
 from pandas import IntervalIndex
 from pandas._libs.tslibs.np_datetime import OutOfBoundsDatetime

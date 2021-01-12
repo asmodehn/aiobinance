@@ -23,35 +23,49 @@ class Binance:
 
     methods = {
         #  Public methods
-        "ping": {"url": "ping", "method": "GET", "private": False},
-        "time": {"url": "time", "method": "GET", "private": False},
-        "exchangeInfo": {"url": "exchangeInfo", "method": "GET", "private": False},
-        "depth": {"url": "depth", "method": "GET", "private": False},
-        "trades": {"url": "trades", "method": "GET", "private": False},
-        "historicalTrades": {
-            "url": "historicalTrades",
+        "ping": {"url": "api/v3/ping", "method": "GET", "private": False},
+        "time": {"url": "api/v3/time", "method": "GET", "private": False},
+        "exchangeInfo": {
+            "url": "api/v3/exchangeInfo",
             "method": "GET",
             "private": False,
         },
-        "aggTrades": {"url": "aggTrades", "method": "GET", "private": False},
-        "klines": {"url": "klines", "method": "GET", "private": False},
-        "avgPrice": {"url": "avgPrice", "method": "GET", "private": False},
-        "ticker24hr": {"url": "ticker/24hr", "method": "GET", "private": False},
-        "tickerPrice": {"url": "ticker/price", "method": "GET", "private": False},
+        "depth": {"url": "api/v3/depth", "method": "GET", "private": False},
+        "trades": {"url": "api/v3/trades", "method": "GET", "private": False},
+        "historicalTrades": {
+            "url": "api/v3/historicalTrades",
+            "method": "GET",
+            "private": False,
+        },
+        "aggTrades": {"url": "api/v3/aggTrades", "method": "GET", "private": False},
+        "klines": {"url": "api/v3/klines", "method": "GET", "private": False},
+        "avgPrice": {"url": "api/v3/avgPrice", "method": "GET", "private": False},
+        "ticker24hr": {"url": "api/v3/ticker/24hr", "method": "GET", "private": False},
+        "tickerPrice": {
+            "url": "api/v3/ticker/price",
+            "method": "GET",
+            "private": False,
+        },
         "tickerBookTicker": {
-            "url": "ticker/bookTicker",
+            "url": "api/v3/ticker/bookTicker",
             "method": "GET",
             "private": False,
         },
         #  Private methods
-        "createOrder": {"url": "order", "method": "POST", "private": True},
-        "testOrder": {"url": "order/test", "method": "POST", "private": True},
-        "orderInfo": {"url": "order", "method": "GET", "private": True},
-        "cancelOrder": {"url": "order", "method": "DELETE", "private": True},
-        "openOrders": {"url": "openOrders", "method": "GET", "private": True},
-        "allOrders": {"url": "allOrders", "method": "GET", "private": True},
-        "account": {"url": "account", "method": "GET", "private": True},
-        "myTrades": {"url": "myTrades", "method": "GET", "private": True},
+        "createOrder": {"url": "api/v3/order", "method": "POST", "private": True},
+        "testOrder": {"url": "api/v3/order/test", "method": "POST", "private": True},
+        "orderInfo": {"url": "api/v3/order", "method": "GET", "private": True},
+        "cancelOrder": {"url": "api/v3/order", "method": "DELETE", "private": True},
+        "openOrders": {"url": "api/v3/openOrders", "method": "GET", "private": True},
+        "allOrders": {"url": "api/v3/allOrders", "method": "GET", "private": True},
+        "account": {"url": "api/v3/account", "method": "GET", "private": True},
+        "myTrades": {"url": "api/v3/myTrades", "method": "GET", "private": True},
+        # added aiobinance  TMP waiting refactor...
+        "coins": {
+            "url": "sapi/v1/capital/config/getall",
+            "method": "GET",
+            "private": True,
+        },
     }
 
     def __init__(
@@ -118,8 +132,7 @@ class Binance:
     def call_api(self, **kwargs) -> Result[Dict, Dict]:
 
         command = kwargs.pop("command")
-        api_url = "https://api.binance.com/api/v3/" + self.methods[command]["url"]
-
+        api_url = "https://api.binance.com/" + self.methods[command]["url"]
         payload = kwargs
         headers = {}
 

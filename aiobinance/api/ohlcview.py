@@ -180,13 +180,16 @@ class OHLCView(OHLCViewBase):
         if not self.expectations.empty():  # to avoid blocking when not useful
             tint = await self.expectations.get()
 
-            # TODO : schedule requests and balance optimization with accuracy
-            #  multiple request might improve results (seen with kraken at least)
-            await self.at(
-                timestep=tint.step, start_time=tint.start, stop_time=tint.stop
-            )
-
-            self.expectations.task_done()
+            try:
+                # TODO : schedule requests and balance optimization with accuracy
+                #  multiple request might improve results (seen with kraken at least)
+                await self.at(
+                    timestep=tint.step, start_time=tint.start, stop_time=tint.stop
+                )
+            except Exception:
+                raise
+            finally:  # to be sure we mark this task as done and we can keep working...
+                self.expectations.task_done()
 
         await asyncio.sleep(
             mini_sleep.total_seconds()

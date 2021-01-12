@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
+from functools import cached_property
 from typing import Dict, List, Optional, Tuple
 
 import hypothesis.strategies as st
-from cached_property import cached_property
 from hypothesis.strategies import SearchStrategy
 from result import Ok, Result
 
@@ -42,37 +42,18 @@ class MarketBase:
         # that is something plausible, useful for tests, yet without longterm side-effects (given our simple box-based algorithms)
         # BUT NOT HERE ! lets try to remain side-effect-free here...
         if self.info is None:
-            return (
-                TradesViewBase()
+            return TradesViewBase(
+                symbol=None
             )  # there should be a special case also in child classes
         else:
-            return TradesViewBase()
+            return TradesViewBase(symbol=self.info.symbol)
 
-    def __call__(self, *, info: Optional[MarketInfo] = None, **kwargs) -> MarketBase:
-        # return same instance if no change
-        if info is None:
-            return self
+    async def __call__(self, **kwargs) -> MarketBase:
+        raise NotImplementedError(
+            "Market doesnt have nything to update itself about... Everything is handled by views so far..."
+        )
 
-        popping = []
-        if self.info is None:
-            # because we may have cached invalid values from initialization (self.info was None)
-            popping.append("trades")
-            popping.append("price")
-        else:  # otherwise we detect change with equality on frozen dataclass fields
-            if self.info.symbol != info.symbol:
-                popping.append("trades")  # because trades depend on symbol
-                popping.append("price")
-
-        # updating by updating data
-        self.info = info
-
-        # and invalidating related caches
-        for p in popping:
-            self.__dict__.pop(p, None)
-
-        # returning self to allow chaining
-        return self
-
+    # TODO : async
     def limit_order(
         self,
         *,

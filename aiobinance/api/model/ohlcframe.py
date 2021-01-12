@@ -362,9 +362,9 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
             other.df.reset_index(drop=False), how="outer"
         )
 
-        # Note : previous merging attempts with "aggregate" and fonction application failed
+        # Note : previous merging attempts with "aggregate" and function application failed
         # on tricky bugs/pandas limitations...
-        # Attempting a different way based on resolving dupicates in groups and replacing.
+        # Attempting a different way based on resolving duplicates in groups and replacing.
         dups = newdf_noidx.duplicated(subset="open_time", keep=False)
 
         dupgroups = newdf_noidx[dups].groupby(by="open_time")

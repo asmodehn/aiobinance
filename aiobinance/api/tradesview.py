@@ -24,7 +24,7 @@ class TradesView(TradesViewBase):
     """ An updateable trades list """
 
     api: Binance = field(init=True, default=Binance())
-    symbol: Optional[str]
+    symbol: str
 
     # TODO : aiostream instead of queue here ?
     #  we need to think about combining expectatinos in a way that make sense (Time Interval arithmetic)
@@ -42,7 +42,7 @@ class TradesView(TradesViewBase):
             frame=TradeFrame.strategy(max_size=max_size),
         )
 
-    def __new__(cls, api: Binance, symbol: str, frame: TradeFrame = TradeFrame()):
+    def __new__(cls, api: Binance, symbol: str, frame: Optional[TradeFrame] = None):
 
         if symbol in _tradeview_instances.keys():
             return _tradeview_instances[
@@ -54,15 +54,17 @@ class TradesView(TradesViewBase):
         _tradeview_instances[symbol] = self
         return self  # init will do the rest
 
-    def __init__(self, api: Binance, symbol: str, frame: TradeFrame = TradeFrame()):
+    def __init__(self, api: Binance, symbol: str, frame: Optional[TradeFrame] = None):
         self.api = api
         self.symbol = symbol
+
+        frame = TradeFrame(symbol=symbol) if frame is None else frame
 
         self.expectations = None  # maybe no async event loop just yet
         self.update_hooks = []  # because multiple things can wait for one update
         self.update_loop = None
 
-        super(TradesView, self).__init__(frame)
+        super(TradesView, self).__init__(symbol=symbol, frame=frame)
 
     async def request(
         self, start_time: datetime = None, stop_time: datetime = None, **kwargs

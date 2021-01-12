@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 import hypothesis.strategies as st
+from hypothesis import infer
 from hypothesis.strategies import SearchStrategy
 from pydantic.dataclasses import dataclass
 
@@ -53,8 +54,10 @@ class AssetInfo:
     withdrawing: Decimal
 
     @classmethod
-    def strategy(cls) -> SearchStrategy:
-        return st.builds(AssetInfo)
+    def strategy(cls, coin: Optional[str] = None) -> SearchStrategy:
+        coins = st.just(coin) if coin is not None else infer
+
+        return st.builds(AssetInfo, coin=coins)
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ def hummingbot_instance(ctx, filename, html=False):
 
     trades = hummingbot.trades_from_csv(click.format_filename(filename))
 
-    symbol = trades.symbol[0]  # assuming only one symbol !
+    symbol = trades.symbol
 
     api = Binance()
 
