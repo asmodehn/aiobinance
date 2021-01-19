@@ -16,7 +16,6 @@ from aiobinance.api.exchange import Exchange
 from aiobinance.api.market import Market
 from aiobinance.api.rawapi import Binance
 from aiobinance.web.layouts.triplescreen import TripleScreen
-from aiobinance.web.plots.price_plot import PricePlot
 
 
 class MarketHandler(bokeh.application.handlers.Handler):

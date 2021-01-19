@@ -9,7 +9,7 @@ nox.options.reuse_existing_virtualenvs = True
 # this file will continue to be checked by mypy. Errors from other files are
 # ignored.
 TYPED_FILES = {"aiobinance/api/__init__.py", "aiobinance/api/" "aiobinance/__init__.py"}
-SOURCE_FILES = ["layouts/", "aiobinance/", "tests/", "noxfile.py", "setup.py"]
+SOURCE_FILES = ["aiobinance/", "tests/", "noxfile.py", "setup.py"]
 
 
 # Ref : urllib3 has a strict nox-based process that we duplicate here.
