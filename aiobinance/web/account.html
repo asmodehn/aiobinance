@@ -1,0 +1,22 @@
+<html>
+   <head>
+      <title>{{ title }}</title>
+   </head>
+   <body>
+   <div>Balances:
+     <ul>
+       {% for item in account.balances.values() %}
+         <li>{{ item }}</li>
+       {% end %}
+     </ul>
+</div>
+<div>Assets:
+     <ul>
+       {% for item in account.assets %}
+         <li>{{ escape(item) }}</li>
+       {% end %}
+     </ul>
+</div>
+
+   </body>
+ </html>

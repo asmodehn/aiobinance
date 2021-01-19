@@ -18,8 +18,8 @@ class ExchangeHandler(tornado.web.RequestHandler):
 
     async def get(self):
         await self.exchange()  # refresh data
-        self.write("Hello, U. This is AIOBinance Exchange page...")
-        self.write(str(self.exchange.info))
+        # Ref : https://www.tornadoweb.org/en/stable/guide/templates.html
+        await self.render("exchange.html", title="Exchange", exchange=self.exchange)
 
 
 if __name__ == "__main__":
