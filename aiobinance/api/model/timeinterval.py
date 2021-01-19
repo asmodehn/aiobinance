@@ -189,6 +189,14 @@ class TimeInterval:
     interval: Interval  # TODO: [datetime]
     step: Optional[TimeStep]
 
+    @property
+    def start(self):
+        return self.interval.lower
+
+    @property
+    def stop(self):
+        return self.interval.upper
+
     def __init__(
         self,
         interval: Optional[Interval] = None,  # TODO : only one way to create this
@@ -215,5 +223,9 @@ class TimeInterval:
     def union(self, other: TimeInterval):
 
         assert self.step == other.step  # TODO : pass this in types instead ??
-
-        return TimeInterval(interval=self.interval | other.interval, step=self.step)
+        if self.interval is None:
+            return other
+        elif other.interval is None:
+            return self
+        else:
+            return TimeInterval(interval=self.interval | other.interval, step=self.step)
