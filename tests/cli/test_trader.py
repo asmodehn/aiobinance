@@ -22,7 +22,7 @@ def test_buy_test(clirunner, keyfile):
         input="2",
     )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
     #
     # assert order and isinstance(order, LimitOrder)
@@ -57,7 +57,7 @@ def test_buy_test(clirunner, keyfile):
         input="2",
     )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
     # assert order and isinstance(order, LimitOrder)
     # assert order.clientOrderId == ""
@@ -100,7 +100,7 @@ def test_buy(clirunner, keyfile):
         input="2",
     )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
     # TODO: Buy test order underpriced
 
@@ -127,7 +127,7 @@ def test_sell_test(clirunner, keyfile):
         input="2",
     )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
     #
     # # Decimal of float here to test precision. it should be built from string instead !
@@ -165,7 +165,7 @@ def test_sell_test(clirunner, keyfile):
         input="2",
     )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
     # assert order and isinstance(order, LimitOrder)
     # assert order.clientOrderId == ""
@@ -206,7 +206,7 @@ def test_sell(clirunner, keyfile):
         input="2",
     )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
 
 if __name__ == "__main__":

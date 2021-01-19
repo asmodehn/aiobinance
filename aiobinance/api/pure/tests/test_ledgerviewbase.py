@@ -2,60 +2,63 @@ import dataclasses
 import unittest
 
 import hypothesis.strategies as st
-from hypothesis import assume, given
+from hypothesis import HealthCheck, assume, given, settings
 
-from aiobinance.api.model.trade import Trade
-from aiobinance.api.model.tradeframe import TradeFrame
 from aiobinance.api.pure.ledgerviewbase import LedgerViewBase
+from aiobinance.api.pure.tradesviewbase import TradesViewBase
 
 
-# test TradeFrame (should have columns even empty)
 class TestLedgerViewBase(unittest.TestCase):
     @given(ledgerview=LedgerViewBase.strategy())
+    @settings(suppress_health_check=[HealthCheck.too_slow])
     def test_strategy(self, ledgerview: LedgerViewBase):
         assert isinstance(ledgerview, LedgerViewBase)
         # TODO
 
     @given(ledgerview=LedgerViewBase.strategy())
+    @settings(suppress_health_check=[HealthCheck.too_slow])
     def test_eq_mapping(self, ledgerview: LedgerViewBase):
         assert ledgerview == ledgerview
         # taking a copy via slice and comparing
         assert ledgerview == ledgerview[:]
 
     @given(ledgerview=LedgerViewBase.strategy(), data=st.data())
+    @settings(suppress_health_check=[HealthCheck.too_slow])
     def test_call(self, ledgerview: LedgerViewBase, data):
 
-        tradeframes_new = {
-            f.symbol: f for f in data.draw(st.lists(TradeFrame.strategy(), max_size=5))
+        old_base = ledgerview.base_trades.copy()
+        old_quote = ledgerview.quote_trades.copy()
+
+        base_tradeview_new = {
+            f.symbol: f
+            for f in data.draw(st.lists(TradesViewBase.strategy(), max_size=5))
+        }
+        quote_tradeview_new = {
+            f.symbol: f
+            for f in data.draw(st.lists(TradesViewBase.strategy(), max_size=5))
         }
 
-        # old_df = tradeframe.df.copy(deep=True)
-        # old_id = tradeframe.id
+        ledgerview(base_trades=base_tradeview_new, quote_trades=quote_tradeview_new)
 
-        old_frames = ledgerview.trades
-        ledgerview(*tradeframes_new.values())
+        # we merge tradeviews in the dictionnary, but not the tradeframes
+        for sym, tv in base_tradeview_new.items():
+            assert sym in ledgerview.base_trades.keys()
+            assert ledgerview.base_trades[sym] == tv
 
-        # dataframe merging happened (details handled by Tradeframe)
-        if len(old_frames) == 0:
-            assert ledgerview.trades == tradeframes_new
-        elif len(tradeframes_new) == 0:
-            assert ledgerview.trades == old_frames
-        else:
-            for sym, frame in ledgerview.trades.items():
-                old = old_frames.get(sym, None)
-                frames = TradeFrame(symbol=sym)
-                for f in tradeframes_new.values():
-                    if f.symbol == sym:
-                        frames = frames.union(f)
+        for sym, tv in quote_tradeview_new.items():
+            assert sym in ledgerview.quote_trades.keys()
+            assert ledgerview.quote_trades[sym] == tv
 
-                if old is None or old.empty:
-                    assert frame == frames
-                elif frames.empty:
-                    assert frame == old  # no change
-                else:
-                    # union happened properly
-                    assert min(frame.id) == min(old.id + frames.id)
-                    assert max(frame.id) == max(old.id + frames.id)
+        # old views are still there if symbol didnt match
+        for sym, tv in old_base.items():
+            if sym not in base_tradeview_new:
+                assert sym in ledgerview.base_trades
+                assert ledgerview.base_trades[sym] == tv
+
+        for sym, tv in old_quote.items():
+            if sym not in quote_tradeview_new:
+                assert sym in ledgerview.quote_trades
+                assert ledgerview.quote_trades[sym] == tv
 
     # TODO : what representation we want here ?
     # @given(ledgerview=LedgerViewBase.strategy())

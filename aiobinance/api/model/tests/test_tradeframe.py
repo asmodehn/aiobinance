@@ -118,7 +118,10 @@ class TestTradeFrame(unittest.TestCase):
             st.datetimes(
                 min_value=pd.Timestamp.min.to_pydatetime(),
                 max_value=pd.Timestamp.max.to_pydatetime(),
-            )
+                timezones=st.just(
+                    timezone.utc
+                ),  # TODO : also manage tzless datetimes ??
+            ),
         )
         assume(rtime_utc not in tradeframe.time_utc)
         with self.assertRaises(KeyError) as exc:

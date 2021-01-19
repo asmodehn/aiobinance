@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from asyncio import Queue, Task
 from dataclasses import field
 from datetime import datetime, timedelta, timezone
@@ -27,7 +28,8 @@ _ledgerview_instances: Dict[str, LedgerView] = {}
 class LedgerView(LedgerViewBase):
     """ An updateable ledger for a coin (gathering multiple tradeframes) """
 
-    trades: dict[str, TradesView]
+    base_trades: dict[str, TradesView]
+    quote_trades: dict[str, TradesView]
 
     api: Binance = field(init=True)
 
@@ -48,11 +50,15 @@ class LedgerView(LedgerViewBase):
         return LedgerView(
             Binance(),  # just to have something for tests
             draw(st.text(max_size=5)),
-            *frames
+            *frames,
         )
 
     def __new__(
-        cls, api: Binance, coin: AssetInfo, amount: AssetAmount, *frames: TradeFrame
+        cls,
+        api: Binance,
+        coin: Optional[AssetInfo] = None,
+        base_trades: Dict[str, TradesView] = None,
+        quote_trades: Dict[str, TradesView] = None,
     ):
 
         if coin.coin in _ledgerview_instances.keys():
@@ -66,7 +72,11 @@ class LedgerView(LedgerViewBase):
         return self  # init will do the rest
 
     def __init__(
-        self, api: Binance, coin: AssetInfo, amount: AssetAmount, *frames: TradeFrame
+        self,
+        api: Binance,
+        coin: Optional[AssetInfo] = None,
+        base_trades: Dict[str, TradesView] = None,
+        quote_trades: Dict[str, TradesView] = None,
     ):
         self.api = api
 
@@ -74,14 +84,14 @@ class LedgerView(LedgerViewBase):
         self.update_hooks = []  # because multiple things can wait for one update
         self.update_loop = None
 
-        super(LedgerView, self).__init__(coin, amount, *frames)
+        super(LedgerView, self).__init__(coin, base_trades, quote_trades)
 
     async def request(
         self,
         symbol: str,
         start_time: datetime = None,
         stop_time: datetime = None,
-        **kwargs
+        **kwargs,
     ):
         raise NotImplementedError  # binance doesnt have a ledger API, but some exchange do (kraken f.i.)
 
@@ -90,24 +100,27 @@ class LedgerView(LedgerViewBase):
         if self.expectations is None:
             self.expectations = Queue()
 
+        for s, t in {**self.base_trades, **self.quote_trades}.items():
+            # TODO: we should probably limit the number of markets to look at ??
+
+            # start loop if needed, so that it can react to expectations in queue...
+            if t.update_loop is None:
+                await t.loop()
+
         # TODO : avoid multiple calls here !!
         if not self.expectations.empty():  # to avoid blocking when not useful
             tint = await self.expectations.get()
-
-            for (
-                s
-            ) in (
-                self.trades.keys()
-            ):  # TODO: we should probably limit the number of markets to look at ??
+            for s in {**self.base_trades, **self.quote_trades}.keys():
                 await self.at(  # Note that timeStep is not involved in trade requests
                     symbol=s, start_time=tint.start, stop_time=tint.stop
                 )
 
             self.expectations.task_done()
 
-        await asyncio.sleep(
-            mini_sleep.total_seconds()
-        )  # minisleep to avoid looping too fast.
+        if self.update_loop is not None:  # not the first time
+            await asyncio.sleep(
+                mini_sleep.total_seconds()
+            )  # minisleep to avoid looping too fast.
 
         # this trampoline and behaves as a minimal inner service...
         self.update_loop = asyncio.get_running_loop().create_task(
@@ -133,37 +146,68 @@ class LedgerView(LedgerViewBase):
         :param stop_time: the stop_time of data we need to retrieve (might not be returned, use [] to access it if needed)
         :return:
         """
-        if symbol not in self.trades:
-            # TODO : verify the symbol indeed has the coin as base or quote asset...
-            self.trades[symbol] = TradesView(api=self.api, symbol=symbol)
+        # if symbol not in self.trades:
+        #     # TODO : verify the symbol indeed has the coin as base or quote asset...
+        #     self.trades[symbol] = TradesView(api=self.api, symbol=symbol)
+        # TODO : change: tradesview must all be in place at creation (even if not looping)
 
-        if (
-            self.trades[symbol].frame.empty
-            or (
-                start_time is not None
-                and self.trades[symbol].frame.time_utc[0] > start_time
+        if symbol in self.base_trades:
+            if (
+                self.base_trades[symbol].frame.empty
+                or (
+                    start_time is not None
+                    and self.base_trades[symbol].frame.time_utc[0] > start_time
+                )
+                or (
+                    stop_time is not None
+                    and self.base_trades[symbol].frame.time_utc[-1] < stop_time
+                )
+            ):
+                # keep old version
+                # Note : for this to work, this must be the only point where it is possible to update the encapsulated data
+                # old_frame = self.trades[symbol].frame
+
+                # do the first request to get recent TRADES data, and await
+                await self.base_trades[symbol].at(
+                    start_time=start_time, stop_time=stop_time
+                )
+
+                # Let trades manage the update (for now...)
+
+            # return the frame
+            return self.base_trades[symbol].frame
+        elif symbol in self.quote_trades:
+            if (
+                self.quote_trades[symbol].frame.empty
+                or (
+                    start_time is not None
+                    and self.quote_trades[symbol].frame.time_utc[0] > start_time
+                )
+                or (
+                    stop_time is not None
+                    and self.quote_trades[symbol].frame.time_utc[-1] < stop_time
+                )
+            ):
+                # keep old version
+                # Note : for this to work, this must be the only point where it is possible to update the encapsulated data
+                # old_frame = self.trades[symbol].frame
+
+                # do the first request to get recent TRADES data, and await
+                await self.quote_trades[symbol].at(
+                    start_time=start_time, stop_time=stop_time
+                )
+
+                # Let trades manage the update (for now...)
+
+            # return the frame
+            return self.quote_trades[symbol].frame
+        else:
+            raise RuntimeError(
+                f"{symbol} not in base_trades: {self.base_trades.keys()} nor in quote_trades: {self.quote_trades.keys()}"
             )
-            or (
-                stop_time is not None
-                and self.trades[symbol].frame.time_utc[-1] < stop_time
-            )
-        ):
-            # keep old version
-            # Note : for this to work, this must be the only point where it is possible to update the encapsulated data
-            # old_frame = self.trades[symbol].frame
-
-            # do the first request to get recent TRADES data, and await
-            await self.trades[symbol].at(start_time=start_time, stop_time=stop_time)
-
-            # Let trades manage the update (for now...)
-
-        # return the frame
-        return self.trades[symbol].frame
 
 
 if __name__ == "__main__":
-    import asyncio
-
     from aiobinance.api.account import Account
     from aiobinance.config import load_api_keyfile
 

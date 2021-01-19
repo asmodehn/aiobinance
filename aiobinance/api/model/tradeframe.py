@@ -16,6 +16,7 @@ from pydantic import validator
 from tabulate import tabulate
 
 from aiobinance.api.model.order import OrderSide
+from aiobinance.api.model.timeinterval import TimeInterval
 from aiobinance.api.model.trade import Trade
 
 
@@ -23,12 +24,18 @@ from aiobinance.api.model.trade import Trade
 @dataclass(frozen=True)
 class TradeFrame:
 
-    symbol: Optional[str]
+    symbol: Optional[
+        str
+    ]  # TODO: get rid of this. seems we dont really need it here (we retrieve from trades).
+    # Note: However we do need it in TradeView...
 
     df: Optional[pd.DataFrame] = field(
         init=True,
         default=pd.DataFrame.from_records([], columns=[f.name for f in fields(Trade)]),
     )
+
+    bounds: Optional[TimeInterval] = field(default=None)
+    # TODO : handle known absence of data... ???
 
     @property
     def empty(self) -> bool:
@@ -36,10 +43,13 @@ class TradeFrame:
 
     @property
     def time_utc(self) -> List[datetime]:
-        return self.df.time_utc.to_list()
+        return [
+            dt.to_pydatetime().replace(tzinfo=timezone.utc)
+            for dt in self.df.time_utc.to_list()
+        ]
 
     @property
-    def symbols(self) -> List[str]:  # TODO : improve
+    def symbols(self) -> List[str]:  # TODO : improve with types or contracts or... ?
         return self.df.symbol.to_list()
 
     @property
@@ -102,18 +112,15 @@ class TradeFrame:
             unique_by=lambda t: t.id,  # unique by id only
         )
         tls = draw(tl)
-        if len(tls) == 0:
-            return TradeFrame(symbol=symbol)
-        else:  # one or more => build from tradeslist
-            return TradeFrame.from_tradeslist(*tls)
+        return TradeFrame.from_tradeslist(symbol, *tls)
 
     @classmethod
-    def from_tradeslist(cls, trade: Trade, *other_trades: Trade):
+    def from_tradeslist(cls, symbol: str, *trades: Trade):
         # related : https://github.com/pandas-dev/pandas/issues/9216
         # building structured numpy array to specify optimal dtypes
         # Ref : https://numpy.org/doc/stable/user/basics.rec.html
 
-        symbol = trade.symbol  # take symbol from first trade.
+        symbol = symbol  # take symbol from first trade.
 
         arraylike = [
             tuple(
@@ -123,7 +130,7 @@ class TradeFrame:
                 else v
                 for v in asdict(t).values()
             )
-            for t in (trade,) + other_trades
+            for t in trades
         ]
 
         npa = np.array(
@@ -140,11 +147,33 @@ class TradeFrame:
         plotdf = self.optimized()
         # TODO : live bokeh updates ??
 
+        # TODO : add bounds for plot ?
+
         # build plot datasource depending on whos asking for it
         plotdf["price_boughtsold"] = np.where(plotdf["is_buyer"], "BOUGHT", "SOLD")
 
+        # Maybe some of these belong instead to a "ledger frame" ??
+        plotdf["amount"] = plotdf.qty * np.where(plotdf.is_buyer, -1, 1)
+
+        plotdf["value"] = plotdf.price * plotdf["amount"]
+
+        # print(plotdf["value"])
+
+        plotdf["cumvalue"] = np.cumsum(plotdf["value"])
+
+        # print(plotdf["cumvalue"])
+
         # dropping id column to avoid conflict. (it is still the index and should be accessible as such)
-        return ColumnDataSource(plotdf.drop(["id"], axis=1))
+        if (
+            "id" in plotdf.columns
+        ):  # only if empty dataframe, otherwise it is the index...
+            plotdf.drop(["id"], axis=1, inplace=True)
+
+        # renaming id index, but keeping values as index
+        plotdf.index.name = "trade_id"
+        # special case
+
+        return ColumnDataSource(plotdf)
 
     def __post_init__(self):
         # Here we follow binance format and enforce proper types and structure
@@ -169,15 +198,16 @@ class TradeFrame:
             )
             # remove it as a column to remove ambiguity
             self.df.drop("id", axis="columns", inplace=True)
-            # sort via the index
-            self.df.sort_index(inplace=True)
 
-            # explicit assumption for every other operation on the dataframe :
-            assert "id" not in self.df.columns
-            assert self.df.index.name == "id"
+        # sort via the index
+        self.df.sort_index(inplace=True)
 
-            # finally enforcing dtypes:
-            # TODO
+        # explicit assumption for every other operation on the dataframe :
+        assert "id" not in self.df.columns
+        assert self.df.index.name == "id"
+
+        # finally enforcing dtypes:
+        # TODO
 
     def __contains__(self, item: Union[Trade, int, datetime]):
         if isinstance(item, Trade):
@@ -271,29 +301,27 @@ class TradeFrame:
             try:
                 selector = pd.Series({i: True for i in self.df.index})
 
-                if item.start is not None:
-                    if isinstance(item.start, datetime):
-                        if item.start.tzinfo is not None:
-                            # converting datetime to unaware timezone, in utc. to allow comparison with unaware numpy values.
-                            start = item.start.astimezone(tz=timezone.utc).replace(
-                                tzinfo=None
-                            )
-                        else:
-                            start = item.start
-                        selector = selector & (
-                            start <= self.df.time_utc.astype(dtype="datetime64[us]")
+                if item.start is not None and isinstance(item.start, datetime):
+                    if item.start.tzinfo is not None:
+                        # converting datetime to unaware timezone, in utc. to allow comparison with unaware numpy values.
+                        start = item.start.astimezone(tz=timezone.utc).replace(
+                            tzinfo=None
                         )
-                if item.stop is not None:
-                    if isinstance(item.stop, datetime):
-                        if item.stop.tzinfo is not None:
-                            stop = item.stop.astimezone(tz=timezone.utc).replace(
-                                tzinfo=None
-                            )
-                        else:
-                            stop = item.stop
-                        selector = selector & (
-                            self.df.time_utc.astype(dtype="datetime64[us]") <= stop
+                    else:
+                        start = item.start
+                    selector = selector & (
+                        start <= self.df.time_utc.astype(dtype="datetime64[us]")
+                    )
+                if item.stop is not None and isinstance(item.stop, datetime):
+                    if item.stop.tzinfo is not None:
+                        stop = item.stop.astimezone(tz=timezone.utc).replace(
+                            tzinfo=None
                         )
+                    else:
+                        stop = item.stop
+                    selector = selector & (
+                        self.df.time_utc.astype(dtype="datetime64[us]") <= stop
+                    )
 
                 df = self.df.loc[selector]
 
@@ -303,13 +331,6 @@ class TradeFrame:
                 ) from te
 
             return TradeFrame(symbol=self.symbol, df=df)
-
-        # REFACTOR : this becomes useless the Tradeframe itself 'has' a symbol.
-        # if isinstance(item, str):
-        #     df = self.df.loc[self.df["symbol"] == item]
-        #     return TradeFrame(df=df)  # set the default symbol for update call
-        # else:
-        #     raise KeyError(f"Invalid index {item}")
 
     # NO SETTING ON TRADES :they are immutable events.
 
@@ -338,7 +359,7 @@ class TradeFrame:
         if len(trades) == 0:
             return TradeFrame(symbol=self.symbol)
         else:
-            return TradeFrame.from_tradeslist(*trades)
+            return TradeFrame.from_tradeslist(self.symbol, *trades)
 
     # Ref : https://docs.python.org/3.8/library/stdtypes.html#set.union
     def union(self, other: TradeFrame):
@@ -397,7 +418,7 @@ class TradeFrame:
         if len(trades) == 0:
             return TradeFrame(symbol=self.symbol)
         else:
-            return TradeFrame.from_tradeslist(*trades)
+            return TradeFrame.from_tradeslist(self.symbol, *trades)
 
     def __str__(self):
         # optimize before display (high decimal precision is not manageable by humans)

@@ -17,20 +17,30 @@ These class are interwoven together to form a (hopefully) consistent whole.
 
 The "*View" concepts are dynamic and provide functionality to run "out of control flow", ie. in the background.
 
-                                  +----------+
-                          +-------| Exchange |------+     Only one -> should be just data (no class needed) ?
-                          |       +----------+      |     data, but mostly constant in runtime (explicit updates)
-                          |                         |
-                          v                         v
-                       +----------+          +---------+
-      +----------------|  Market  |          | Account |----------------------+    many (per symbol & per subaccount)
-      |                +----------+          +---------+                      |    -> class but mostly constant in runtime (explicit updates)
-      |                       +   |->OrderViews<-|  +                         |    -> cached as data in python modules.
-      |                       |                     |                         |
-      |                       v                     v                         v
-+-----v------+         +--------------+        +--------------+        +--------------+
-|  OHLCView  |         |  TradesView  |<-------+  LedgerView  |        | PostionsView |    many x many, encapsulating time-related changes...
-+------------+         +--------------+        +--------------+        +--------------+
+                                         |
+                             Public      |    Private
+                                         |
+
+                         +----------+         +---------+
+                         | Exchange |<--------| Account |
+                         +----------+         +---------+
+                              |                    |
+                              |                    |
+                              v                    v
+                        +----------+          +---------+
+      +---------------- |  Market  |<---------|  Asset  |-------------------+
+      |                 +----------+          +---------+                   |
+      |                    +                         +                      |
+      |                    |                         |                      |
++-----v------+             |                         |              +-------v------+
+|  OHLCView  |             |                         |              | PostionsView |
++------------+             |                         |              +--------------+
+                           |                         |
+                           v                         v
+                   +--------------+          +--------------+
+                   |  TradesView  <---------+|  LedgerView  |
+                   +--------------+          +--------------+
+
 
 Ref : https://textik.com/#80671cf6c2d3bb46
 

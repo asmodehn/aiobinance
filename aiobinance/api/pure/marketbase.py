@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple
 
 import hypothesis.strategies as st
 from hypothesis.strategies import SearchStrategy
-from result import Ok, Result
+from result import Err, Ok, Result
 
 from aiobinance.api.model.filters import Filter
 from aiobinance.api.model.market_info import MarketInfo
@@ -48,9 +48,31 @@ class MarketBase:
         else:
             return TradesViewBase(symbol=self.info.symbol)
 
-    async def __call__(self, **kwargs) -> MarketBase:
-        raise NotImplementedError(
-            "Market doesnt have nything to update itself about... Everything is handled by views so far..."
+    async def __call__(
+        self, *, info: Optional[MarketInfo] = None, **kwargs
+    ) -> MarketBase:
+        """ This is used to update Market's data. it is also here that data can be injected for tests"""
+        if info is None:
+            res = await self.marketinfo(**kwargs)
+            # kwargs are passed to marketinfo,
+            # in case there is a relevant param
+
+            if res.is_err():
+                raise res.err()
+            else:
+                info = res.ok()
+
+        # we update the current instance
+        self.info = info
+
+        return self
+
+    async def marketinfo(self, **kwargs) -> Result[MarketInfo, NotImplementedError]:
+        """ This is a coroutine to be implemented in childrens, with implementation details..."""
+        return Err(
+            NotImplementedError(
+                "This method should be overloaded by a specific implementation."
+            )
         )
 
     # TODO : async
@@ -100,7 +122,10 @@ class MarketBase:
 
 
 if __name__ == "__main__":
+    import asyncio
+
     mb = MarketBase.strategy().example()
     print(mb)
-    mb_updated = mb(info=MarketInfo.strategy().example())
+
+    mb_updated = asyncio.run(mb(info=MarketInfo.strategy().example()))
     print(mb_updated)

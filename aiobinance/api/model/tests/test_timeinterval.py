@@ -82,6 +82,11 @@ class TestTimeStep(unittest.TestCase):
 
         assert ts == td
 
+    # TODO: TimeInterval tests
+    # @given(tdelta=st.one_of(st.none(), st.timedeltas()))
+    # def test_union(self, tdelta):
+    #     raise NotImplementedError
+
 
 if __name__ == "__main__":
     unittest.main()

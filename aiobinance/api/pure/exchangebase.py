@@ -13,7 +13,6 @@ from hypothesis.strategies import SearchStrategy
 from result import Err, Ok, Result
 
 from aiobinance.api.model.exchange_info import ExchangeInfo
-from aiobinance.api.pure.accountbase import AccountBase
 from aiobinance.api.pure.marketbase import MarketBase
 
 
@@ -27,7 +26,7 @@ class ExchangeBase:
     ) -> SearchStrategy:
         return st.builds(cls, info=info)
 
-    @cached_property
+    @property
     def servertime(self) -> datetime:  # monotonically increase -> start in the past.
         return (
             self.info.servertime
@@ -35,13 +34,7 @@ class ExchangeBase:
             else datetime(year=MINYEAR, month=1, day=1, tzinfo=timezone.utc)
         )
 
-    @cached_property  # TODO : maybe an authenticate call to update the api ???
-    def account(self) -> AccountBase:
-        return AccountBase()
-
-    # TODO a way to index subaccount, similar to how markets are indexed by symbol...
-
-    @cached_property
+    @property
     def markets(
         self,
     ) -> Dict[

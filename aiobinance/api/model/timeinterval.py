@@ -4,6 +4,9 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import ClassVar, Dict, Optional, Union
 
+import portion
+from portion import Interval
+
 
 # TODO: get rid of that, TimeStep will do the job
 class TimeIntervalEnum(Enum):
@@ -181,22 +184,23 @@ class TimeStep:
 
 
 class TimeInterval:
-    # New class to manipulate time intervals (see https://en.wikipedia.org/wiki/Allen%27s_interval_algebra)
-    # TODO
+    # New class to manipulate time intervals
 
-    # Note this could pass as a slice...
-    start: Optional[datetime]
-    stop: Optional[datetime]
+    interval: Interval  # TODO: [datetime]
     step: Optional[TimeStep]
 
     def __init__(
         self,
+        interval: Optional[Interval] = None,  # TODO : only one way to create this
         start: Optional[datetime] = None,
         stop: Optional[datetime] = None,
         step: Optional[Union[TimeStep, timedelta]] = None,
     ):
-        self.start = start
-        self.stop = stop
+        self.interval = (
+            portion.closed(start, stop)
+            if interval is None and start is not None and stop is not None
+            else interval
+        )
         self.step = (
             None
             if step is None
@@ -204,3 +208,12 @@ class TimeInterval:
             if isinstance(step, TimeStep)
             else TimeStep(step)
         )
+
+    def __iter__(self):
+        portion.iterate(self.interval, step=self.step)
+
+    def union(self, other: TimeInterval):
+
+        assert self.step == other.step  # TODO : pass this in types instead ??
+
+        return TimeInterval(interval=self.interval | other.interval, step=self.step)

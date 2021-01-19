@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 import hypothesis.strategies as st
 
@@ -16,64 +16,77 @@ class LedgerViewBase:
 
     # ledger is completely dependent on trades on binance (no Ledger API ?)
 
-    coin: AssetInfo  # TODO : improve this...
-    amount: AssetAmount  # TODO :maybe this could be calculated from ledger, and compared to the Accountamount (might not be same ?)
-    trades: dict[str, TradeFrame]
+    coininfo: Optional[
+        AssetInfo
+    ]  # TODO : improve this... Note : it is not mandatory (some coins dont have info on binance...??)
+
+    # TODO : cleaner handling of base and quote trades...
+    base_trades: Dict[str, TradesViewBase]
+    quote_trades: Dict[str, TradesViewBase]
     # TODO : the str (coin like "BTC") could be in types, or in units (cf. pint)
 
     @st.composite
     @staticmethod
     def strategy(draw, max_size=5):
         coin = draw(
-            AssetInfo.strategy()
+            st.one_of(st.none(), AssetInfo.strategy())
         )  # TODO : link a coin with matching markets (as base or quote)
-        amount = draw(AssetAmount.strategy())
         # using maxsize for both because why not...
-        frames = draw(
-            st.lists(elements=TradeFrame.strategy(max_size=max_size), max_size=max_size)
+        base_trades = draw(
+            st.dictionaries(
+                keys=st.text(min_size=2, max_size=8),
+                values=TradesViewBase.strategy(max_size=max_size),
+                max_size=max_size,
+            )
         )
-        return LedgerViewBase(coin, amount, *frames)
+        quote_trades = draw(
+            st.dictionaries(
+                keys=st.text(min_size=2, max_size=8),
+                values=TradesViewBase.strategy(max_size=max_size),
+                max_size=max_size,
+            )
+        )
+        return LedgerViewBase(coin, base_trades, quote_trades)
 
-    @property
-    def balances(self):
-        return self.amount  # TODO be able to compute this from ledger as well...
+    def __init__(
+        self,
+        coin: Optional[AssetInfo] = None,
+        base_trades: Dict[str, TradesViewBase] = None,
+        quote_trades: Dict[str, TradesViewBase] = None,
+    ):
+        self.coininfo = coin  # TMP: currently user is supposed to match coin with symbols in tradeframes... TODO : enforce it
 
-    def __init__(self, coin: AssetInfo, amount: AssetAmount, *frames: TradeFrame):
-        self.coin = coin  # TMP: currently user is supposed to match coin with symbols in tradeframes... TODO : enforce it
-        self.amount = amount
-        self.trades = {f.symbol: f for f in frames}
+        # TODO : what if no trades? we should plan with existing markets...
+        self.base_trades = {} if base_trades is None else base_trades
+        self.quote_trades = {} if quote_trades is None else quote_trades
 
     def __call__(
         self,
-        *frames: TradeFrame,
-        **kwargs  # TODO : Make a LedgerFrame, and link with tradeframe at a lower level...
+        base_trades: Dict[str, TradesViewBase] = None,
+        quote_trades: Dict[str, TradesViewBase] = None,
+        **kwargs,  # TODO : Make a LedgerFrame, and link with tradeframe at a lower level...
     ) -> LedgerViewBase:
-        """ self updating the instance with new dataframe..."""
-        # return same instance if no change
-        if len(frames) is None:
-            return self
+        """ self updating the instance with new tradesview..."""
 
-        # updating by merging data for same symbol...
-        self.trades.update(
-            {
-                f.symbol: self.trades[f.symbol].union(f)
-                if f.symbol in self.trades
-                else f
-                for f in frames
-            }
-        )
+        # Note : this will replace the tradeviews... # TODO : use ledgerframe
+        self.base_trades.update({f.symbol: f for f in base_trades.values()})
+
+        self.quote_trades.update({f.symbol: f for f in quote_trades.values()})
 
         # returning self to allow chaining
         return self
 
     # Exposing mapping interface on continuous time index
-    # TODO:  a LedgerFRame just like we have a TradeFrame, with appropriate columns...
+    # TODO:  a LedgerFrame just like we have a TradeFrame, with appropriate columns...
 
     def __contains__(self, item: Union[Trade, int, datetime]) -> bool:
         # https://docs.python.org/2/reference/datamodel.html#object.__contains__
 
-        for sym in self.trades.keys():
-            if item in self.trades[sym]:
+        for sym in self.base_trades.keys():
+            if item in self.base_trades[sym]:
+                return True
+        for sym in self.quote_trades.keys():
+            if item in self.quote_trades[sym]:
                 return True
         return False  # false if it was not found anywhere
 
@@ -84,34 +97,58 @@ class LedgerViewBase:
         if self is other:
             # here we follow python on equality https://docs.python.org/3.6/reference/expressions.html#id12
             return True
-        else:  # delegate equality to the unique member: trades
-            return self.trades == other.trades
+        else:  # delegate equality to the members: trades
+            return (
+                self.base_trades == other.base_trades
+                and self.quote_trades == other.quote_trades
+            )
 
     def __getitem__(
-        self, item: Union[int, datetime, slice]
-    ) -> Union[LedgerViewBase, Trade]:
+        self, item: Union[str, slice]
+    ) -> Union[LedgerViewBase, TradesViewBase, Trade]:
 
-        frames = []
-        for sym in self.trades.keys():
-            res = self.trades[sym][item]
-            if isinstance(res, TradeFrame):
-                frames.append(res)
-            else:
-                return res
-        return LedgerViewBase(self.coin, self.amount, *frames)
+        if isinstance(item, str):  # assume symbol
+            if item in self.base_trades.keys():
+                return self.base_trades[item]
+            if item in self.quote_trades.keys():
+                return self.quote_trades[item]
 
-    # NO SETTING ON TRADES :they are immutable events.
+        # otherwise (different kind of slices...)
+        elif isinstance(item, slice):
+            base_trades = {}
+            for sym in self.base_trades.keys():
+                res = self.base_trades[sym][item]
+                if isinstance(res, TradesViewBase):
+                    base_trades[sym] = res
+                else:
+                    return res  # single Trade case ?
+
+            quote_trades = {}
+            for sym in self.quote_trades.keys():
+                res = self.quote_trades[sym][item]
+                if isinstance(res, TradesViewBase):
+                    quote_trades[sym] = res
+                else:
+                    return res  # single Trade case ?
+
+            return LedgerViewBase(self.coininfo, base_trades, quote_trades)
+        else:
+            raise RuntimeError(f"item {item} not supported !")
 
     def __iter__(self):
-        yield from [self.trades[sym] for sym in self.trades]
+        yield from [self.base_trades[sym] for sym in self.base_trades]
+        yield from [self.quote_trades[sym] for sym in self.quote_trades]
 
     # TODO : aiter
 
     def __len__(self):
-        return sum(len(self.trades[sym]) for sym in self.trades.keys())
+        return sum(
+            *[len(self.base_trades[sym]) for sym in self.base_trades.keys()],
+            *[len(self.quote_trades[sym]) for sym in self.quote_trades.keys()],
+        )
 
     def __str__(self):
-        return str(self.trades)
+        return str(self.base_trades) + str(self.quote_trades)
 
 
 if __name__ == "__main__":

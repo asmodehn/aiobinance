@@ -182,16 +182,17 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
             )
             # remove it as a column to remove ambiguity
             self.df.drop("open_time", axis="columns", inplace=True)
-            # sort via the index
-            self.df.sort_index(inplace=True)
 
-            # explicit assumption for every other operation on the dataframe :
-            assert "open_time" not in self.df.columns
-            assert isinstance(self.df.index, pd.DatetimeIndex)
-            assert self.df.index.name == "open_time"
+        # sort via the index
+        self.df.sort_index(inplace=True)
 
-            # finally enforcing dtypes:
-            # TODO
+        # explicit assumption for every other operation on the dataframe :
+        assert "open_time" not in self.df.columns
+        assert isinstance(self.df.index, pd.DatetimeIndex)
+        assert self.df.index.name == "open_time"
+
+        # finally enforcing dtypes:
+        # TODO
 
         # setting interval timedelta automatically
         td = (self.df.iloc[0].close_time - self.df.iloc[0].name).to_pytimedelta()

@@ -11,7 +11,6 @@ import hypothesis.strategies as st
 from hypothesis.strategies import SearchStrategy
 from result import Err, Ok, Result
 
-from aiobinance.api.account import Account
 from aiobinance.api.market import Market
 from aiobinance.api.model.exchange_info import ExchangeInfo, RateLimit
 from aiobinance.api.model.filters import Filter
@@ -36,13 +35,7 @@ class Exchange(ExchangeBase):
             "Strategy should not be used with real implementation. Build an instance from actual data instead."
         )
 
-    @functools.cached_property  # TODO : maybe an authenticate call to update the api ???
-    def account(self) -> Account:
-        return Account(api=self.api, test=self.test)
-
-    # TODO a way to index subaccount, similar to how markets are indexed by symbol...
-
-    @functools.cached_property  # TODO : cached ??
+    @property  # not cached ! we have only one instance. And api can change, giving private access to markets.
     def markets(self) -> Dict[str, Market]:
         return (
             {
@@ -136,7 +129,7 @@ if __name__ == "__main__":
         print(f"now: {now}")
 
         newnow = datetime.now(tz=timezone.utc)
-        await ex(update_delta=newnow - now)
+        await ex()  # update_delta=newnow - now)
         print(f"servertime: {ex.servertime}")
         now = newnow
         print(f"now: {now}")
@@ -144,7 +137,7 @@ if __name__ == "__main__":
         await asyncio.sleep(1)
 
         newnow = datetime.now(tz=timezone.utc)
-        await ex(update_delta=newnow - now)
+        await ex()  # update_delta=newnow - now)
         print(f"servertime: {ex.servertime}")
         now = newnow
         print(f"now: {now}")

@@ -42,6 +42,10 @@ class Market(MarketBase):
         else:
             return TradesView(api=self.api, symbol=self.info.symbol)
 
+    async def marketinfo(self, **kwargs) -> Result[MarketInfo, NotImplementedError]:
+        """ This is a coroutine to be implemented in childrens, with implementation details..."""
+        return Err(NotImplementedError("This method is implemented in Exchange."))
+
     def ticker24(  # TODO : async
         self,
     ) -> Ticker:  # TODO : build a pure mock version we can use for simulations...

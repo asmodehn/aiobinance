@@ -33,7 +33,7 @@ class OHLCViewBase:
 
     @property
     def close_time(self) -> Optional[datetime]:
-        return min(f.close_time for f in self.frames.values()) if self.frames else None
+        return max(f.close_time for f in self.frames.values()) if self.frames else None
 
     @property
     def interval(self) -> Optional[List[timedelta]]:  # TODO : timedelta or TimeStep ?

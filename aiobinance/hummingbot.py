@@ -51,4 +51,6 @@ def trades_from_csv(csv_filepath: str) -> TradeFrame:
         for r in csv_df.itertuples()
     ]
 
-    return TradeFrame.from_tradeslist(*trades)
+    # assuming here trades are only for one symbol
+    # TODO : handle multiple symbols in trade csv
+    return TradeFrame.from_tradeslist(trades[0].symbol, *trades)

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 from asyncio import Queue, Task
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import hypothesis.strategies as st
 
-from aiobinance.api.model.timeinterval import TimeStep
+from aiobinance.api.model.timeinterval import TimeInterval, TimeStep
 from aiobinance.api.model.trade import Trade
 from aiobinance.api.pure.tradesviewbase import TradeFrame, TradesViewBase
 from aiobinance.api.rawapi import Binance
@@ -25,6 +26,10 @@ class TradesView(TradesViewBase):
 
     api: Binance = field(init=True, default=Binance())
     symbol: str
+
+    # properties like those of a OHLCV : we need a way to identify the current timeinterval when data has been retrieved...
+    begin: Optional[datetime] = None
+    end: Optional[datetime] = None
 
     # TODO : aiostream instead of queue here ?
     #  we need to think about combining expectatinos in a way that make sense (Time Interval arithmetic)
@@ -58,7 +63,12 @@ class TradesView(TradesViewBase):
         self.api = api
         self.symbol = symbol
 
-        frame = TradeFrame(symbol=symbol) if frame is None else frame
+        if frame is None:
+            frame = TradeFrame(symbol=symbol) if frame is None else frame
+        else:
+            frame = frame
+            self.begin = frame.time_utc[0]
+            self.end = frame.time_utc[-1]
 
         self.expectations = None  # maybe no async event loop just yet
         self.update_hooks = []  # because multiple things can wait for one update
@@ -66,10 +76,17 @@ class TradesView(TradesViewBase):
 
         super(TradesView, self).__init__(symbol=symbol, frame=frame)
 
+    def update_hook(self, callback: Callable[[TradeFrame], Any]):
+        self.update_hooks.append(callback)
+
     async def request(
         self, start_time: datetime = None, stop_time: datetime = None, **kwargs
     ):
-        """ this retrieves recent trades"""
+        """ this retrieves recent trades, update the frame, and broadcast updates"""
+
+        # keep old frame version
+        # Note : for this to work, this must be the only point where it is possible to update the encapsulated data
+        old_frame = self.frame
 
         reqparams = {}
 
@@ -120,28 +137,49 @@ class TradesView(TradesViewBase):
             for r in res
         ]
         # TODO: probably better idea to store data in frame, before converting (but still verifying data type somehow...)
-        frame = TradeFrame.from_tradeslist(*trades)
+        frame = TradeFrame.from_tradeslist(self.symbol, *trades)
         # We let baseclasse aggregate tradeframes
-        return super(TradesView, self).__call__(frame=frame)
+        super(TradesView, self).__call__(frame=frame)
+        # we upgrade bounds here, based on request
+        self.begin = start_time if self.begin is None else min(self.begin, start_time)
+        self.end = stop_time if self.end is None else max(self.end, stop_time)
 
-    async def loop(self, mini_sleep: timedelta = timedelta(seconds=3)):
+        # broadcast update
+        # TODO : OPTIMIZE THIS ! Difference Computation is too slow...
+        frameupdate = self.frame.difference(old_frame)
+        # NEW WAY
+        if not frameupdate.empty:
+            for hook in self.update_hooks:
+                hook(frameupdate)
+                # TODO : somethg useful with return value ? popping the hook ?
+
+    async def loop(self, mini_sleep: timedelta = timedelta(seconds=10)):
 
         if self.expectations is None:
             self.expectations = Queue()
 
         # TODO : avoid multiple calls here !!
-        if not self.expectations.empty():  # to avoid blocking when not useful
-            tint = await self.expectations.get()
+        tint = None
+        while not self.expectations.empty():  # to avoid blocking when not useful
+            new_tint = await self.expectations.get()
 
+            tint = (
+                tint.union(new_tint) if tint is not None else new_tint
+            )  # merging time intervals to minimize calls
+
+            self.expectations.task_done()
+
+        if tint is None:  # no interval specified ->  rely on default values
+            await self.at()
+        else:  # only ensure data present for the specified interval
             await self.at(  # Note that timeStep is not involved in trade requests
                 start_time=tint.start, stop_time=tint.stop
             )
 
-            self.expectations.task_done()
-
-        await asyncio.sleep(
-            mini_sleep.total_seconds()
-        )  # minisleep to avoid looping too fast.
+        if self.update_loop is not None:  # not the first time
+            await asyncio.sleep(
+                mini_sleep.total_seconds()
+            )  # minisleep to avoid looping too fast.
 
         # this trampoline and behaves as a minimal inner service...
         self.update_loop = asyncio.get_running_loop().create_task(
@@ -168,32 +206,35 @@ class TradesView(TradesViewBase):
         """
         if (
             self.frame.empty
-            or (start_time is not None and self.frame.time_utc[0] > start_time)
-            or (stop_time is not None and self.frame.time_utc[-1] < stop_time)
+            or (start_time is not None and self.begin > start_time)
+            or (stop_time is not None and self.end < stop_time)
         ):
-            # keep old version
-            # Note : for this to work, this must be the only point where it is possible to update the encapsulated data
-            old_frame = self.frame
 
-            # do the first request to get recent data, and await
-            await self.request(start_time=start_time, stop_time=stop_time)
+            if start_time is None or stop_time is None:
+                # do the first request to get recent data, and await
+                await self.request(start_time=start_time, stop_time=stop_time)
+            else:
+                req_itv = min(stop_time - start_time, timedelta(hours=24))
+                # 1 deciding if we request after known data or before
+                while self.frame.empty or self.end < stop_time:  # after
+                    await self.request(
+                        start_time=start_time, stop_time=start_time + req_itv
+                    )
+                    # this will modify self.close_time but we also need to change start_time to make progress
+                    start_time = start_time + req_itv
 
-            # broadcast update
-            # TODO : OPTIMIZE THIS ! Difference Computation is too slow...
-            frameupdate = self.frame.difference(old_frame)
-            # NEW WAY
-            if not frameupdate.empty:
-                for hook in self.update_hooks:
-                    hook(frameupdate)
-                    # TODO : somethg useful with return value ? popping the hook ?
+                while self.frame.empty or self.begin > start_time:  # before
+                    await self.request(
+                        start_time=stop_time - req_itv, stop_time=stop_time
+                    )
+                    # this will modify self.open_time but we also need to change stop_time to make progress
+                    stop_time = stop_time - req_itv
 
         # return the frame
         return self.frame
 
 
 if __name__ == "__main__":
-    import asyncio
-
     from aiobinance.config import load_api_keyfile
 
     api = Binance(credentials=load_api_keyfile())

@@ -9,12 +9,12 @@ from typing import Dict, Optional, Type
 from hypothesis.strategies import SearchStrategy
 from result import Err, Ok, Result
 
-from aiobinance.api.ledgerview import LedgerView
-from aiobinance.api.model.account_info import AccountInfo
+from aiobinance.api.asset import Asset
+from aiobinance.api.exchange import Exchange
+from aiobinance.api.model.account_info import AccountInfo, AssetAmount
 from aiobinance.api.model.asset_info import AssetInfo, NetworkInfo
 from aiobinance.api.pure.accountbase import AccountBase
 from aiobinance.api.rawapi import Binance
-from aiobinance.api.tradesview import TradesView
 
 
 @dataclass(frozen=False)
@@ -25,27 +25,37 @@ class Account(AccountBase):
     api: Binance = field(init=True, default=Binance())
     test: bool = field(init=True, default=True)
 
+    # exchange as property as it can be pased as argument
+    exchange: Optional[Exchange] = field(init=False, default=None)
+
     @classmethod
     def strategy(cls, **kwargs) -> SearchStrategy:
         raise RuntimeError(
             "Strategy should not be used with real implementation. Build an instance from actual data instead."
         )
 
-    @cached_property
-    def ledgers(self) -> Dict[str, LedgerView]:
-        # TODO : find all related Market symbol, and request trades for these...
+    def __post_init__(self):
+        # Note : Exchange refreshes itself
+        if self.exchange is None:
+            self.exchange = Exchange(api=self.api, test=self.test)
 
-        if self.assets_info is None:
-            return {}
-            # there should be a special case also in child classes
-        else:
-            ldgrs = {}
-            for ai in self.assets_info.values():
-                balnc = [b for b in self.info.balances if b.asset == ai.coin][
-                    0
-                ]  # assume there is only one
-                ldgrs.update({ai.coin: LedgerView(api=self.api, coin=ai, amount=balnc)})
-            return ldgrs
+    @property
+    def assets(self) -> Dict[str, Asset]:
+        return (
+            {
+                asst: Asset(
+                    amount=self.balances.get(asst, AssetAmount(asset=asst)),
+                    info=ainf,
+                    base_markets=[  # retrieving tradeview for related markets
+                        m for m in self._markets_with_base(asst)
+                    ],
+                    quote_markets=[m for m in self._markets_with_quote(asst)],
+                )
+                for asst, ainf in self.assets_info.items()
+            }
+            if self.assets_info is not None
+            else {}
+        )
 
     # interactive behavior
     async def accountinfo(self) -> Result[AccountInfo, RuntimeError]:
@@ -157,7 +167,10 @@ if __name__ == "__main__":
         print(f"update_time: {acc.update_time}")
         print(f"now: {now}")
 
-        print(acc.accountinfo())
-        print(acc.assetsinfo())
+        await acc()
+
+        print(acc)
+        print(acc.assets)
 
     asyncio.run(run_accnt())
+    # TODO: some interactive repl to test this...

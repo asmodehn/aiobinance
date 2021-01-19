@@ -209,7 +209,7 @@ class TestOHLCFrame(unittest.TestCase):
             for t in tfs:  # __iter__
                 assert isinstance(t, PriceCandle)
                 assert t in ohlcframe  # value present in origin check
-                # pick random time in the candle to retrieve the candle:
+                # pick random time in the candle to retrieve only the candle:
                 dt = data.draw(
                     st.datetimes(
                         min_value=t.open_time.replace(tzinfo=None),

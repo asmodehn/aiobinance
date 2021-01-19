@@ -62,23 +62,24 @@ class Trader:
 
 
 if __name__ == "__main__":
-    from aiobinance.api.account import retrieve_account
     from aiobinance.config import load_api_keyfile
 
     creds = load_api_keyfile()
 
     api = Binance(credentials=creds)  # we might need private requests here !
 
-    account = retrieve_account(api=api, test=True)
+    account = Account(api=api, test=True)
 
-    trader = Trader(account=account, market=account.exchange.market["COTIBNB"])
+    asyncio.run(account())
+
+    trader = Trader(account=account, market=account.exchange.markets["COTIBNB"])
 
     print("Buy test order: ")
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.buy(amount=Decimal(300), total_expected=Decimal(0.45))
+    order = asyncio.run(trader.buy(amount=Decimal(300), total_expected=Decimal(0.45)))
     print(order)  # None is expected on test
 
     print("Buy sell order: ")
     # Decimal of float here to test precision. it should be built from string instead !
-    order = trader.sell(amount=Decimal(300), total_expected=Decimal(0.45))
+    order = asyncio.run(trader.sell(amount=Decimal(300), total_expected=Decimal(0.45)))
     print(order)  # None is expected on test

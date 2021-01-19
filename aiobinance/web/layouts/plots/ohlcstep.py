@@ -47,7 +47,7 @@ class OHLCStepPlots:
     selected_tf: TimeStep = field(default=TimeIntervalDelta.minutely)
     num_candles: int = field(default=120)
 
-    update_needed: asyncio.Event = field(default_factory=asyncio.Event)
+    # update_needed: asyncio.Event = field(default_factory=asyncio.Event)
 
     @functools.cached_property  # cached here for consistency in plot
     def framesource(self) -> OHLCFrame:
@@ -290,10 +290,6 @@ class OHLCStepPlots:
         # manual patch (somehow bokeh stream fails to patch properly)
 
         # TODO : Optimization : Later...
-        # # computing difference to only get meaningful patches to apply
-        # ohlcvpatch = ohlcv.difference(self.ohlcv)
-        # # DEBUG
-        # # print(ohlcvpatch)
         #
         # if len(ohlcvpatch) > 0 and len(self.ohlcv) > 0:  # otherwise stream has already done the job
         #     prev_close_time = np.datetime64(self.ohlcv.close_time.replace(tzinfo=None))
@@ -351,8 +347,6 @@ class OHLCStepPlots:
 
     def _update_hook(self, frameupdate: OHLCFrame) -> Any:
 
-        # forcing framesource refresh
-        del self.framesource
         # datasource will be patched by bokeh datasource.patch and .stream
 
         # let the plot get the updates when it is tick time
@@ -405,8 +399,6 @@ class OHLCStepPlots:
 
 
 if __name__ == "__main__":
-    import asyncio
-
     from bokeh.server.server import Server
 
     async def symbolapp(symbol: str = "BTCEUR"):
