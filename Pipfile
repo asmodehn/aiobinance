@@ -23,16 +23,18 @@ pytest-recording = "*"
 pytest-asyncio = "*"
 nox = "*"
 jedi = "*"
-hypothesis = "*"
+hypothesis = ">=6.0"
 ptpython = "*"
 tabulate = "*"
 result = "*"
-cached-property = "*"  # while we still support py 3.7 in functools from 3.8
 frozenlist = "*"
 pre-commit = "*"
+julia = "*"
+pretty-errors = "*"
+portion = "*"
 
 [requires]
-python_version = "3.8"
+python_version = "3.9"
 
 [pipenv]
 allow_prereleases = true

@@ -3,7 +3,9 @@ import unittest
 from decimal import Decimal
 
 import hypothesis.strategies as st
+import numpy as np
 from hypothesis import given
+from pydantic import ValidationError
 
 from aiobinance.api.model.pricecandle import PriceCandle
 
@@ -29,7 +31,20 @@ class TestPriceCandle(unittest.TestCase):
         assert candle.taker_base_vol >= Decimal(0)
         assert candle.taker_quote_vol >= Decimal(0)
 
-    # TODO : test dtypes
+    @given(candle=PriceCandle.strategy())
+    def test_strategy_dtypes(self, candle: PriceCandle):
+        # TODO : test min / max values
+        arraylike = [tuple(dataclasses.asdict(candle).values())]
+        npa = np.array(arraylike, dtype=list(PriceCandle.as_dtype().items()))
+
+        try:
+            # confirm we do not loose any information by converting types and storing into a structured array
+            stored_candle = PriceCandle(
+                **{f.name: v for f, v in zip(dataclasses.fields(PriceCandle), npa[0])}
+            )
+        except ValidationError:
+            raise
+        assert stored_candle == candle
 
     @given(candle=PriceCandle.strategy())
     def test_str(self, candle: PriceCandle):

@@ -15,9 +15,12 @@ from aiobinance.config import (
 pass_creds = click.make_pass_decorator(Credentials)
 
 
+# TODO : https://github.com/tiangolo/typer
+
+
 @click.group(invoke_without_command=True)
 @click.option("--apikey", default=None)
-@click.option("--secret", default=None)
+@click.option("--secret", default=None)  # TODO : option to force anonymity
 @click.option(
     "--store", default=False, is_flag=True
 )  # TODO : maybe make this a command ??

@@ -44,7 +44,7 @@ class SafeCounter:
         base_asset_precision: int,
         quote_asset_precision: int,
         order_callable: Callable[
-            [Any, Decimal, Decimal, Any, Optional[Decimal], Any],
+            [Any, OrderSide, Decimal, Decimal, Any, Optional[Decimal], Any],
             Result[LimitOrder, Exception],
         ],
     ):

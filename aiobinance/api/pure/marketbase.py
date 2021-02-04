@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
+from functools import cached_property
 from typing import Dict, List, Optional, Tuple
 
 import hypothesis.strategies as st
-from cached_property import cached_property
 from hypothesis.strategies import SearchStrategy
-from result import Ok, Result
+from result import Err, Ok, Result
 
 from aiobinance.api.model.filters import Filter
 from aiobinance.api.model.market_info import MarketInfo
@@ -19,7 +19,7 @@ from aiobinance.api.pure.tradesviewbase import TradesViewBase
 
 
 @dataclass(frozen=False)
-class MarketBase:  # TODO : rename to MakertBase for clarity...
+class MarketBase:
     info: Optional[MarketInfo] = field(init=True, default=None)
 
     @classmethod
@@ -42,37 +42,40 @@ class MarketBase:  # TODO : rename to MakertBase for clarity...
         # that is something plausible, useful for tests, yet without longterm side-effects (given our simple box-based algorithms)
         # BUT NOT HERE ! lets try to remain side-effect-free here...
         if self.info is None:
-            return (
-                TradesViewBase()
+            return TradesViewBase(
+                symbol=None
             )  # there should be a special case also in child classes
         else:
-            return TradesViewBase()
+            return TradesViewBase(symbol=self.info.symbol)
 
-    def __call__(self, *, info: Optional[MarketInfo] = None, **kwargs) -> MarketBase:
-        # return same instance if no change
+    async def __call__(
+        self, *, info: Optional[MarketInfo] = None, **kwargs
+    ) -> MarketBase:
+        """ This is used to update Market's data. it is also here that data can be injected for tests"""
         if info is None:
-            return self
+            res = await self.marketinfo(**kwargs)
+            # kwargs are passed to marketinfo,
+            # in case there is a relevant param
 
-        popping = []
-        if self.info is None:
-            # because we may have cached invalid values from initialization (self.info was None)
-            popping.append("trades")
-            popping.append("price")
-        else:  # otherwise we detect change with equality on frozen dataclass fields
-            if self.info.symbol != info.symbol:
-                popping.append("trades")  # because trades depend on symbol
-                popping.append("price")
+            if res.is_err():
+                raise res.err()
+            else:
+                info = res.ok()
 
-        # updating by updating data
+        # we update the current instance
         self.info = info
 
-        # and invalidating related caches
-        for p in popping:
-            self.__dict__.pop(p, None)
-
-        # returning self to allow chaining
         return self
 
+    async def marketinfo(self, **kwargs) -> Result[MarketInfo, NotImplementedError]:
+        """ This is a coroutine to be implemented in childrens, with implementation details..."""
+        return Err(
+            NotImplementedError(
+                "This method should be overloaded by a specific implementation."
+            )
+        )
+
+    # TODO : async
     def limit_order(
         self,
         *,
@@ -119,7 +122,10 @@ class MarketBase:  # TODO : rename to MakertBase for clarity...
 
 
 if __name__ == "__main__":
+    import asyncio
+
     mb = MarketBase.strategy().example()
     print(mb)
-    mb_updated = mb(info=MarketInfo.strategy().example())
+
+    mb_updated = asyncio.run(mb(info=MarketInfo.strategy().example()))
     print(mb_updated)

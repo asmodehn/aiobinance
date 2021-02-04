@@ -1,4 +1,4 @@
-from dataclasses import asdict, fields
+from dataclasses import asdict, field, fields
 from datetime import datetime
 from decimal import Decimal
 from pprint import pprint
@@ -14,8 +14,8 @@ from pydantic.dataclasses import dataclass
 @dataclass
 class AssetAmount:
     asset: str  # should only allow known assets
-    free: Decimal
-    locked: Decimal
+    free: Decimal = field(default=Decimal(0))  # TODO : precision for default value ??
+    locked: Decimal = field(default=Decimal(0))
 
     @classmethod
     def strategy(cls) -> SearchStrategy:

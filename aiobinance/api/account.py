@@ -3,15 +3,18 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from functools import cached_property
+from typing import Dict, Optional, Type
 
-from cached_property import cached_property
 from hypothesis.strategies import SearchStrategy
+from result import Err, Ok, Result
 
-from aiobinance.api.model.account_info import AccountInfo
+from aiobinance.api.asset import Asset
+from aiobinance.api.exchange import Exchange
+from aiobinance.api.model.account_info import AccountInfo, AssetAmount
+from aiobinance.api.model.asset_info import AssetInfo, NetworkInfo
 from aiobinance.api.pure.accountbase import AccountBase
 from aiobinance.api.rawapi import Binance
-from aiobinance.api.tradesview import TradesView
 
 
 @dataclass(frozen=False)
@@ -22,62 +25,131 @@ class Account(AccountBase):
     api: Binance = field(init=True, default=Binance())
     test: bool = field(init=True, default=True)
 
+    # exchange as property as it can be pased as argument
+    exchange: Optional[Exchange] = field(init=False, default=None)
+
     @classmethod
     def strategy(cls, **kwargs) -> SearchStrategy:
         raise RuntimeError(
             "Strategy should not be used with real implementation. Build an instance from actual data instead."
         )
 
-    @cached_property
-    def trades(self) -> TradesView:
-        return TradesView(api=self.api)
+    def __post_init__(self):
+        # Note : Exchange refreshes itself
+        if self.exchange is None:
+            self.exchange = Exchange(api=self.api, test=self.test)
+
+    @property
+    def assets(self) -> Dict[str, Asset]:
+        return (
+            {
+                asst: Asset(
+                    amount=self.balances.get(asst, AssetAmount(asset=asst)),
+                    info=ainf,
+                    base_markets=[  # retrieving tradeview for related markets
+                        m for m in self._markets_with_base(asst)
+                    ],
+                    quote_markets=[m for m in self._markets_with_quote(asst)],
+                )
+                for asst, ainf in self.assets_info.items()
+            }
+            if self.assets_info is not None
+            else {}
+        )
 
     # interactive behavior
+    async def accountinfo(self) -> Result[AccountInfo, RuntimeError]:
 
-    async def __call__(
-        self, *, update_delta: Optional[timedelta] = None, **kwargs
-    ) -> Account:
+        if self.api.creds is None:
+            return Err(RuntimeError("Credentials not specified !"))
 
-        # TMP simulating future async api...
-        await asyncio.sleep(0.1)
+        res = self.api.call_api(command="account")
 
-        info = kwargs.get(
-            "info", None
-        )  # we get the info param as override if present in kwargs
+        if res.is_ok():
+            res = res.value
+        else:
+            # TODO : handle API error properly
+            return Err(RuntimeError(res.value))
 
-        if info is None:
+        # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
+        # We do not want to change the semantics of the exchange exposed models here.
+        info = AccountInfo(
+            makerCommission=res["makerCommission"],
+            takerCommission=res["takerCommission"],
+            buyerCommission=res["buyerCommission"],
+            sellerCommission=res["sellerCommission"],
+            canTrade=res["canTrade"],
+            canWithdraw=res["canWithdraw"],
+            canDeposit=res["canDeposit"],
+            updateTime=res["updateTime"],
+            accountType=res["accountType"],  # should be "SPOT"
+            balances=res["balances"],
+            permissions=res["permissions"],
+        )
 
-            if self.api.creds is None:
-                raise RuntimeError("Credentials not specified !")
+        # we update the current frozen instance (base class know how to)
+        return Ok(info)
 
-            res = self.api.call_api(command="account")
+    async def assetsinfo(self) -> Result[Dict[str, AssetInfo], RuntimeError]:
 
-            if res.is_ok():
-                res = res.value
-            else:
-                # TODO : handle API error properly
-                raise RuntimeError(res.value)
+        res = self.api.call_api(command="coins")
 
-            # Binance translation is only a matter of binance json -> python data structure && avoid data duplication.
-            # We do not want to change the semantics of the exchange exposed models here.
-            info = AccountInfo(
-                makerCommission=res["makerCommission"],
-                takerCommission=res["takerCommission"],
-                buyerCommission=res["buyerCommission"],
-                sellerCommission=res["sellerCommission"],
-                canTrade=res["canTrade"],
-                canWithdraw=res["canWithdraw"],
-                canDeposit=res["canDeposit"],
-                updateTime=res["updateTime"],
-                accountType=res["accountType"],  # should be "SPOT"
-                balances=res["balances"],
-                permissions=res["permissions"],
+        if res.is_ok():
+            res = res.value
+        else:
+            # TODO : handle API error properly
+            Err(RuntimeError(res.value))
+
+        assets = {}
+        for asset in res:
+            coin = asset["coin"]
+            assert isinstance(coin, str)
+            assets.update(
+                {
+                    coin: AssetInfo(
+                        coin=coin,
+                        depositAllEnable=asset["depositAllEnable"],
+                        withdrawAllEnable=asset["withdrawAllEnable"],
+                        name=asset["name"],
+                        free=asset["free"],
+                        locked=asset["locked"],
+                        freeze=asset["freeze"],
+                        withdrawing=asset["withdrawing"],
+                        ipoing=asset["ipoing"],
+                        ipoable=asset["ipoable"],
+                        storage=asset["storage"],
+                        isLegalMoney=asset["isLegalMoney"],
+                        trading=asset["trading"],
+                        networkList=[
+                            NetworkInfo(
+                                network=nw["network"],
+                                coin=nw["coin"],
+                                withdrawIntegerMultiple=nw["withdrawIntegerMultiple"],
+                                isDefault=nw["isDefault"],
+                                depositEnable=nw["depositEnable"],
+                                withdrawEnable=nw["withdrawEnable"],
+                                depositDesc=nw.get("depositDesc"),
+                                withdrawDesc=nw.get("withdrawDesc"),
+                                specialTips=nw.get("specialTips"),
+                                name=nw["name"],
+                                resetAddressStatus=nw["resetAddressStatus"],
+                                addressRegex=nw["addressRegex"],
+                                memoRegex=nw["memoRegex"],
+                                withdrawFee=nw["withdrawFee"],
+                                withdrawMin=nw["withdrawMin"],
+                                withdrawMax=nw[
+                                    "withdrawMax"
+                                ],  # Note : here 0 seems to mean "no max" ?? (> Min)
+                                minConfirm=nw["minConfirm"],
+                                unlockConfirm=nw.get("unLockConfirm"),
+                            )
+                            for nw in asset["networkList"]
+                        ],
+                    )
+                }
             )
 
-            # we update the current frozen instance (base class know how to)
-            super(Account, self).__call__(info=info)
-
-        return self
+        return Ok(assets)
 
 
 if __name__ == "__main__":
@@ -95,19 +167,10 @@ if __name__ == "__main__":
         print(f"update_time: {acc.update_time}")
         print(f"now: {now}")
 
-        newnow = datetime.now(tz=timezone.utc)
-        await acc(update_delta=newnow - now)
-        print(f"update_time: {acc.update_time}")
-        now = newnow
-        print(f"now: {now}")
+        await acc()
 
-        # TODO : something needs to happen for the account to get updated and get a new updated time...
-        await asyncio.sleep(1)
-
-        newnow = datetime.now(tz=timezone.utc)
-        await acc(update_delta=newnow - now)
-        print(f"update_time: {acc.update_time}")
-        now = newnow
-        print(f"now: {now}")
+        print(acc)
+        print(acc.assets)
 
     asyncio.run(run_accnt())
+    # TODO: some interactive repl to test this...

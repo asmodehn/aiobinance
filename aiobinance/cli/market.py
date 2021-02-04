@@ -7,6 +7,7 @@ from click import Choice
 import aiobinance.binance as binance
 from aiobinance.api.exchange import Exchange
 from aiobinance.api.market import Market
+from aiobinance.api.model.timeinterval import TimeStep
 from aiobinance.api.rawapi import Binance
 from aiobinance.cli.cli_group import cli
 from aiobinance.cli.params.date import Date
@@ -27,7 +28,8 @@ local_tz = datetime.now(tz=timezone.utc).astimezone().tzinfo
     "-i",
     type=Choice(
         choices=[
-            "1M",
+            # "1M",  # not supported by aiobinance
+            # one month is an ambiguous timedelta, and not really interesting for algo trading.
             "1m",
             "3m",
             "5m",
@@ -81,9 +83,25 @@ def price(
     # print(f"from: {from_datetime}")
     # print(f"to: {to_datetime}")
 
+    # converting to TimeStep
+    # TODO :  proper parser...
+    if interval[-1] == "m":
+        interval = timedelta(minutes=int(interval[:-1]))
+    elif interval[-1] == "h":
+        interval = timedelta(hours=int(interval[:-1]))
+    elif interval[-1] == "d":
+        interval = timedelta(days=int(interval[:-1]))
+    elif interval[-1] == "w":
+        interval = timedelta(weeks=int(interval[:-1]))
+    else:
+        raise RuntimeError(f"Cannot understand timestep {interval}")
+    interval = TimeStep(interval)
+
     # while we are moving to an async interface
     ohlcv = asyncio.run(
-        market.price(start_time=from_datetime, stop_time=to_datetime, interval=interval)
+        market.price.request(
+            start_time=from_datetime, stop_time=to_datetime, interval=interval
+        )
     )
 
     if html:
@@ -93,7 +111,8 @@ def price(
 
         import aiobinance.web
 
-        report = aiobinance.web.price_plot(ohlcv=ohlcv.frame)
+        # TODO : replace price_plot with recent working bokeh layout (triplescreen?)
+        report = aiobinance.web.price_plot(ohlcv=ohlcv[interval])
         output_file(f"{market.info.symbol}_{from_date}_{to_date}_price.html")
         show(report)
     else:
@@ -105,7 +124,7 @@ def price(
         # )
         # print(tkr)
         pass
-    print(ohlcv)
+    print(ohlcv[interval])
 
 
 if __name__ == "__main__":

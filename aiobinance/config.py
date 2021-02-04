@@ -55,7 +55,11 @@ def load_api_keyfile(filepath=BINANCE_API_KEYFILE) -> Credentials:
     """Load the Binance API keyfile"""
 
     if not os.path.exists(filepath):
-        logger.warning("The API keyfile {} was not found!".format(filepath))
+        logger.warning(
+            "The API keyfile {} was not found. Proceeding without authentication...".format(
+                filepath
+            )
+        )
 
         return Credentials()
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import List, Optional
 
 import hypothesis.strategies as st
 from hypothesis.strategies import SearchStrategy
@@ -66,6 +66,22 @@ class ExchangeInfo:
             symbols=st.lists(
                 elements=MarketInfo.strategy(), max_size=5, unique_by=lambda i: i.symbol
             ),
+        )
+
+    # call function to simulate a data update...
+    def __call__(self, update_delta: Optional[timedelta] = None) -> ExchangeInfo:
+        """ Note this might overflow. calling code should handle it"""
+        new_servertime = (
+            (self.servertime + update_delta)
+            if update_delta is not None
+            else self.servertime
+        )
+
+        return ExchangeInfo(
+            servertime=new_servertime,  # time will monotonically increase
+            rate_limits=self.rate_limits,
+            exchange_filters=self.exchange_filters,
+            symbols=self.symbols,
         )
 
 

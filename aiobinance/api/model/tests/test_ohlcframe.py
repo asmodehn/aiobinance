@@ -35,6 +35,30 @@ def assert_columns(ohlcframe):
 
 
 class TestOHLCFrame(unittest.TestCase):
+    @given(
+        trade1=st.one_of(st.none(), PriceCandle.strategy()),
+        trade2=st.one_of(st.none(), PriceCandle.strategy()),
+    )
+    def test_from_candleslist(self, trade1, trade2):
+
+        if trade1 is not None and trade2 is not None:
+            tf = OHLCFrame.from_candleslist(trade1, trade2)
+        elif trade2 is not None:
+            tf = OHLCFrame.from_candleslist(trade2)
+        elif trade1 is not None:
+            tf = OHLCFrame.from_candleslist(trade1)
+        else:
+            tf = OHLCFrame.from_candleslist()
+
+        # making sure the dataframe dtypes are the ones specified by the record type
+        # careful with empty dataframe special case...
+        df = tf.df if tf.df.empty else tf.df.reset_index(drop=False)
+        # careful : pandas may optimize these...
+        for fdt, cdt in zip(df.dtypes.items(), PriceCandle.as_dtype().items()):
+            assert fdt[0] == cdt[0]
+            # dtype should be same or provide safe conversion
+            assert fdt[1] == cdt[1] or fdt[1] < cdt[1]
+
     @given(ohlcframe=OHLCFrame.strategy())
     def test_strategy(self, ohlcframe: OHLCFrame):
         # empty is a special se in pandas behavior...
@@ -185,7 +209,7 @@ class TestOHLCFrame(unittest.TestCase):
             for t in tfs:  # __iter__
                 assert isinstance(t, PriceCandle)
                 assert t in ohlcframe  # value present in origin check
-                # pick random time in the candle to retrieve the candle:
+                # pick random time in the candle to retrieve only the candle:
                 dt = data.draw(
                     st.datetimes(
                         min_value=t.open_time.replace(tzinfo=None),

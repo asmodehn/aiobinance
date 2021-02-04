@@ -16,7 +16,7 @@ class TestTrade(unittest.TestCase):
     def test_strategy_dtypes(self, trade: Trade):
         # TODO : test min / max values
         arraylike = [tuple(dataclasses.asdict(trade).values())]
-        npa = np.array(arraylike, dtype=Trade.as_dtype())
+        npa = np.array(arraylike, dtype=list(Trade.as_dtype().items()))
 
         try:
             # confirm we do not loose any information by converting types and storing into a structured array
@@ -34,7 +34,7 @@ class TestTrade(unittest.TestCase):
             timezones=st.none(),
         )
     )  # naive datetimes here: we are not testing timezone conversion.
-    @settings(suppress_health_check=[HealthCheck.too_slow])
+    # @settings(suppress_health_check=[HealthCheck.too_slow])
     def test_convert_time(self, dt: datetime):
         # forcing naive datetime to be utc-aware
         py_dt = Trade.convert_pandas_timestamp(dt)
@@ -69,9 +69,8 @@ class TestTrade(unittest.TestCase):
         assert f"price: {str(trade.price)}" in trade_str
         assert f"qty: {str(trade.qty)}" in trade_str
         assert f"quote_qty: {str(trade.quote_qty)}" in trade_str
-        assert (
-            f"commission: {str(trade.commission)} {trade.commission_asset}" in trade_str
-        )
+        assert f"commission: {str(trade.commission)}" in trade_str
+        assert f"commission_asset: {str(trade.commission_asset)}" in trade_str
         assert f"is_buyer: {str(trade.is_buyer)}" in trade_str
         assert f"is_maker: {str(trade.is_maker)}" in trade_str
         assert f"order_id: {str(trade.order_id)}" in trade_str

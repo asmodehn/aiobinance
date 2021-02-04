@@ -20,11 +20,22 @@ from pydantic import validator
 from tabulate import tabulate
 
 from aiobinance.api.model.pricecandle import PriceCandle
+from aiobinance.api.model.timeinterval import (
+    TimeStep,
+    timeinterval_from_timedelta,
+    timeinterval_to_timedelta,
+)
 
 
 # Note : these are python dataclasses as pydantic cannot really typecheck dataframe content...
 @dataclass(frozen=True)
 class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can help us enforce correct shape of dataframe...
+
+    # TODO : we should probably make the timeinterval (TimeStep) part of the type here...
+    interval: Optional[TimeStep] = field(
+        init=False,  # we determine that from the dataframe in __post_init__
+        default=None,
+    )
 
     df: Optional[pd.DataFrame] = field(
         init=True,
@@ -39,12 +50,18 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
 
     # properties to make it quack like a candle...
     @property
-    def open_time(self) -> datetime:  # TODO: special case for empty df
-        return self.df.index[0].to_pydatetime().replace(tzinfo=timezone.utc)
+    def open_time(self) -> Optional[datetime]:
+        if self.df.empty:
+            return None
+        else:
+            return self.df.index[0].to_pydatetime().replace(tzinfo=timezone.utc)
 
     @property
-    def close_time(self) -> datetime:  # TODO: special case for empty df
-        return self.df.close_time[-1].to_pydatetime().replace(tzinfo=timezone.utc)
+    def close_time(self) -> Optional[datetime]:
+        if self.df.empty:
+            return None
+        else:
+            return self.df.close_time[-1].to_pydatetime().replace(tzinfo=timezone.utc)
 
     @property
     def open(self) -> Decimal:
@@ -120,49 +137,78 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
         df = pd.DataFrame(data=npa)
         return cls(df=df)
 
-    def as_datasource(self, compute_mid_time=True) -> ColumnDataSource:
+    def as_datasource(
+        self, compute_mid_time=True, compute_upwards=True
+    ) -> ColumnDataSource:
         plotdf = self.optimized()
+        if not plotdf.empty:
+            # we need to replicate index column (to match empty df behavior - pandas oddities)
+            plotdf["index"] = plotdf.index  # TODO : index should remain simply numeric
+            # TODO: It could then be used to track positions in differences and patches (cf. plot updates)
         if compute_mid_time:
-            timeinterval = plotdf.open_time[1] - plotdf.open_time[0]
-            plotdf["mid_time"] = plotdf.open_time + timeinterval / 2
-
-        return ColumnDataSource(plotdf)
+            if not plotdf.empty:
+                plotdf["mid_time"] = plotdf.index + self.interval.delta.value / 2
+            else:  # if no index to use for computation, duplicate close_time column
+                plotdf["mid_time"] = plotdf["close_time"].copy()
+        if compute_upwards:
+            plotdf["upwards"] = np.where(plotdf.open < plotdf.close, "UP", "DOWN")
+        cds = ColumnDataSource(plotdf)
+        return cds
 
     def __post_init__(self):
         # Here we follow binance format and enforce proper types and structure
 
-        if not self.df.empty and (
-            self.df.index.name != "open_time"
-            or not isinstance(self.df.index, pd.DatetimeIndex)
+        if self.df.empty:
+            # Note: an empty df is a special case, as open_time is still a column...
+            return
+
+        # shaping dataframe if needed
+        if self.df.index.name != "open_time" or not isinstance(
+            self.df.index, pd.DatetimeIndex
         ):
+            # CAREFUL with datetime64 and index/hash : https://github.com/numpy/numpy/issues/3836
             assert "open_time" in self.df.columns
             # Mutating df under the hood... CAREFUL : we heavily rely on (buggy?) pandas here...
             self.df.reset_index(drop=True, inplace=True)
+            # enforcing open_time unicity
+            self.df.drop_duplicates(subset=["open_time"], keep="last", inplace=True)
             # use the open_time column as an index
             self.df.set_index(
-                pd.to_datetime(self.df["open_time"]),
+                pd.to_datetime(
+                    self.df["open_time"]
+                ),  # Ref : https://binance-docs.github.io/apidocs/#kline-candlestick-data
                 verify_integrity=True,
                 inplace=True,
             )
             # remove it as a column to remove ambiguity
             self.df.drop("open_time", axis="columns", inplace=True)
-            # sort via the index
-            self.df.sort_index(inplace=True)
 
-            # explicit assumption for every other operation on the dataframe :
-            assert "open_time" not in self.df.columns
-            assert isinstance(self.df.index, pd.DatetimeIndex)
-            assert self.df.index.name == "open_time"
+        # sort via the index
+        self.df.sort_index(inplace=True)
 
-            # finally enforcing dtypes:
+        # explicit assumption for every other operation on the dataframe :
+        assert "open_time" not in self.df.columns
+        assert isinstance(self.df.index, pd.DatetimeIndex)
+        assert self.df.index.name == "open_time"
 
-        # Note: an empty df is a special case, as open_time is still a column...
+        # finally enforcing dtypes:
+        # TODO
+
+        # setting interval timedelta automatically
+        td = (self.df.iloc[0].close_time - self.df.iloc[0].name).to_pytimedelta()
+        # normalize to TimeStep !!!
+        tdn = TimeStep(td)
+        object.__setattr__(
+            self,
+            "interval",  # We need to restrict ourselves to ONE candle here
+            tdn,
+        )
 
     def __contains__(self, item: Union[PriceCandle, datetime]) -> bool:
         # https://docs.python.org/2/reference/datamodel.html#object.__contains__
         if isinstance(item, PriceCandle):
             for t in self:  # iterates and cast to PriceCandle
-                if t == item:  # using Trade equality
+                if t == item:  # using PriceCandle equality
                     return True
         elif isinstance(item, datetime):  # continuous index
             if (
@@ -190,7 +236,7 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
         elif len(self) == len(other):
             # BEWARE : https://github.com/pandas-dev/pandas/issues/20442
             for s, o in zip(self, other):  # this iterates and cast to Trade
-                if s != o:  # here we use Trade.__eq__ !
+                if s != o:  # here we use PriceCandle.__eq__ !
                     break
             else:
                 return True
@@ -258,9 +304,7 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
                 ]
 
                 if len(rs) == 1:
-                    return PriceCandle(
-                        **rs.reset_index(drop=False).iloc[0]
-                    )  # simple since dataframe is  indexed on id
+                    return PriceCandle(**rs.reset_index(drop=False).iloc[0])
                 elif len(rs) == 0:
                     raise KeyError(f"Invalid index {item}")
                 else:
@@ -319,9 +363,9 @@ class OHLCFrame:  # TODO : manipulating th class itself (with a meta class) can 
             other.df.reset_index(drop=False), how="outer"
         )
 
-        # Note : previous merging attempts with "aggregate" and fonction application failed
+        # Note : previous merging attempts with "aggregate" and function application failed
         # on tricky bugs/pandas limitations...
-        # Attempting a different way based on resolving dupicates in groups and replacing.
+        # Attempting a different way based on resolving duplicates in groups and replacing.
         dups = newdf_noidx.duplicated(subset="open_time", keep=False)
 
         dupgroups = newdf_noidx[dups].groupby(by="open_time")

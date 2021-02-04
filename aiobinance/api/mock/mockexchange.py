@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import warnings
 
 # CAREFUL : dataclasses from python and pydantic dont mix in hierarchy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional
+from functools import cached_property
+from typing import Dict, Optional, Type
 
-from cached_property import cached_property
+import hypothesis.strategies as st
+from result import Err, Ok, Result
 
 from aiobinance.api.mock.mockmarket import MockMarket
 from aiobinance.api.model.exchange_info import ExchangeInfo
@@ -16,6 +19,21 @@ from aiobinance.api.pure.exchangebase import ExchangeBase
 
 @dataclass(frozen=False)
 class MockExchange(ExchangeBase):
+
+    _remote_info: ExchangeInfo = field(
+        init=True, default=ExchangeInfo.strategy().example()
+    )
+    # mandatory to inject test data (representing the remote data)
+
+    @classmethod
+    def strategy(
+        cls,
+        info=st.one_of(st.none(), ExchangeInfo.strategy()),
+        _remote_info=ExchangeInfo.strategy(),  # mandatory remote data, used just in case info is None...
+        **kwargs,
+    ) -> st.SearchStrategy:
+        return st.builds(cls, info=info, _remote_info=_remote_info)
+
     @cached_property
     def markets(self) -> Dict[str, MockMarket]:
         return (
@@ -25,56 +43,38 @@ class MockExchange(ExchangeBase):
         )
 
     async def __call__(
-        self, *, update_delta: Optional[timedelta] = None, **kwargs
-    ) -> MockExchange:
-        """Mock implementation of an exchange:
-        If info is passed, it will update the current value.
-        Otherwise, the update delta is used to change the servertime, simulating time progression on the exchange.
-        """
-        # we simulate time progression, but we dont really wait that long...
-        await asyncio.sleep(0.1)
+        self,
+        *,
+        info: Optional[ExchangeInfo] = None,
+        update_delta: Optional[timedelta] = None,
+    ) -> ExchangeBase:
+        """ This is used to update Exchange's data. it is also here that data can be injected for tests"""
 
-        info = kwargs.get(
-            "info", None
-        )  # we get the info param as override if present in kwargs
-
-        if info is None:
-            try:
-                new_servertime = (
-                    (self.servertime + update_delta)
-                    if update_delta is not None
-                    else self.servertime
+        if info is not None:
+            await super(MockExchange, self).__call__(info=info)
+            if update_delta:
+                warnings.warn(
+                    "update_delta ignored because info was provided.\n You should either pass info, or update_delta."
                 )
-            except OverflowError:
-                # we handle overflow here by preventing any change. we bound the instance in its current state.
-                return self
-
-            # otherwise we generate a new ExchangeInfo with properly updated servertime (if it was not passed here)
-            info = ExchangeInfo(
-                # Note : we take the servertime from the old value, even if it comes from the cache
-                servertime=new_servertime,  # time will monotonically increase
-                # Here we need to handle the case where info is not present yet...
-                # Note this is not the same as having the data with defaults, it only impacts the mock.
-                # Having defaults in data formats would impact the actual implementation.
-                rate_limits=self.info.rate_limits
-                if self.info is not None
-                else [],  # this will likely not change
-                exchange_filters=self.info.exchange_filters
-                if self.info is not None
-                else [],  # this will likely not change
-                symbols=self.info.symbols
-                if self.info is not None
-                else [],  # this will likely not change
-            )
-
-        # we update the current frozen instance (base class know how to)
-        super(MockExchange, self).__call__(info=info)
+        elif update_delta:
+            await super(MockExchange, self).__call__(update_delta=update_delta)
 
         return self
 
+    async def exchangeinfo(
+        self, update_delta: timedelta = timedelta(microseconds=1)
+    ) -> Result[ExchangeInfo, OverflowError]:
 
-# TODO : understand why this might be needed, but anyway doesnt work...
-# MockExchange.update_forward_refs()
+        try:
+            # simulating data update, from existing data if possible, otherwise generate...
+            if self.info is None:
+                new_info = self._remote_info(update_delta=update_delta)
+            else:
+                new_info = self.info(update_delta=update_delta)
+            return Ok(new_info)
+
+        except OverflowError as oe:
+            return Err(oe)
 
 
 if __name__ == "__main__":

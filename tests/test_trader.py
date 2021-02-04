@@ -3,6 +3,7 @@ from decimal import Decimal
 
 import pytest
 
+from aiobinance.api.account import Account
 from aiobinance.api.exchange import Exchange
 from aiobinance.api.model.order import LimitOrder, OrderSide
 from aiobinance.api.rawapi import Binance
@@ -18,11 +19,12 @@ async def test_buy_test(keyfile):
 
     api = Binance(credentials=keyfile)  # we might need private requests here !
 
-    exchange = Exchange(api=api, test=True)
+    account = Account(api=api, test=True)
 
-    await exchange()
+    # await account()
+    await account.exchange()  # updating exchange to access markets
 
-    trader = Trader(account=exchange.account, market=exchange.markets["COTIBNB"])
+    trader = Trader(account=account, market=account.exchange.markets["COTIBNB"])
 
     # Buy test order overpriced => will readjust !
     # Decimal of float here to test precision. it should be built from string instead !
@@ -107,11 +109,11 @@ async def test_sell_test(keyfile):
 
     api = Binance(credentials=keyfile)  # we might need private requests here !
 
-    exchange = Exchange(api=api, test=True)
+    account = Account(api=api, test=True)
 
-    await exchange()
+    await account.exchange()
 
-    trader = Trader(account=exchange.account, market=exchange.markets["COTIBNB"])
+    trader = Trader(account=account, market=account.exchange.markets["COTIBNB"])
 
     # Sell test order overpriced
     # Decimal of float here to test precision. it should be built from string instead !

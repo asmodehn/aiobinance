@@ -36,7 +36,7 @@ def buy(
 
     api = Binance(credentials=creds)  # we need private requests here !
 
-    exchange = Exchange(api=api, test=not confirm)
+    account = Account(api=api, test=not confirm)
 
     amount = Decimal(amount)
 
@@ -45,11 +45,11 @@ def buy(
 
     using_amount = Decimal(using[0])
 
-    # retrieve market
-    asyncio.run(exchange())
+    # retrieve account and exchange's market
+    asyncio.run(account())
     smbl = currency + using[1]
 
-    trdr = Trader(account=exchange.account, market=exchange.markets[smbl])
+    trdr = Trader(account=account, market=account.exchange.markets[smbl])
 
     trade = asyncio.run(trdr.buy(amount=amount, total_expected=using_amount))
 
@@ -77,7 +77,7 @@ def sell(
 
     api = Binance(credentials=creds)  # we need private requests here !
 
-    exchange = Exchange(api=api, test=not confirm)
+    account = Account(api=api, test=not confirm)
 
     amount = Decimal(amount)
 
@@ -87,10 +87,10 @@ def sell(
     using_amount = Decimal(receive[0])
 
     # retrieve market
-    asyncio.run(exchange())
+    asyncio.run(account())
     smbl = currency + receive[1]
 
-    trdr = Trader(account=exchange.account, market=exchange.markets[smbl])
+    trdr = Trader(account=account, market=account.exchange.markets[smbl])
 
     trade = asyncio.run(trdr.sell(amount=amount, total_expected=using_amount))
     # TODO : this is currently an order (as registered.) Trader needs to wait for trade...
@@ -102,3 +102,5 @@ def sell(
 if __name__ == "__main__":
     # testing only this cli command
     cli()
+    # TODO : testing buy and sell, *without confirm*, and without runner, to avoid hiding issues...
+    #  => Doable ??

@@ -25,9 +25,15 @@ async def test_balance_from_binance(keyfile):
 
     assert account.info.accountType == "SPOT"
 
-    # cached property !
-    assert account.info.balances == account.balances
-    assert len(account.balances) == 337  # TMP might change...
+    # property !
+    assert account.balances == {
+        b.asset: b
+        for b in account.info.balances
+        if not (
+            b.free.is_zero() and b.locked.is_zero()
+        )  # we dont want empty balances to appear !
+    }
+    assert len(account.balances) == 6
 
     assert account.info.buyerCommission == 0
     assert account.info.canDeposit is True

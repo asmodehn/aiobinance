@@ -20,16 +20,19 @@ def hummingbot_instance(ctx, filename, html=False):
 
     trades = hummingbot.trades_from_csv(click.format_filename(filename))
 
-    symbol = trades[0].symbol  # assuming only one symbol !
+    symbol = trades.symbol
 
     api = Binance()
 
     ohlcv = OHLCView(api=api, symbol=symbol)
 
+    first_trade = trades[trades.id[0]]
+    last_trade = trades[trades.id[-1]]
+
     asyncio.run(
-        ohlcv(
-            start_time=trades[0].time_utc,
-            stop_time=trades[-1].time_utc,
+        ohlcv.request(
+            start_time=first_trade.time_utc,
+            stop_time=last_trade.time_utc,
         )
     )
 

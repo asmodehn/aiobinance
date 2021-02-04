@@ -1,6 +1,7 @@
+import functools
 import os
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import Dict, List, Optional
 
 import bokeh
 import tornado.web
@@ -14,64 +15,42 @@ from bokeh.themes import Theme
 from aiobinance.api.exchange import Exchange
 from aiobinance.api.market import Market
 from aiobinance.api.rawapi import Binance
-from aiobinance.web.plots.price_plot import PricePlot
+from aiobinance.web.layouts.triplescreen import TripleScreen
 
 
 class MarketHandler(bokeh.application.handlers.Handler):
 
     market: Market
-    plots: List[PricePlot]
 
     def __init__(self, market: Market, *args, **kwargs):
         self.market = market
-        self.plots = []
+        self.docs = []  # needed ??
         super(MarketHandler, self).__init__(*args, **kwargs)
 
     def modify_document(self, doc: Document):
-
-        # p= ohlc_1m.plot(doc)  # pass the document to update
-
-        price = PricePlot(doc, self.market.price)  # trades=self.market.trades)
-        fig = bokeh.layouts.grid([price._fig])
-
-        doc.add_root(row(fig, sizing_mode="scale_width"))
         doc.theme = Theme(
             filename=os.path.join(os.path.dirname(__file__), "theme.yaml")
         )
 
-        self.plots.append(price)
-
-        # TODO : dynamic update ???
-
-    async def docs_update(self):
-        if len(self.plots) > 0:  # only retrieve price ohlc if necessary
-            yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
-            now = datetime.now(tz=timezone.utc)
-            await self.market.price(start_time=yesterday, stop_time=now)
-
-        for p in self.plots:
-            # TODO: stop updating some plots after some "inactivity" time... ??
-            p()  # trigger update !
-
-    def on_server_loaded(self, server_context: BokehServerContext):
-        # driving data retrieval (TMP) and plot stream update
-        # TODO : let this drive ONLY the plot update (not the data retrieval)
-        server_context.add_periodic_callback(
-            self.docs_update, period_milliseconds=30000
+        # we pass document to the layout to let it drive its update cycle...
+        price = TripleScreen(
+            document=doc, ohlcv=self.market.price, trades=self.market.trades
         )
-
-        # TODO : callback scheduling can be done in on_session_created to avoid scheduling on unused markets
+        doc.add_root(model=price.model)
 
     async def on_session_created(self, session_context: BokehSessionContext):
-        # retrieving new data at the beginning of the session
-        yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
-        now = datetime.now(tz=timezone.utc)
-        await self.market.price(
-            start_time=yesterday, stop_time=now
-        )  # to have data to show on request.
-        await self.market.trades(
-            start_time=yesterday, stop_time=now
-        )  # to have data to show on request.
+        # retrieving data
+
+        print(f"Starting data update loop for {self.market.info.symbol}...", end="")
+        # retrieving data in background (once, then will loop forever)
+        await self.market.price.run()
+        print(" OK.")
+
+        # TODO: retrieve user trades from Account (Not Market !)
+        # # to have data to show on request.
+        # await self.market.trades(
+        #     start_time=before, stop_time=now # TODO : only the current symbol !
+        # )  # to have data to show on request.
 
 
 if __name__ == "__main__":

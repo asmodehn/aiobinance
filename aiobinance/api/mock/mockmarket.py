@@ -4,10 +4,10 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from functools import cached_property
 from typing import Dict, List, Optional, Tuple
 
 import hypothesis.strategies as st
-from cached_property import cached_property
 from hypothesis.strategies import SearchStrategy
 from result import Ok, Result
 
@@ -28,33 +28,16 @@ class MockMarket(MarketBase):
             else TradesViewBase()
         )
 
-    async def __call__(
-        self, *, update_delta: Optional[timedelta] = None, **kwargs
-    ) -> MockMarket:
+    async def __call__(self, *, update_delta: Optional[timedelta] = None) -> MockMarket:
         """Mock implementation of an exchange:
         If info is passed, it will update the current value.
         Otherwise, the update delta is used to change the servertime, simulating time progression on the exchange.
         """
-        # we simulate time progression, but we dont really wait that long...
-        await asyncio.sleep(0.1)
 
-        info = kwargs.get(
-            "info", None
-        )  # we get the info param as override if present in kwargs
-
-        if info is None:
-
-            # otherwise we generate a new MarketInfo with properly updated values (if it was not passed here)
-            info = MarketInfo.strategy().example()  # TODO : something meaningful
-
-        # we update the current frozen instance (base class know how to)
-        super(MockMarket, self).__call__(info=info)
+        # TODO : some kind of matching engine, to transform passed order into trades...
+        # otherwise market doesnt have anything to update itself about...
 
         return self
-
-    def matching_update(self):
-        # TODO : some kind of matching engine, to transform passed order into trades...
-        pass
 
     def limit_order(
         self,

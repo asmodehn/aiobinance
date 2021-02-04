@@ -1,9 +1,9 @@
+import functools
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
 
-from cached_property import cached_property
 from result import Err, Ok, Result
 
 from aiobinance.api.model.market_info import MarketInfo
@@ -28,25 +28,25 @@ class Market(MarketBase):
     api: Binance = field(init=True, default=Binance())
     test: bool = field(init=True, default=True)
 
-    async def __call__(self, *args, **kwargs):
-        """ triggers an update (polling style)"""
-        raise NotImplementedError  # This is an optimization on simple request -> later
-
-    @cached_property
+    @functools.cached_property
     def price(self) -> OHLCView:
         if self.info is None:
             return OHLCView(api=self.api)
         else:
             return OHLCView(api=self.api, symbol=self.info.symbol)
 
-    @cached_property
+    @functools.cached_property
     def trades(self) -> TradesView:
         if self.info is None:
-            return TradesView(api=self.api)
+            return TradesView(api=self.api)  # TODO: should we just raise instead ??
         else:
-            return TradesView(api=self.api, market=self.info.symbol)
+            return TradesView(api=self.api, symbol=self.info.symbol)
 
-    def ticker24(
+    async def marketinfo(self, **kwargs) -> Result[MarketInfo, NotImplementedError]:
+        """ This is a coroutine to be implemented in childrens, with implementation details..."""
+        return Err(NotImplementedError("This method is implemented in Exchange."))
+
+    def ticker24(  # TODO : async
         self,
     ) -> Ticker:  # TODO : build a pure mock version we can use for simulations...
         res = self.api.call_api(
@@ -88,7 +88,7 @@ class Market(MarketBase):
     #  newOrderRespType: Optional[str] =None     # Set the response JSON. ACK, RESULT, or FULL; MARKET and LIMIT order types default to FULL, all other orders default to ACK.
     #  recvWindow: Optional[int] =None          # The value cannot be greater than 60000
 
-    def limit_order(
+    def limit_order(  # TODO : async
         self,
         *,
         side: OrderSide,

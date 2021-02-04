@@ -69,43 +69,43 @@ def test_trades(keyfile):
 
     if result.exit_code == 0:
         assert (
-            "|     id | time_utc                   | symbol   |     id |    price |   qty |   quote_qty |   commission | commission_asset   | is_buyer   | is_maker   |   order_id |   order_list_id | is_best_match   |"
+            "|     id | time_utc                   | symbol   |    price |   qty |   quote_qty |   commission | commission_asset   | is_buyer   | is_maker   |   order_id |   order_list_id | is_best_match   |"
             in result.output
         )
         assert (
-            "| 299167 | 2020-08-27 10:32:20.409000 | COTIBNB  | 299167 | 0.003219 |   300 |    0.9657   |   0.00065495 | BNB                | True       | True       |   18441464 |              -1 | True            |"
+            "| 299167 | 2020-08-27 10:32:20.409000 | COTIBNB  | 0.003219 |   300 |    0.9657   |   0.00065495 | BNB                | True       | True       |   18441464 |              -1 | True            |"
             in result.output
         )
         assert (
-            "| 299229 | 2020-08-27 10:57:44.478000 | COTIBNB  | 299229 | 0.003261 |   300 |    0.9783   |   0.00066035 | BNB                | False      | True       |   18443055 |              -1 | True            |"
+            "| 299229 | 2020-08-27 10:57:44.478000 | COTIBNB  | 0.003261 |   300 |    0.9783   |   0.00066035 | BNB                | False      | True       |   18443055 |              -1 | True            |"
             in result.output
         )
         assert (
-            "| 299244 | 2020-08-27 11:07:34.459000 | COTIBNB  | 299244 | 0.003289 |   300 |    0.9867   |   0.00066602 | BNB                | False      | True       |   18446230 |              -1 | True            |"
+            "| 299244 | 2020-08-27 11:07:34.459000 | COTIBNB  | 0.003289 |   300 |    0.9867   |   0.00066602 | BNB                | False      | True       |   18446230 |              -1 | True            |"
             in result.output
         )
         assert (
-            "| 299246 | 2020-08-27 11:07:34.459000 | COTIBNB  | 299246 | 0.00329  |   300 |    0.987    |   0.00066622 | BNB                | False      | True       |   18441463 |              -1 | True            |"
+            "| 299246 | 2020-08-27 11:07:34.459000 | COTIBNB  | 0.00329  |   300 |    0.987    |   0.00066622 | BNB                | False      | True       |   18441463 |              -1 | True            |"
             in result.output
         )
         assert (
-            "| 299456 | 2020-08-27 11:23:34.060000 | COTIBNB  | 299456 | 0.003285 |   300 |    0.9855   |   0.00068733 | BNB                | True       | True       |   18448574 |              -1 | True            |"
+            "| 299456 | 2020-08-27 11:23:34.060000 | COTIBNB  | 0.003285 |   300 |    0.9855   |   0.00068733 | BNB                | True       | True       |   18448574 |              -1 | True            |"
             in result.output
         )
         assert (
-            "| 299815 | 2020-08-27 11:37:23.670000 | COTIBNB  | 299815 | 0.003245 |   300 |    0.9735   |   0.00065593 | BNB                | True       | True       |   18454107 |              -1 | True            |"
+            "| 299815 | 2020-08-27 11:37:23.670000 | COTIBNB  | 0.003245 |   300 |    0.9735   |   0.00065593 | BNB                | True       | True       |   18454107 |              -1 | True            |"
             in result.output
         )
         assert (
-            "| 300255 | 2020-08-27 13:41:13.140000 | COTIBNB  | 300255 | 0.003209 |    61 |    0.195749 |   0.0001322  | BNB                | True       | True       |   18478551 |              -1 | True            |"
+            "| 300255 | 2020-08-27 13:41:13.140000 | COTIBNB  | 0.003209 |    61 |    0.195749 |   0.0001322  | BNB                | True       | True       |   18478551 |              -1 | True            |"
             in result.output
         )
         assert (
-            "| 300256 | 2020-08-27 13:41:22.243000 | COTIBNB  | 300256 | 0.003209 |    97 |    0.311273 |   0.00021023 | BNB                | True       | True       |   18478551 |              -1 | True            |"
+            "| 300256 | 2020-08-27 13:41:22.243000 | COTIBNB  | 0.003209 |    97 |    0.311273 |   0.00021023 | BNB                | True       | True       |   18478551 |              -1 | True            |"
             in result.output
         )
         assert (
-            "| 300607 | 2020-08-27 17:06:47.354000 | COTIBNB  | 300607 | 0.003125 |   300 |    0.9375   |   0.00063539 | BNB                | True       | True       |   18506959 |              -1 | True            |"
+            "| 300607 | 2020-08-27 17:06:47.354000 | COTIBNB  | 0.003125 |   300 |    0.9375   |   0.00063539 | BNB                | True       | True       |   18506959 |              -1 | True            |"
             in result.output
         )
     else:

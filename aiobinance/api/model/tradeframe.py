@@ -1,42 +1,60 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, fields
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, getcontext
 from typing import Iterable, List, Optional, Union
 
 import hypothesis.strategies as st
 import numpy as np
 import pandas as pd
-from cached_property import cached_property
+from bokeh.models import ColumnDataSource
 from hypothesis.strategies import composite
 from pydantic import validator
 
 # Leveraging pydantic to validate based on type hints
 from tabulate import tabulate
 
+from aiobinance.api.model.order import OrderSide
+from aiobinance.api.model.timeinterval import TimeInterval
 from aiobinance.api.model.trade import Trade
 
 
 # Note : these are python dataclasses as pydantic cannot really typecheck dataframe content...
 @dataclass(frozen=True)
 class TradeFrame:
+
+    symbol: Optional[
+        str
+    ]  # TODO: get rid of this. seems we dont really need it here (we retrieve from trades).
+    # Note: However we do need it in TradeView...
+
     df: Optional[pd.DataFrame] = field(
         init=True,
         default=pd.DataFrame.from_records([], columns=[f.name for f in fields(Trade)]),
     )
 
-    # @property
-    # def time(self) -> List[datetime]:
-    #     return self.df.time.to_list()
+    bounds: Optional[TimeInterval] = field(default=None)
+    # TODO : handle known absence of data... ???
 
-    @cached_property
-    def symbol(self) -> List[str]:  # TODO : improve
+    @property
+    def empty(self) -> bool:
+        return self.df.empty
+
+    @property
+    def time_utc(self) -> List[datetime]:
+        return [
+            dt.to_pydatetime().replace(tzinfo=timezone.utc)
+            for dt in self.df.time_utc.to_list()
+        ]
+
+    @property
+    def symbols(self) -> List[str]:  # TODO : improve with types or contracts or... ?
         return self.df.symbol.to_list()
 
-    @cached_property
+    @property
     def id(self) -> List[int]:
-        return self.df.id.to_list()
+        return self.df.index.to_list()
 
     # TODO : put this in a  meta class to have it tied to the type itself !
     @classmethod
@@ -83,35 +101,139 @@ class TradeFrame:
 
     @st.composite
     @staticmethod
-    def strategy(draw, max_size=5):
+    def strategy(draw, symbols: Optional[st.SearchStrategy] = None, max_size=5):
+        symbols = st.text(min_size=2, max_size=6) if symbols is None else symbols
+        # pick one :
+        symbol = draw(symbols)
         tl = st.lists(
-            elements=Trade.strategy(), max_size=max_size, unique_by=lambda t: t.id
+            # draw here to fix the symbol for all trades in the list
+            elements=Trade.strategy(symbols=st.just(symbol)),
+            max_size=max_size,
+            unique_by=lambda t: t.id,  # unique by id only
         )
-        return TradeFrame.from_tradeslist(*draw(tl))
+        tls = draw(tl)
+        return TradeFrame.from_tradeslist(symbol, *tls)
 
     @classmethod
-    def from_tradeslist(cls, *trades: Trade):
+    def from_tradeslist(cls, symbol: str, *trades: Trade):
         # related : https://github.com/pandas-dev/pandas/issues/9216
         # building structured numpy array to specify optimal dtypes
         # Ref : https://numpy.org/doc/stable/user/basics.rec.html
 
-        arraylike = [tuple(asdict(dc).values()) for dc in trades]
+        symbol = symbol  # take symbol from first trade.
 
-        npa = np.array(arraylike, dtype=Trade.as_dtype())  # Drops timezone info...
-        # df = pd.DataFrame(data={
-        #     c: npa[c] for c, t in Trade.as_dtype()
-        # })
+        arraylike = [
+            tuple(
+                # explicitely drop timezone after converting to UTC
+                v.astimezone(tz=timezone.utc).replace(tzinfo=None)
+                if isinstance(v, datetime)
+                else v
+                for v in asdict(t).values()
+            )
+            for t in trades
+        ]
+
+        npa = np.array(
+            arraylike, dtype=list(Trade.as_dtype().items())
+        )  # Drops timezone info (because numpy)
 
         df = pd.DataFrame(
             data=npa
         )  # TODO : use nparray directly ??? CAREFUL : numpy doesnt do timezones...
 
-        return cls(df=df)
+        return cls(symbol=symbol, df=df)
 
-    def __contains__(self, item: Trade):
-        for t in self:  # iterates and cast to Trade
-            if t == item:  # using Trade equality
-                return True
+    def as_datasource(self) -> ColumnDataSource:
+        plotdf = self.optimized()
+        # TODO : live bokeh updates ??
+
+        # TODO : add bounds for plot ?
+
+        # build plot datasource depending on whos asking for it
+        plotdf["price_boughtsold"] = np.where(plotdf["is_buyer"], "BOUGHT", "SOLD")
+
+        # Maybe some of these belong instead to a "ledger frame" ??
+        plotdf["amount"] = plotdf.qty * np.where(plotdf.is_buyer, -1, 1)
+
+        plotdf["value"] = plotdf.price * plotdf["amount"]
+
+        # print(plotdf["value"])
+
+        plotdf["cumvalue"] = np.cumsum(plotdf["value"])
+
+        # print(plotdf["cumvalue"])
+
+        # dropping id column to avoid conflict. (it is still the index and should be accessible as such)
+        if (
+            "id" in plotdf.columns
+        ):  # only if empty dataframe, otherwise it is the index...
+            plotdf.drop(["id"], axis=1, inplace=True)
+
+        # renaming id index, but keeping values as index
+        plotdf.index.name = "trade_id"
+        # special case
+
+        return ColumnDataSource(plotdf)
+
+    def __post_init__(self):
+        # Here we follow binance format and enforce proper types and structure
+
+        if self.df.empty:
+            # Note: an empty df is a special case, as open_time is still a column...
+            return
+
+        # shaping dataframe if needed
+        # detecting index origin via its name (default index name is None)
+        if self.df.index.name != "id":
+            assert "id" in self.df.columns
+            # Mutating df under the hood... CAREFUL : we heavily rely on (buggy?) pandas here...
+            self.df.reset_index(drop=True, inplace=True)
+            # enforcing id unicity
+            self.df.drop_duplicates(subset=["id"], keep="last", inplace=True)
+            # use the time_utc column as an index
+            self.df.set_index(
+                self.df["id"],
+                verify_integrity=True,
+                inplace=True,
+            )
+            # remove it as a column to remove ambiguity
+            self.df.drop("id", axis="columns", inplace=True)
+
+        # sort via the index
+        self.df.sort_index(inplace=True)
+
+        # explicit assumption for every other operation on the dataframe :
+        assert "id" not in self.df.columns
+        assert self.df.index.name == "id"
+
+        # finally enforcing dtypes:
+        # TODO
+
+    def __contains__(self, item: Union[Trade, int, datetime]):
+        if isinstance(item, Trade):
+            for t in self:  # iterates and cast to Trade
+                if t == item:  # using Trade equality
+                    return True
+        elif isinstance(item, int):
+            for t in self:
+                if t.id == item:
+                    return True
+        elif isinstance(
+            item, datetime
+        ):  # exact match (TODO : maybe take first trade before and first after ?)
+            if (
+                item.tzinfo is None
+            ):  # because we will do a tz-aware comparison with item
+                item = item.replace(tzinfo=timezone.utc)
+            # converting datetime to utc in any case
+            item = item.astimezone(tz=timezone.utc)
+
+            for t in self:
+                # Note : same semantics as getitem
+                if (
+                    t.time_utc == item  # CAREFUL: tz-aware comparison
+                ):  # checking *exact* time match
+                    return True
         return False
 
     def __eq__(self, other: TradeFrame) -> bool:
@@ -131,36 +253,172 @@ class TradeFrame:
         else:
             return False
 
-    def __getitem__(self, item: Union[int, slice]):
-        # in frozen tradeframe, index is equivalent to iloc in dataframe : position in the sequence
-
-        if isinstance(item, slice):
-            # dataframe slice handled by pandas for simplicity
-            tf = TradeFrame(df=self.df[item])
-            return tf
-
-        elif isinstance(item, int):
+    def __getitem__(  # noqa: C901
+        self, item: Union[int, datetime, slice]
+    ) -> Union[TradeFrame, Trade]:
+        if isinstance(item, int):
             try:
-                return Trade(**self.df.iloc[item])
+                rs = self.df.loc[item]  # because id is our index
+
+                return Trade(
+                    **{
+                        self.df.index.name: item,  # recovering trade id (index value)
+                        **rs.to_dict(),
+                    }
+                )
+
+            except OverflowError as oe:
+                # E   OverflowError: Python int too large to convert to C long
+                # pandas/_libs/hashtable_class_helper.pxi:1032: OverflowError
+                raise KeyError(f"{item} is too high a value for Trade.id ") from oe
             except IndexError as ie:
-                raise KeyError("TradeFrame index out of range") from ie
-        else:
-            raise KeyError(f"Invalid index {item}")
+                raise KeyError(f"No Trade.id matching {item}") from ie
+        elif isinstance(item, datetime):
+            if item.tzinfo is not None:
+                # converting datetime to unaware timezone, in utc. to allow comparison with unaware numpy values.
+                item = item.astimezone(tz=timezone.utc).replace(tzinfo=None)
+
+            rs = self.df.loc[self.df.time_utc.astype(dtype="datetime64[us]") == item]
+
+            if len(rs) == 1:
+                return Trade(**rs.reset_index(drop=False).iloc[0])
+            elif len(rs) == 0:
+                raise KeyError(f"Invalid index {item}")
+            else:
+                return TradeFrame(symbol=self.symbol, df=rs)
+
+        elif isinstance(item, slice):
+            if item.start is None and item.stop is None:
+                return TradeFrame(
+                    symbol=self.symbol, df=self.df.copy()
+                )  # just duplicate data
+
+            # relying on pandas indexing if slice of ids:
+            if isinstance(item.start, int) or isinstance(item.stop, int):
+                return TradeFrame(symbol=self.symbol, df=self.df.loc[item])
+
+            # Otherwise: dataframe slice handled by pandas boolean indexer
+            try:
+                selector = pd.Series({i: True for i in self.df.index})
+
+                if item.start is not None and isinstance(item.start, datetime):
+                    if item.start.tzinfo is not None:
+                        # converting datetime to unaware timezone, in utc. to allow comparison with unaware numpy values.
+                        start = item.start.astimezone(tz=timezone.utc).replace(
+                            tzinfo=None
+                        )
+                    else:
+                        start = item.start
+                    selector = selector & (
+                        start <= self.df.time_utc.astype(dtype="datetime64[us]")
+                    )
+                if item.stop is not None and isinstance(item.stop, datetime):
+                    if item.stop.tzinfo is not None:
+                        stop = item.stop.astimezone(tz=timezone.utc).replace(
+                            tzinfo=None
+                        )
+                    else:
+                        stop = item.stop
+                    selector = selector & (
+                        self.df.time_utc.astype(dtype="datetime64[us]") <= stop
+                    )
+
+                df = self.df.loc[selector]
+
+            except TypeError as te:
+                raise KeyError(
+                    f"{item} is too high a value for Trade.time_utc or Trade.id "
+                ) from te
+
+            return TradeFrame(symbol=self.symbol, df=df)
 
     # NO SETTING ON TRADES :they are immutable events.
 
     def __iter__(self):
-        for t in self.df.itertuples(index=False):
-            yield Trade(**t._asdict())
+        for t in self.df.itertuples(index=True):
+            # CAREFUL : reset_index may create an index column (BUG ?)
+            yield Trade(
+                **{
+                    self.df.index.name if k == "Index" else k: v
+                    for k, v in t._asdict().items()
+                }
+            )
 
     def __len__(self):
         return len(self.df)
 
-    def __add__(self, other: TradeFrame):
-        # At the frame level we ignore the index (unintended record ordering)
-        return TradeFrame(
-            df=self.df.append(other.df, ignore_index=True, verify_integrity=True)
+    # Ref : https://docs.python.org/3.8/library/stdtypes.html#set.intersection
+    def intersection(self, other: TradeFrame):
+        # extracting candles when there is *exact* equality
+        trades = []
+        # very naive implementation. TODO : optimize
+        for t in self:
+            if t in other:
+                trades.append(t)
+
+        if len(trades) == 0:
+            return TradeFrame(symbol=self.symbol)
+        else:
+            return TradeFrame.from_tradeslist(self.symbol, *trades)
+
+    # Ref : https://docs.python.org/3.8/library/stdtypes.html#set.union
+    def union(self, other: TradeFrame):
+        # special empty case => return the other one.
+        # This avoid different columns issue when dataframe is empty (open_time is not the index - pandas 1.1.5)
+        if self.df.empty:
+            return TradeFrame(symbol=self.symbol, df=other.df.copy(deep=True))
+        if other.df.empty:
+            return TradeFrame(symbol=self.symbol, df=self.df.copy(deep=True))
+
+        assert self.symbol == other.symbol
+
+        # otherwise we need to merge
+        newdf_noidx = self.df.reset_index(drop=False).merge(
+            other.df.reset_index(drop=False), how="outer"
         )
+
+        # Note : previous merging attempts with "aggregate" and fonction application failed
+        # on tricky bugs/pandas limitations...
+        # Attempting a different way based on resolving duplicates in groups and replacing.
+        dups = newdf_noidx.duplicated(subset="id", keep=False)
+
+        dupgroups = newdf_noidx[dups].groupby(by="id")
+
+        # keeping all non-duplicates in boolean filter
+        grpfltr = ~newdf_noidx.id.isin(dupgroups.groups)
+
+        for grp, frm in dupgroups:
+            best_idx = frm.iloc[0].name  # picking first in frame
+            # We could here implement some kind of clever merging if it becomes necessary (like for OHLCFrame)...
+
+            # merge in group filter (set it to true, all other in same group must remain false)
+            grpfltr = grpfltr | (grpfltr.index == best_idx)
+
+        # replace groups into merged dataframe
+        newdf_noidx = newdf_noidx[grpfltr]
+
+        # the OHLCFrame constructor will reindex properly.
+        return TradeFrame(symbol=self.symbol, df=newdf_noidx)
+
+    # Ref : https://docs.python.org/3.8/library/stdtypes.html#set.difference
+    def difference(self, other: TradeFrame):
+        # finding identical indexes in both dataframe, and extracting subset
+
+        ix = self.intersection(other)
+
+        trades = []
+        # very naive implementation. TODO : optimize
+        # Reminder : this is just a set of candles, no candle merging.
+        for t in self:
+            # Note : in case of conflict (same index, different values), this has the effect of
+            #        ignoring other and prioritizing having candles from self in result.
+            if t not in ix:
+                trades.append(t)
+
+        if len(trades) == 0:
+            return TradeFrame(symbol=self.symbol)
+        else:
+            return TradeFrame.from_tradeslist(self.symbol, *trades)
 
     def __str__(self):
         # optimize before display (high decimal precision is not manageable by humans)
@@ -178,7 +436,6 @@ class TradeFrame:
         opt_copy.qty = opt_copy.qty.to_numpy("float64")
         opt_copy.quote_qty = opt_copy.quote_qty.to_numpy("float64")
         opt_copy.commission = opt_copy.commission.to_numpy("float64")
-        # TODO : should we drop id if it is the index ??
         return opt_copy
 
 
