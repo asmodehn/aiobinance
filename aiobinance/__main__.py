@@ -39,309 +39,75 @@ import aiobinance.binance as binance
 import aiobinance.hummingbot as hummingbot
 import aiobinance.repl as repl
 from aiobinance import websrv
-from aiobinance._cli_params import Date
+from aiobinance.cli.account import account
+from aiobinance.cli.extras import extras
+from aiobinance.cli.market import market
 from aiobinance.config import Credentials
-
-local_tz = datetime.now(tz=timezone.utc).astimezone().tzinfo
 
 
 @click.group()
-def cli():
+def base_cli():
     pass
 
 
-@cli.command(name="hummingbot")
-@click.argument("filename", type=click.Path(exists=True), required=True)
-@click.option("--html", default=False, is_flag=True)
+@base_cli.command()  # Maybe this is more generic ?
 @click.pass_context
-def hummingbot_instance(ctx, filename, html=False):
-    """provide a report of hummingbot trades"""
-
-    trades = hummingbot.trades_from_csv(click.format_filename(filename))
-
-    symbol = trades[0].symbol  # assuming only one symbol !
-
-    ohlcv = binance.price_from_binance(
-        start_time=trades[0].time,
-        end_time=trades[-1].time,
-        symbol=symbol,
-    )
-
-    if html:
-        from bokeh.io import output_file
-        from bokeh.plotting import show
-
-        import aiobinance.web
-
-        report = aiobinance.web.trades_layout(ohlcv=ohlcv, trades=trades)
-        output_file(f"{filename}_report.html")
-        show(report)
-
-    print(trades)
-
-
-@cli.command()
-@click.option("--verbose", default=False, is_flag=True)
-@click.pass_context
-def auth(ctx, verbose):
-    """ simple command to verify auth credentials and optionally store them. """
-    from aiobinance.config import (
-        BINANCE_API_KEYFILE,
-        load_api_keyfile,
-        save_api_keyfile,
-    )
-
-    # tentative loading of the API key
-    keystruct = load_api_keyfile()
-
-    if keystruct is None:
-        # no keyfile found
-        print(f"{BINANCE_API_KEYFILE} Not Found !")
-        # check for interactive terminal
-        if hasattr(sys, "ps1"):
-            apikey = input("APIkey: ")
-            secret = input("secret: ")
-            creds = Credentials(key=apikey, secret=secret)
-            store = input(f"Store it in {BINANCE_API_KEYFILE} [Y/n] ? ")
-            if not store:
-                store = "Y"
-            if store in ["Y", "y"]:
-                keystruct = save_api_keyfile(credentials=creds)
-            else:
-                keystruct = creds
-        else:
-            print("Run the auth command to create it.")
-            return 1  # exit status code
-
-    # modifying parent context if present (to return)
-    if verbose:
-        print(
-            f"apikey and secret stored in {BINANCE_API_KEYFILE}.\nRemove it and re-run this command to replace it."
-        )
-    if ctx.parent:
-        ctx.parent.params["apikey"] = keystruct.key
-        ctx.parent.params["secret"] = keystruct.secret
-
-        if keystruct:
-            print(f"apikey: {keystruct}")
-        else:  # should come from context
-            print(f"apikey: {ctx.apikey}")
-
-    return 0  # exit status code
-
-
-@cli.command()
-@click.option("--apikey", default=None)
-@click.option("--secret", default=None)
-@click.pass_context
-def balance(ctx, apikey, secret):
-    """ retrieve balance for the authentified user"""
-
-    if apikey is None or secret is None:
-        ctx.invoke(auth, verbose=False)  # this should fill up arguments
-        creds = Credentials(
-            key=ctx.params.get("apikey"), secret=ctx.params.get("secret")
-        )
-    else:
-        creds = Credentials(key=apikey, secret=secret)
-
-    # we always have the key here (otherwise it has been stored already)
-    print(binance.balance_from_binance(credentials=creds))
-
-
-@cli.command()
-@click.argument("market_pair", required=True, default=None)
-@click.option(
-    "--from", "from_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to yesterday
-@click.option(
-    "--to", "to_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to today
-@click.option("--utc", "utc", default=False, is_flag=True)
-@click.option("--apikey", default=None)
-@click.option("--secret", default=None)
-@click.option("--html", default=False, is_flag=True)
-@click.pass_context
-def trades(
+def webview(
     ctx,
-    market_pair: str,
-    from_date: date,
-    to_date: date,
-    utc=False,
-    apikey=None,
-    secret=None,
-    html=True,
 ):
-    """display trades"""
+    """runs only the webserver, displaying all informations retrievable from the exchange."""
 
-    if apikey is None or secret is None:
-        ctx.invoke(auth, verbose=False)  # this should fill up arguments
-        creds = Credentials(
-            key=ctx.params.get("apikey"), secret=ctx.params.get("secret")
-        )
-    else:
-        creds = Credentials(key=apikey, secret=secret)
+    # Retrieving basic informations on the exchange
+    exg = binance.exchange_from_binance()
 
-    time_zero = time(tzinfo=timezone.utc) if utc else time(tzinfo=local_tz)
-    if to_date == date.today():
-        to_datetime = datetime.now(tz=timezone.utc)
-    else:
-        to_datetime = datetime.combine(from_date + timedelta(days=1), time_zero)
-    from_datetime = datetime.combine(from_date, time_zero)
-
-    trades = binance.trades_from_binance(
-        symbol=market_pair,
-        start_time=from_datetime,
-        end_time=to_datetime,
-        credentials=creds,
-    )
-
-    if html:
-        from bokeh.io import output_file
-        from bokeh.plotting import show
-
-        import aiobinance.web
-
-        ohlcv = binance.price_from_binance(
-            symbol=market_pair,
-            start_time=from_datetime,
-            end_time=to_datetime,
-        )
-
-        report = aiobinance.web.price_plot(ohlcv=ohlcv, trades=trades)
-        output_file(f"{market_pair}_{from_date}_{to_date}_price.html")
-        show(report)
-
-    # TODO : terminal plot ??
-
-    print(trades)
-
-
-@cli.command()
-@click.argument("market_pair", required=True)
-@click.option(
-    "--from", "from_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to yesterday
-@click.option(
-    "--to", "to_date", type=Date(formats=["%Y-%m-%d"]), default=str(date.today())
-)  # default to today
-@click.option(
-    "--interval",
-    "-i",
-    type=Choice(
-        choices=[
-            "1M",
-            "1m",
-            "3m",
-            "5m",
-            "15m",
-            "30m",
-            "1h",
-            "2h",
-            "4h",
-            "6h",
-            "8h",
-            "12h",
-            "1d",
-            "3d",
-            "1w",
-        ]
-    ),
-    default=None,
-    required=False,
-)  # default to nothing -> calculated based on max data point (for one request only)
-@click.option("--utc", default=False, is_flag=True)
-@click.option("--html", default=False, is_flag=True)
-@click.pass_context
-def price(
-    ctx,
-    market_pair,
-    from_date: date,
-    to_date: date,
-    interval: Optional[str] = None,
-    utc=False,
-    html=True,
-):
-    """display prices"""
-
-    time_zero = time(tzinfo=timezone.utc) if utc else time(tzinfo=local_tz)
-    if to_date == date.today():
-        to_datetime = datetime.now(tz=timezone.utc)
-    else:
-        to_datetime = datetime.combine(from_date + timedelta(days=1), time_zero)
-    from_datetime = datetime.combine(from_date, time_zero)
-
-    # quick help to debug datetime tricky issues
-    # print(f"from: {from_datetime}")
-    # print(f"to: {to_datetime}")
-
-    ohlcv = binance.price_from_binance(
-        symbol=market_pair,
-        start_time=from_datetime,
-        end_time=to_datetime,
-        interval=interval,
-    )
-
-    if html:
-
-        from bokeh.io import output_file
-        from bokeh.plotting import show
-
-        import aiobinance.web
-
-        report = aiobinance.web.price_plot(ohlcv=ohlcv)
-        output_file(f"{market_pair}_{from_date}_{to_date}_price.html")
-        show(report)
-    else:
-        # TODO : terminal plot ??
-
-        # TODO : daily ticker instead of OHLCV ???
-        # tkr = binance.ticker24_from_binance(
-        #     symbol=market_pair
-        # )
-        # print(tkr)
-        pass
-    print(ohlcv)
+    # starting websrv in foreground, passing symbols to provide web structure
+    # This allows simple debugging of only the webserver
+    asyncio.run(websrv.main(exg.symbols))
 
 
 async def interactive():
     """ Running aiobinance in interactive mode """
 
     # Retrieving basic informations on the exchange
-    exg = binance.exchange_from_binance()
+    # exg = binance.exchange_from_binance()
 
-    # from prompt_toolkit import Application
-    # from prompt_toolkit.buffer import Buffer
-    # from prompt_toolkit.layout.containers import VSplit, Window
-    # from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
-    # from prompt_toolkit.layout.layout import Layout
-    # from ptterm import Terminal
-    #
-    # def done():
-    #     application.exit()
-    #
-    # term_container = Terminal(done_callback=done)
-    # log_buffer = Buffer(read_only=True)
-    #
-    # application = Application(
-    #     layout=Layout(
-    #         container=VSplit([term_container,
-    #             Window(width=1, char='|'),
-    #             Window(content=BufferControl(buffer=log_buffer))
-    #         ]),
-    #         focused_element=term_container,
-    #     ),
-    #     full_screen=True,
-    # )
-    #
-    #
-    # await application.run_async()
+    from prompt_toolkit import Application
+    from prompt_toolkit.buffer import Buffer
+    from prompt_toolkit.layout.containers import VSplit, Window
+    from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
+    from prompt_toolkit.layout.layout import Layout
+    from ptterm import Terminal
 
-    # starting websrv in background... passing symbols to provide web structure
-    await websrv.main(exg.symbols)
+    def done():
+        application.exit()
+
+    term_container = Terminal(done_callback=done)
+    log_buffer = Buffer(read_only=True)
+
+    application = Application(
+        layout=Layout(
+            container=VSplit(
+                [
+                    term_container,
+                    Window(width=1, char="|"),
+                    Window(content=BufferControl(buffer=log_buffer)),
+                ]
+            ),
+            focused_element=term_container,
+        ),
+        full_screen=True,
+    )
+
+    # generating output from the websrv...
+    asyncio.create_task(websrv.display_date())
+
+    await application.run_async()
 
     # repl keeps running until the end
     # await repl.embedded_ptpython()
+
+
+cli = click.CommandCollection(sources=[base_cli, account, market, extras])
 
 
 if __name__ == "__main__":
@@ -354,3 +120,28 @@ if __name__ == "__main__":
     else:
         # or we go full interactive mode (no args)
         asyncio.run(interactive())
+
+
+# CLI design:
+#   aiobinance [--key KEY, --secret SECRET] [--no/only-repl] [--no/only-web] [--no/only-bot]
+#       => interactive web & repl (& bot to come)
+#   aiobinance [--key KEY, --secret SECRET] auth
+#       => verify auth & exit
+#   aiobinance [--key KEY, --secret SECRET] balance
+#       => prints balance & exit
+
+#   aiobinance [--key KEY, --secret SECRET] price
+#       => price via tickers, for all assets
+#   aiobinance [--key KEY, --secret SECRET] price --symbol COTIBNB
+#       => OHLC for this asset
+
+#   aiobinance [--key KEY, --secret SECRET] trades
+#       => trades for all assets
+#   aiobinance [--key KEY, --secret SECRET] trades --symbol COTIBNB
+#       => trades for this asset
+
+#   aiobinance [--key KEY, --secret SECRET] trade buy/sell  19123.12313 COTI 58.56 BNB
+#       => trades for this asset
+
+# NO UNSUPERVISED ORDER FROM CLI ! needs some minimal supervision by the bot...
+# TODO....

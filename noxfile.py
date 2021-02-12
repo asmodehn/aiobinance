@@ -9,7 +9,7 @@ nox.options.reuse_existing_virtualenvs = True
 # this file will continue to be checked by mypy. Errors from other files are
 # ignored.
 TYPED_FILES = {"aiobinance/api/__init__.py", "aiobinance/api/" "aiobinance/__init__.py"}
-SOURCE_FILES = ["docs/", "aiobinance/", "tests/", "noxfile.py", "setup.py"]
+SOURCE_FILES = ["aiobinance/", "tests/", "noxfile.py", "setup.py"]
 
 
 # Ref : urllib3 has a strict nox-based process that we duplicate here.
@@ -58,7 +58,7 @@ def lint(session):
         session.error("\n" + "\n".join(sorted(set(errors))))
 
 
-@nox.session(python=["3.7", "3.8", "3.9"])
+@nox.session(python=["3.8", "3.9"])
 def tests(session):
 
     # install the package first to retrieve all dependencies before testing
@@ -68,4 +68,7 @@ def tests(session):
     # displaying current machine date (it could influence tests if not handled properly)
     session.run(*"date --iso-8601=ns".split(), external=True)
 
-    session.run(*"pytest -sv".split())
+    session.run(*"pytest -sv --block-network".split())
+
+
+# TODO docs

@@ -19,6 +19,8 @@ setup(
         "hypothesis",
         "bokeh",
         "tabulate",
+        "result",
+        "portion",
     ],
     zip_safe=False,
 )

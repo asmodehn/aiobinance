@@ -4,74 +4,67 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import List
 
-from bokeh.layouts import row
-from bokeh.server.server import Server as BokehServer
-from bokeh.themes import Theme
+import bokeh
+from bokeh.application import Application
+from bokeh.server.server import Server
+from tornado.web import StaticFileHandler
 
-from aiobinance import price_from_binance, web
-from aiobinance.model.exchange import Symbol
-from aiobinance.model.ohlcv import OHLCV
+from aiobinance.api.exchange import Exchange
+from aiobinance.api.rawapi import Binance
+from aiobinance.web.exchange import ExchangeHandler
+from aiobinance.web.market import MarketHandler
 
 
-# Fake background task I got from here:
-# https://docs.python.org/3/library/asyncio-task.html#sleeping
+# a simple background task generating output
 async def display_date():
     while True:
         print(datetime.now())
         await asyncio.sleep(1)
 
 
-def start_tornado(symbols: List[str]):
-    # Server will take current runnin asyncio loop as his own.
-    server = BokehServer(
-        {f"/{s}": functools.partial(symbol_page, symbol=s) for s in symbols}
-    )  # iolopp must remain to none, num_procs must be default (1)
-    server.start()
-    # app = make_app()
-    # app.listen(8888)
-    return server
+async def websrv(exchange: Exchange):
 
+    """ async function to start server, so it uses the current event loop instead of creating his own. """
 
-def symbol_page(doc, symbol: str):
+    # retrieving markets to determine application structure
+    await exchange()
 
-    yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
-    now = datetime.now(tz=timezone.utc)
-
-    # p= ohlc_1m.plot(doc)  # pass the document to update
-
-    fig = web.symbol_layout(symbol=symbol, from_datetime=yesterday, to_datetime=now)
-
-    doc.add_root(row(fig, sizing_mode="scale_width"))
-    doc.theme = Theme(
-        filename=os.path.join(os.path.dirname(__file__), "web", "theme.yaml")
+    print(
+        "Starting Tornado Server with embedded Bokeh application on http://localhost:5006/"
     )
+    # We leverage Bokeh Server (so we dont mess with HTTP server things...)
+    # Server will take current runnin asyncio loop as his own.
+    server = Server(
+        applications={
+            **{
+                f"/markets/{s}": Application(MarketHandler(m))
+                for s, m in exchange.markets.items()
+            }
+        },
+        # standard tornado things
+        extra_patterns=[
+            # because markets needs their own static directory ??? TODO : investigate...
+            # Related issue : https://github.com/bokeh/bokeh/issues/9671
+            (
+                "/markets/static/(.*)",
+                StaticFileHandler,
+                {
+                    "path": os.path.normpath(
+                        os.path.dirname(bokeh.server.__file__) + "/static/"
+                    )
+                },
+            ),
+            ("/", ExchangeHandler, {"exchange": exchange}),
+            # TODO: status of the server (uptime, binance connection, etc.)
+        ],
+        # ioloop must remain to none, num_procs must be default (1)
+    )
+    server.start()  # this schedule the server to ru in background...
 
-    # TODO : some way to close the ohlc subscription when we dont need it anymore...
+    # We can schedule other background tasks here if needed...
 
-
-async def main(symbols: List[Symbol]):
-
-    # # Client can be global: there is only one.
-    # rest = RestClient(server=Server())
-    #
-    # XBTUSD = (await rest.retrieve_assetpairs())['XBTUSD']
-    #
-    # # ohlc data can be global (one per market*timeframe only)
-    # # retrieving data (and blocking control flow)
-    # ohlc_1m = OHLCV(pair=XBTUSD, rest=rest)
-    # # TODO : use implicit retrieval (maybe by accessing slices of OHLC from bokeh doc/fig update??)
-    #
-
-    # TODO : build a layout to explore different TF
-
-    print("Starting Tornado Server...")
-    server = start_tornado(symbols=[s.symbol for s in symbols])
-    # Note : the bkapp is run for each request to the url...
-
-    # bg task...
-    asyncio.create_task(display_date())
-
-    print("Serving Bokeh application on http://localhost:5006/")
+    # Enable this is we want browser popup...
+    # print(        "Opening Browser to connect to Tornado backend on http://localhost:5006/")
     # server.io_loop.add_callback(server.show, "/")
 
     # THIS is already the loop that is currently running !!!
@@ -85,8 +78,10 @@ async def main(symbols: List[Symbol]):
 
 
 if __name__ == "__main__":
-    # This module taken independently starts the repl, as an interactive test.
-    # It is connected to the binance but without any authentication or configuration.
-    # These could be done interactively however...
+    from aiobinance.config import load_api_keyfile
 
-    asyncio.run(main(), debug=True)
+    creds = load_api_keyfile()
+
+    exchange = Exchange(api=Binance(credentials=creds), test=True)
+
+    asyncio.run(websrv(exchange))
