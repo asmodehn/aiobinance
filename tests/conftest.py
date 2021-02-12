@@ -1,5 +1,8 @@
+import functools
 import os
+import sys
 
+import click.testing
 import pytest
 from hypothesis import Verbosity, settings
 
@@ -35,6 +38,38 @@ def keyfile(request):
         keystruct = load_api_keyfile()
 
     return keystruct
+
+
+# From : https://github.com/pallets/click/issues/737
+@pytest.fixture
+def clirunner():
+    """Yield a click.testing.CliRunner to invoke the CLI."""
+    class_ = click.testing.CliRunner
+
+    def invoke_wrapper(f):
+        """Augment CliRunner.invoke to emit its output to stdout.
+
+        This enables pytest to show the output in its logs on test
+        failures.
+
+        """
+
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            echo = kwargs.pop("echo", False)
+            result = f(*args, **kwargs)
+
+            if echo is True:
+                sys.stdout.write(result.output)
+
+            return result
+
+        return wrapper
+
+    class_.invoke = invoke_wrapper(class_.invoke)
+    cli_runner = class_()
+
+    yield cli_runner
 
 
 # TODO : disable rate limiter when testing with replay...
